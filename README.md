@@ -18,16 +18,53 @@ Artisyn is a decentralised protocol built on Starknet that connects local artisa
 
 - [Read Documentation](docs)
 
+## Copy the `.env` file
+
+```bash
+cp .env.example .env
+```
+
 ## Install the dependencies
 
 ```bash
 pnpm install
 ```
-
-## Initialize
+OR
 
 ```bash
-pnpm initialize
+yarn install
+```
+
+## Generate Prisma Client
+
+```bash
+pnpm prisma generate
+```
+OR
+
+```bash
+yarn prisma generate
+```
+
+## Run Migrations
+
+```bash
+pnpm migrate
+```
+OR
+```bash
+yarn migrate
+```
+
+## Seed the database
+
+```bash
+pnpm seed
+```
+OR
+
+```bash
+yarn seed
 ```
 
 ### Start the app in development mode (hot-code reloading, error reporting, etc.)
@@ -35,11 +72,21 @@ pnpm initialize
 ```bash
 pnpm dev
 ```
+OR
+
+```bash
+yarn dev
+```
 
 ## Run Tests
 
 ```bash
 pnpm test
+```
+OR
+
+```bash
+yarn test
 ```
 
 ## Contribution Guide
