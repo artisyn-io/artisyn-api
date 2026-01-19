@@ -69,7 +69,7 @@ jobs:
       - name: Generate Prisma Client and Run Migrations
         run: pnpm prisma generate \
           && pnpm prisma migrate deploy \
-          && pnpm seed
+          && pnpm prisma db seed
 
       - name: Check Prisma Client
         run: cat node_modules/.prisma/client/index.d.ts | grep UserRole
