@@ -17,6 +17,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
-  "include": ["src", "./**/*.d.ts", "./../**/*", "./**/*.ts"],
+  "include": ["src/**/*", "prisma.config.js"],
   "exclude": ["node_modules", "dist"]
 }
