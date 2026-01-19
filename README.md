@@ -1,5 +1,7 @@
 # Artisyn.io Backend API
 
+[![Tests](https://github.com/artisyn-io/artisyn-api/actions/workflows/test.yml/badge.svg)](https://github.com/artisyn-io/artisyn-api/actions/workflows/test.yml)
+
 ## Find Artisans Near You
 
 Artisyn is a decentralised protocol built on Stellar that connects local artisans with users through community-curated listings. Our platform creates a trustless ecosystem where skilled workers can be discovered, verified, and compensated securely without relying on centralised intermediaries.
