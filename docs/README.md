@@ -9,6 +9,28 @@
 5. [API Endpoints](ENDPOINTS.md)
 6. [Documenting](ENDPOINTS.md)
 
+## Contributing
+
+Clone the REPO
+
+```sh
+git clone https://github.com/artisyn-io/artisyn-api.git
+```
+
+Setup your Postgre credentials and add update the `DATABASE_URL` env variable, no need to create DB, it will be automatically created.
+
+```sh
+pnpm install
+```
+
+This will run the `initialize` script which will generate prisma schema, create and migrate the database and finally seed it.
+
+Finally fire up the dev server
+
+```sh
+pnpm dev
+```
+
 ## Documenting
 
 You are required to document every new feature, change, or addition made to the API. To update the documentation, follow these steps:

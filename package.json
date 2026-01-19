@@ -14,8 +14,8 @@
     "prisma:generate": "prisma generate",
     "seed": "ts-node src/database/seed.ts",
     "command": "ts-node src/commands/index.ts",
-    "initialize": "prisma generate && prisma migrate dev && ts-node src/database/seed.ts",
-    "postinstall": "prisma generate"
+    "initialize": "prisma generate && prisma migrate dev && npx prisma db seed",
+    "postinstall": "pnpm initialize"
   },
   "_moduleAliases": {
     "src": "./src"
