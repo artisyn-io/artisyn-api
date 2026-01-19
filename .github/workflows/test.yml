@@ -35,11 +35,11 @@ jobs:
       JWT_EXPIRES_IN: 7d
       NODE_ENV: test
       GOOGLE_CALLBACK: http://localhost:3000/api/auth/google/callback
-      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_CLIENT_ID: xxxxxxx
+      GOOGLE_CLIENT_SECRET: xxxxxxx
       FACEBOOK_CALLBACK: http://localhost:3000/api/auth/facebook/callback
-      FACEBOOK_CLIENT_ID: sss
-      FACEBOOK_CLIENT_SECRET: sss
+      FACEBOOK_CLIENT_ID: xxxxxxx
+      FACEBOOK_CLIENT_SECRET: xxxxxxx
 
     steps:
       - name: Checkout code
