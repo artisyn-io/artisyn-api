@@ -23,7 +23,7 @@ export default class extends BaseController {
         const data = await prisma.artisan.update({
             data: { isActive },
             where: {
-                id: req.params.id || '-',
+                id: String(req.params.id ?? '-'),
                 archivedAt: null,
                 curator: {
                     id: req.user?.id
@@ -60,7 +60,7 @@ export default class extends BaseController {
         if (action == 'archive' || action == 'unarchive')
             build = { archivedAt: action == 'archive' ? new Date() : null }
         else if (action == 'activate' || action == 'deactivate')
-            build = { isActive: action == 'archive' }
+            build = { isActive: action == 'activate' }
 
         if (action === 'delete') {
             await prisma.artisan.deleteMany({

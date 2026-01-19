@@ -63,7 +63,7 @@ export default class extends BaseController {
     show = async (req: Request, res: Response) => {
 
         const category = await prisma.category.findFirstOrThrow(
-            { where: { id: req.params.id } }
+            { where: { id: String(req.params.id) } }
         )
 
         ApiResource(new CategoryResource(req, res, {
@@ -123,7 +123,7 @@ export default class extends BaseController {
      */
     update = async (req: Request, res: Response) => {
         await prisma.category.findFirstOrThrow(
-            { where: { id: req.params.id } }
+            { where: { id: String(req.params.id) } }
         )
 
         const formData = await this.validateAsync(req, {
@@ -133,7 +133,7 @@ export default class extends BaseController {
         });
 
         const data = await prisma.category.update({
-            where: { id: req.params.id },
+            where: { id: String(req.params.id) },
             data: formData,
         })
 
@@ -157,11 +157,11 @@ export default class extends BaseController {
      */
     delete = async (req: Request, res: Response) => {
         await prisma.category.findFirstOrThrow(
-            { where: { id: req.params.id } }
+            { where: { id: String(req.params.id) } }
         )
 
         await prisma.category.delete(
-            { where: { id: req.params.id } }
+            { where: { id: String(req.params.id) } }
         )
 
         ApiResource(new CategoryResource(req, res, {

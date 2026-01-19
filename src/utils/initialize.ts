@@ -5,12 +5,16 @@ import routes, { loadRoutes } from 'src/routes/index';
 import { ErrorHandler } from "./request-handlers";
 import cors from 'cors';
 import { env } from './helpers';
+import { fileURLToPath } from "url";
 import logger from 'pino-http';
 import methodOverride from 'method-override';
 import passport from 'passport';
 import path from 'path';
 
-export const initialize = (app: Express) => {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export const initialize = async (app: Express) => {
     // Parse application/x-www-form-urlencoded (for non-multipart forms)
     app.use(express.urlencoded({ extended: true }));
 
@@ -18,7 +22,7 @@ export const initialize = (app: Express) => {
     app.use(methodOverride('X-HTTP-Method'))
 
     // Route And Cors
-    loadRoutes(path.resolve(__dirname, '../routes'));
+    await loadRoutes(path.resolve(__dirname, '../routes'));
     app.use(cors());
     app.use(routes);
 

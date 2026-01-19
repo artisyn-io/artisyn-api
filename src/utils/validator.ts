@@ -24,6 +24,7 @@ const modelExists = async (
         }
 
         const model: { count: (q: any) => Promise<number> } = (prisma as any)[modelName]
+
         const count = await model.count({
             where: except ? {
                 [field]: value,

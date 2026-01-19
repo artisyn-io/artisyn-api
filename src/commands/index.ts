@@ -3,10 +3,14 @@
 
 import '../utils/prototypes'
 
-import { dirname, join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import path, { dirname, join } from 'path';
 
+import { fileURLToPath } from 'url';
 import { program } from 'commander';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Base directories (adjust as needed)
 const CONTROLLERS_DIR = join(__dirname, '../controllers');

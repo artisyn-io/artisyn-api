@@ -1,4 +1,5 @@
 import { PrismaClient, UserRole, VerificationStatus } from '@prisma/client';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import argon2 from 'argon2';
 // Create a new instance of PrismaClient for testing

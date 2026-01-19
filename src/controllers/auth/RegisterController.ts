@@ -1,5 +1,4 @@
-import { Prisma, PrismaClient } from "@prisma/client";
-import { Request, Response } from "express";
+import { Request, Response, response } from "express";
 import { RequestError, ValidationError } from "src/utils/errors";
 import { constructFrom, differenceInMinutes } from "date-fns";
 import { generateAccessToken, secureOtp } from "src/utils/helpers";
@@ -39,7 +38,14 @@ export default class extends BaseController {
             experience: 'nullable|required_if:type,curator|integer|min:0',
             specialties: 'nullable|required_if:type,curator|array',
             'specialties.*': 'required|string',
-            password: [Password.create().min(8).letters().numbers().symbols(1).mixedCase(1).rules(['required', 'confirmed'])],
+            password: [
+                Password.create()
+                    .min(8).letters()
+                    .numbers()
+                    .symbols(1)
+                    .mixedCase(1)
+                    .rules(['required', 'confirmed'])
+            ],
         });
 
         formData.password = await argon2.hash(formData.password)

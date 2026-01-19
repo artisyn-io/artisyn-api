@@ -1,3 +1,5 @@
+import { beforeAll, describe, expect, it } from 'vitest';
+
 import CategoryController from '../Admin/CategoryController';
 import CategoryPublicController from '../CategoryController';
 import { ICategory } from 'src/models/interfaces';
@@ -71,7 +73,7 @@ describe('Test controllers', () => {
     });
 
     it('should update category', async () => {
-        const response = await request(app).put('/tester/' + category.id).send({
+        const response = await request(app).put('/tester/' + category?.id).send({
             icon: 'fas1',
             name: 'Hello 1',
             description: 'Hello 1 World',
@@ -84,7 +86,7 @@ describe('Test controllers', () => {
     });
 
     it('should delete category', async () => {
-        const response = await request(app).delete('/tester/' + category.id);
+        const response = await request(app).delete('/tester/' + category?.id);
         expect(response.statusCode).toBe(202);
     });
 });

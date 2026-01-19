@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "Backend API for Artisyn - a decentralized protocol connecting local artisans with users",
   "main": "dist/index.js",
+  "type": "module",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "tsx src/index.ts",
     "build": "tsc",
-    "test": "jest",
+    "test": "vitest",
     "lint": "eslint . --ext .ts",
     "migrate": "prisma migrate dev",
     "migrate:reset": "prisma migrate reset",
@@ -16,9 +17,6 @@
     "command": "ts-node src/commands/index.ts",
     "initialize": "prisma generate && prisma migrate dev && npx prisma db seed",
     "postinstall": "pnpm initialize"
-  },
-  "_moduleAliases": {
-    "src": "./src"
   },
   "repository": {
     "type": "git",
@@ -50,7 +48,6 @@
     "install": "^0.13.0",
     "jsonwebtoken": "^9.0.2",
     "method-override": "^3.0.0",
-    "module-alias": "^2.2.3",
     "multer": "^2.0.2",
     "nodemailer": "^6.10.1",
     "passport": "^0.7.0",
@@ -62,11 +59,10 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.2.0",
     "@types/cors": "^2.8.17",
     "@types/express": "latest",
-    "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.9",
-    "@types/module-alias": "^2",
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1",
     "@types/node": "^22.14.1",
@@ -79,12 +75,12 @@
     "@typescript-eslint/parser": "^8.31.0",
     "commander": "^13.1.0",
     "eslint": "^9.25.1",
-    "jest": "^29.7.0",
     "prisma": "^7.2.0",
     "supertest": "^7.1.0",
-    "ts-jest": "^29.3.2",
     "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.8.3"
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.3",
+    "vite-tsconfig-paths": "^6.0.4",
+    "vitest": "^4.0.17"
   }
 }

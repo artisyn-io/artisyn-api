@@ -1,14 +1,16 @@
-import 'module-alias/register'
 import 'src/utils/prototypes'
 
-import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { env } from './utils/helpers';
 import express from 'express';
+import { fileURLToPath } from 'url';
 import { initialize } from './utils/initialize';
 import path from 'path';
 // Initialize Prisma client
 import { prisma } from 'src/db';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -23,7 +25,7 @@ app.use(express.urlencoded({ extended: true }))
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/media', express.static(path.join(__dirname, 'public')));
 
-initialize(app)
+await initialize(app)
 
 // Start server
 app.listen(port, () => {

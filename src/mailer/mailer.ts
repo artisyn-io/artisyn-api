@@ -1,9 +1,12 @@
 import { appUrl } from "src/utils/helpers";
 
 import { config as conf } from "src/config/index";
-import { join } from "path";
+import path, { join } from "path";
 import nodemailer from "nodemailer"
 import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const TEMPS_DIR = join(__dirname, 'templates');
 type TEMPS = 'auth' | 'default'

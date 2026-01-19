@@ -144,7 +144,7 @@ export default class extends BaseController {
             data: await prisma.artisan.findFirstOrThrow(
                 {
                     where: {
-                        id: req.params.id || '-',
+                        id: String(req.params.id || '-'),
                         curator: {
                             id: req.user?.id
                         }
@@ -205,7 +205,7 @@ export default class extends BaseController {
         const data = await prisma.artisan.update({
             data: await this.buildData(req),
             where: {
-                id: req.params.id || '-',
+                id: String(req.params.id || '-'),
                 curator: {
                     id: req.user?.id
                 }
@@ -242,7 +242,7 @@ export default class extends BaseController {
             data = await prisma.artisan.update({
                 data: { archivedAt: new Date() },
                 where: {
-                    id: req.params.id || '-',
+                    id: String(req.params.id || '-'),
                     curator: {
                         id: req.user?.id
                     }
@@ -251,7 +251,7 @@ export default class extends BaseController {
         } else {
             await prisma.artisan.delete({
                 where: {
-                    id: req.params.id || '-',
+                    id: String(req.params.id || '-'),
                     curator: {
                         id: req.user?.id
                     }
