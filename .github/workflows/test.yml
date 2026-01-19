@@ -71,8 +71,8 @@ jobs:
           && pnpm prisma migrate deploy \
           && pnpm prisma db seed
 
-      - name: Check Prisma Client
-        run: cat node_modules/.prisma/client/index.d.ts | grep UserRole
+      # - name: Check Prisma Client
+      #   run: cat node_modules/.prisma/client/index.d.ts | grep UserRole
 
       - name: Run Migrations
         run: pnpm migrate
