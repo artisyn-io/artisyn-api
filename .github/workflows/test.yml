@@ -59,15 +59,17 @@ jobs:
         run: cp .env.example .env
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --no-frozen-lockfile --ignore-scripts
 
       # - name: Delete all migrations except the initial schema
       #   run: |
       #     echo "Deleting migration directories except 20250423000000_initial_schema"
       #     find prisma/migrations -type d ! -name '20250423000000_initial_schema' -exec rm -rf {} +
 
-      - name: Generate Prisma Client
-        run: pnpm prisma generate
+      - name: Generate Prisma Client and Run Migrations
+        run: pnpm prisma generate \
+          && pnpm prisma migrate deploy \
+          && pnpm prisma db seed
 
       - name: Check Prisma Client
         run: cat node_modules/.prisma/client/index.d.ts | grep UserRole

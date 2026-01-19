@@ -15,8 +15,11 @@
     "prisma:generate": "prisma generate",
     "seed": "tsx src/database/seed.ts",
     "command": "ts-node src/commands/index.ts",
-    "initialize": "prisma generate && prisma migrate dev && npx prisma db seed",
+    "initialize": "prisma generate && prisma migrate dev && prisma db seed",
     "postinstall": "pnpm initialize"
+  },
+  "prisma": {
+    "seed": "tsx src/database/seed.ts"
   },
   "repository": {
     "type": "git",
