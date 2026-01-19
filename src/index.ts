@@ -7,6 +7,8 @@ import { env } from './utils/helpers';
 import express from 'express';
 import { initialize } from './utils/initialize';
 import path from 'path';
+// Initialize Prisma client
+import { prisma } from 'src/db';
 
 // Load environment variables
 dotenv.config();
@@ -15,8 +17,6 @@ dotenv.config();
 const app = express();
 const port = env('PORT', 3000);
 
-// Initialize Prisma client
-const prisma = new PrismaClient();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }))
@@ -28,7 +28,7 @@ initialize(app)
 // Start server
 app.listen(port, () => {
   if (env('NODE_ENV') !== 'test') {
-    console.log(`Server running on port ${port}`);
+    console.log(`Server running at http://localhost:${port}`);
   }
 });
 

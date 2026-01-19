@@ -6,7 +6,7 @@ import Resource from 'src/resources/index';
 import { regex } from "simple-body-validator";
 import { validate } from "src/utils/validator";
 
-const prisma = new PrismaClient();
+import { prisma } from 'src/db';
 
 /**
  * Curator/ArtisanController

@@ -13,9 +13,8 @@ import UserResource from "src/resources/UserResource";
 import argon2 from 'argon2';
 import base64url from "base64url";
 import { config } from "src/config";
+import { prisma } from 'src/db';
 import { sendMail } from "src/mailer/mailer";
-
-const prisma = new PrismaClient();
 
 /**
  * RegisterController

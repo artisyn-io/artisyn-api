@@ -47,3 +47,7 @@ temp/
 
 # Prisma
 prisma/.env
+
+# Pnpm
+.pnpm-store/
+pnpm-lock.yaml

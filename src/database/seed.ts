@@ -1,8 +1,11 @@
 import { PrismaClient, UserRole, VerificationStatus } from '@prisma/client';
 
+import { PrismaPg } from '@prisma/adapter-pg';
 import argon2 from 'argon2';
 
-const prisma = new PrismaClient();
+const connectionString = `${process.env.DATABASE_URL}`;
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
 
 async function main () {
   console.log('Starting seed...');

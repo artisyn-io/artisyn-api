@@ -4,10 +4,10 @@ import { ApiResource } from 'src/resources/index';
 import BaseController from "../BaseController";
 import CategoryCollection from "src/resources/CategoryCollection";
 import CategoryResource from "src/resources/CategoryResource";
-import { PrismaClient } from "@prisma/client";
+
 import { ValidationError } from "src/utils/errors";
 
-const prisma = new PrismaClient();
+import { prisma } from 'src/db';
 
 /**
  * Admin/CategoryController

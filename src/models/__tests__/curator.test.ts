@@ -1,9 +1,8 @@
 import { PrismaClient, UserRole, VerificationStatus } from '@prisma/client';
 
 import argon2 from 'argon2';
-
 // Create a new instance of PrismaClient for testing
-const prisma = new PrismaClient();
+import { prisma } from 'src/db';
 
 describe('Curator Model', () => {
   let userId: string;

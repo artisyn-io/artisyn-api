@@ -1,13 +1,11 @@
 import { IUser } from 'src/models/interfaces';
 import LoginController from '../auth/LoginController';
 import PasswordResetController from '../auth/PasswordResetController';
-import { PrismaClient } from '@prisma/client';
 import RegisterController from '../auth/RegisterController';
 import app from '../../index'
 import multer from 'multer';
+import { prisma } from 'src/db';
 import request from 'supertest'
-
-const prisma = new PrismaClient();
 
 describe('Test controllers', () => {
     let user: IUser;

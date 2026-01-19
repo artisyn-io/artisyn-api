@@ -9,6 +9,7 @@ Many artisans lack a platform to help them get noticed; meanwhile, numerous peop
 ## Project
 
 - 📱 [App](https://github.com/artisyn-io/artisyn.io)
+- 📱 [Documentation and Contribution Guide](docs/README.md)
 - 📡 **[Backend API (Current)](https://github.com/artisyn-io/artisyn-api)**
 - 📝 [Smart Contracts](https://github.com/artisyn-io/artisyn-contracts)
 - 📚 [Fork/Clone API Documentation](https://artisyn.apidog.io)

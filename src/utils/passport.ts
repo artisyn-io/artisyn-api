@@ -2,10 +2,8 @@ import { env, secureOtp } from "./helpers";
 
 import { Strategy as FacebookStrategy } from "passport-facebook";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
-
-const prisma = new PrismaClient();
+import { prisma } from 'src/db';
 
 export const googleStrategy = () => {
     return new GoogleStrategy({

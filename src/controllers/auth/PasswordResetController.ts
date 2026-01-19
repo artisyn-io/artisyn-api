@@ -5,17 +5,15 @@ import { ApiResource } from 'src/resources/index';
 import BaseController from "src/controllers/BaseController";
 import { IUser } from "src/models/interfaces";
 import { Password } from "simple-body-validator";
-import { PrismaClient } from "@prisma/client";
 import Resource from 'src/resources/index';
 import UserResource from "src/resources/UserResource";
 import argon2 from 'argon2';
 import base64url from "base64url";
 import { config } from "src/config";
 import { differenceInMinutes } from "date-fns";
+import { prisma } from 'src/db';
 import { secureOtp } from "src/utils/helpers";
 import { sendMail } from "src/mailer/mailer";
-
-const prisma = new PrismaClient();
 
 /**
  * RegisterController

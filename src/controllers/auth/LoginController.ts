@@ -2,15 +2,13 @@ import { Request, Response } from "express";
 
 import { ApiResource } from 'src/resources/index';
 import BaseController from "src/controllers/BaseController";
-import { PrismaClient } from "@prisma/client";
 import { UAParser } from "ua-parser-js";
 import UserResource from "src/resources/UserResource";
 import { ValidationError } from "src/utils/errors";
 import argon2 from 'argon2';
 import { constructFrom } from "date-fns";
 import { generateAccessToken } from "src/utils/helpers";
-
-const prisma = new PrismaClient();
+import { prisma } from 'src/db';
 
 /**
  * RegisterController
@@ -81,7 +79,7 @@ export default class extends BaseController {
      * @param res 
      */
     oauth = async (req: Request, res: Response) => {
-        const type = req.params.type
+        const type = String(req.params.type)
 
         const { device, ua } = UAParser(req.headers['user-agent']);
         const { token, jwt } = generateAccessToken({ username: req.user?.email!, id: req.user?.id!, index: Math.random() });

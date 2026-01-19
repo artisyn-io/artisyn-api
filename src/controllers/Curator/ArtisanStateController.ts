@@ -3,8 +3,7 @@ import { Request, Response } from "express";
 
 import BaseController from "src/controllers/BaseController";
 import Resource from 'src/resources/index';
-
-const prisma = new PrismaClient();
+import { prisma } from 'src/db';
 
 /**
  * Curator/ArtisanStateController

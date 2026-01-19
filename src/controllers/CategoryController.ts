@@ -3,10 +3,9 @@ import { ApiResource } from 'src/resources/index';
 
 import CategoryCollection from "src/resources/CategoryCollection";
 import CategoryResource from "src/resources/CategoryResource";
-import { PrismaClient } from "@prisma/client";
 import BaseController from "./BaseController";
 
-const prisma = new PrismaClient();
+import { prisma } from 'src/db';
 
 /**
  * Admin/CategoryController
@@ -62,7 +61,7 @@ export default class extends BaseController {
     show = async (req: Request, res: Response) => {
 
         const category = await prisma.category.findFirstOrThrow(
-            { where: { id: req.params.id } }
+            { where: { id: String(req.params.id) } }
         )
 
         ApiResource(new CategoryResource(req, res, {

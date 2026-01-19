@@ -4,8 +4,8 @@ import { constructFrom, isPast } from "date-fns";
 
 import ErrorHandler from "./request-handlers";
 import { Flatten } from "src/interfaces/basic-types";
-import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import { prisma } from 'src/db';
 
 /**
  * Flatten an object with array values
@@ -73,7 +73,6 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
 
             RequestError.abortIf(!!err, "Unauthenticated", 401)
 
-            const prisma = new PrismaClient();
             const accessToken = await prisma.personalAccessToken.findFirst({
                 where: { token }, include: { user: { include: { curator: true } } },
             })

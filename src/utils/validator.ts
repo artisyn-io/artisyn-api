@@ -1,7 +1,7 @@
 import { InitialRules, make, register, setTranslationObject } from "simple-body-validator";
 
-import { PrismaClient } from "@prisma/client";
 import { ValidationError } from "./errors";
+import { prisma } from 'src/db';
 
 type InferInput<X, A extends boolean = false> = A extends true
     ? Promise<{ [P in keyof X]: any }>
@@ -14,7 +14,6 @@ const modelExists = async (
     modelName?: string,
     exception?: (string | undefined)[]
 ) => {
-    const prisma = new PrismaClient();
 
     const [except, exceptField]: string[] = exception?.filter(e => typeof e == 'string') ?? []
 
