@@ -265,3 +265,63 @@ model Tip {
   @@index([status])
   @@index([txHash])
 }
+
+// Enum for analytics event types
+enum EventType {
+  API_CALL
+  USER_SIGNUP
+  USER_LOGIN
+  ARTISAN_CREATED
+  ARTISAN_UPDATED
+  ARTISAN_VIEWED
+  CONTACT_INFO_ACCESSED
+  LISTING_ENGAGEMENT
+  REVIEW_CREATED
+  TIP_SENT
+  CATEGORY_VIEWED
+  SEARCH_PERFORMED
+  ERROR_OCCURRED
+}
+
+// Analytics Event model for tracking user interactions and API usage
+model AnalyticsEvent {
+  id             String    @id @default(uuid())
+  eventType      EventType
+  anonymizedUserId String?  // Hashed/anonymized user identifier for GDPR compliance
+  endpoint       String?   // API endpoint that was called
+  method         String?   // HTTP method (GET, POST, etc.)
+  statusCode     Int?      // HTTP response status code
+  responseTime   Int?      // Response time in milliseconds
+  userAgent      String?   // Anonymized user agent info
+  ipHash         String?   // Hashed IP address for privacy
+  referrer       String?   // Referring URL (anonymized)
+  metadata       Json?     // Additional event-specific data
+  createdAt      DateTime  @default(now())
+
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([anonymizedUserId])
+  @@index([endpoint])
+  @@map("analytics_events")
+}
+
+// Analytics Aggregation model for periodic reports
+model AnalyticsAggregation {
+  id             String   @id @default(uuid())
+  periodType     String   // 'hourly', 'daily', 'weekly', 'monthly'
+  periodStart    DateTime
+  periodEnd      DateTime
+  eventType      EventType
+  eventCount     Int      @default(0)
+  avgResponseTime Float?  // Average response time for API calls
+  uniqueUsers    Int      @default(0)
+  metadata       Json?    // Additional aggregated metrics
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([periodType, periodStart, eventType])
+  @@index([periodType])
+  @@index([periodStart])
+  @@index([eventType])
+  @@map("analytics_aggregations")
+}
