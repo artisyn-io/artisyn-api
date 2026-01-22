@@ -3,6 +3,8 @@ import { facebookStrategy, googleStrategy } from './passport';
 import routes, { loadRoutes } from 'src/routes/index';
 
 import { ErrorHandler } from "./request-handlers";
+import { analyticsMiddleware } from './analyticsMiddleware';
+import { startAnalyticsScheduler } from './analyticsScheduler';
 import cors from 'cors';
 import { env } from './helpers';
 import { fileURLToPath } from "url";
@@ -24,6 +26,10 @@ export const initialize = async (app: Express) => {
     // Route And Cors
     await loadRoutes(path.resolve(__dirname, '../routes'));
     app.use(cors());
+
+    // Analytics Middleware - Track API calls before routing
+    app.use(analyticsMiddleware);
+
     app.use(routes);
 
     // Passport
@@ -40,4 +46,8 @@ export const initialize = async (app: Express) => {
     if (env('NODE_ENV') !== 'test') {
         app.use(logger())
     }
+
+    // Start Analytics Scheduler for automatic report generation
+    startAnalyticsScheduler();
 }
+

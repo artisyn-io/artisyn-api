@@ -1,3 +1,4 @@
+import ArtisanContactController from 'src/controllers/Curator/ArtisanContactController';
 import ArtisanController from 'src/controllers/Curator/ArtisanController';
 import ArtisanStateController from 'src/controllers/Curator/ArtisanStateController';
 import { Router } from 'express';
@@ -14,5 +15,8 @@ router.get('/artisans/:id', authenticateToken, new ArtisanController().show);
 router.put('/artisans/:id', authenticateToken, upload.none(), new ArtisanController().update);
 router.delete('/artisans/:id', authenticateToken, upload.none(), new ArtisanController().delete);
 router.put('/artisans/:id/activation', authenticateToken, upload.none(), new ArtisanStateController().activation);
+
+// Contact info endpoint with analytics tracking
+router.get('/artisans/:id/contact', authenticateToken, new ArtisanContactController().show);
 
 export default router;
