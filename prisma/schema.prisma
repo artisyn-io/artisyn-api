@@ -59,6 +59,12 @@ model User {
   location             Location?             @relation(fields: [locationId], references: [id])
   personalAccessTokens PersonalAccessToken[] @relation("TokenUser")
   media                Media[]
+  profile              UserProfile?
+  preferences          UserPreferences?
+  privacySettings      PrivacySettings?
+  linkedAccounts       AccountLink[]         @relation("LinkedAccounts")
+  auditLogs            AuditLog[]            @relation("UserAuditLogs")
+  dataExportRequests   DataExportRequest[]   @relation("DataExportRequests")
   locationId           String?
 
   @@index([email])
@@ -349,4 +355,200 @@ model AnalyticsAggregation {
   @@index([periodStart])
   @@index([eventType])
   @@map("analytics_aggregations")
+}
+
+// Enum for account link providers
+enum AccountLinkProvider {
+  GOOGLE
+  FACEBOOK
+  GITHUB
+  APPLE
+  TWITTER
+  LINKEDIN
+}
+
+// Enum for privacy levels
+enum PrivacyLevel {
+  PUBLIC
+  PRIVATE
+  FRIENDS_ONLY
+  CUSTOM
+}
+
+// Enum for audit action types
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  PROFILE_UPDATE
+  PROFILE_VIEW
+  PRIVACY_CHANGE
+  ACCOUNT_LINK
+  ACCOUNT_UNLINK
+  DATA_EXPORT
+  DATA_DELETE
+  PASSWORD_CHANGE
+  EMAIL_VERIFY
+  SESSION_START
+  SESSION_END
+}
+
+// User Profile model - extends user with additional profile information
+model UserProfile {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  bio                   String?   @db.Text
+  dateOfBirth           DateTime?
+  gender                String?   // MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
+  profilePictureUrl     String?
+  coverPhotoUrl         String?
+  website               String?
+  socialLinks           Json?     // {twitter, linkedin, instagram, etc.}
+  occupation            String?
+  companyName           String?
+  location              String?
+  timezone              String?   @default("UTC")
+  language              String?   @default("en")
+  profileCompletionPercentage Int @default(0)
+  isPublic              Boolean   @default(true)
+  isProfessional        Boolean   @default(false)
+  verifiedBadge         Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isPublic])
+  @@index([verifiedBadge])
+  @@map("user_profiles")
+}
+
+// User Preferences model - manages user settings and preferences
+model UserPreferences {
+  id                        String    @id @default(uuid())
+  userId                    String    @unique
+  emailNotifications        Boolean   @default(true)
+  pushNotifications         Boolean   @default(true)
+  smsNotifications          Boolean   @default(false)
+  marketingEmails           Boolean   @default(true)
+  activityEmails            Boolean   @default(true)
+  digestFrequency           String    @default("weekly") // daily, weekly, monthly, never
+  theme                     String    @default("light") // light, dark, system
+  language                  String    @default("en")
+  currencyPreference        String    @default("USD")
+  twoFactorEnabled          Boolean   @default(false)
+  dataCollectionConsent     Boolean   @default(false)
+  analyticsTracking         Boolean   @default(true)
+  customPreferences         Json?     // Additional custom preferences
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_preferences")
+}
+
+// Privacy Settings model - manages fine-grained privacy controls
+model PrivacySettings {
+  id                        String    @id @default(uuid())
+  userId                    String    @unique
+  profileVisibility         PrivacyLevel @default(PUBLIC)
+  showEmail                 Boolean   @default(false)
+  showPhone                 Boolean   @default(false)
+  showLocation              Boolean   @default(false)
+  showOnlineStatus          Boolean   @default(true)
+  allowDirectMessages       Boolean   @default(true)
+  allowProfileComments      Boolean   @default(true)
+  blockList                 String[]  @default([]) // Array of blocked user IDs
+  restrictedList            String[]  @default([]) // Array of restricted user IDs
+  searchEngineIndexing      Boolean   @default(true)
+  dataRetentionMonths       Int       @default(24) // Months to retain data
+  customPrivacyRules        Json?     // Additional custom privacy rules
+  lastPrivacyReviewDate     DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("privacy_settings")
+}
+
+// Account Link model - for linking social and external accounts
+model AccountLink {
+  id                  String                @id @default(uuid())
+  userId              String
+  provider            AccountLinkProvider
+  providerUserId      String
+  providerEmail       String?
+  providerName        String?
+  accessToken         String?               @db.Text
+  refreshToken        String?               @db.Text
+  expiresAt           DateTime?
+  metadata            Json?
+  isVerified          Boolean               @default(true)
+  linkedAt            DateTime              @default(now())
+  unlinkedAt          DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  // Relations
+  user User @relation("LinkedAccounts", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
+  @@index([provider])
+  @@map("account_links")
+}
+
+// Audit Log model - for tracking all sensitive operations and GDPR compliance
+model AuditLog {
+  id                  String        @id @default(uuid())
+  userId              String?       // Nullable for deleted users or system actions
+  action              AuditAction
+  entityType          String?       // Type of entity being audited (User, Profile, etc)
+  entityId            String?       // ID of entity being audited
+  oldValues           Json?         // Previous values before change
+  newValues           Json?         // New values after change
+  ipAddress           String?       // IP address of requester
+  userAgent           String?       // User agent string
+  statusCode          Int?          // HTTP status code if applicable
+  errorMessage        String?       // Error message if action failed
+  metadata            Json?         // Additional metadata
+  createdAt           DateTime      @default(now())
+
+  // Relations
+  user User? @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Data Export Request model - for GDPR data export functionality
+model DataExportRequest {
+  id                  String    @id @default(uuid())
+  userId              String
+  status              String    @default("pending") // pending, processing, ready, expired, failed
+  format              String    @default("json") // json, csv, etc
+  downloadUrl         String?   // Presigned URL for download
+  expiresAt           DateTime?
+  fileSize            Int?
+  errorMessage        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  user User @relation("DataExportRequests", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("data_export_requests")
 }
