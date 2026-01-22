@@ -45,6 +45,7 @@ export interface IUser {
 
   // Relations
   curator: ICurator | null;
+  media: IMedia[];
   // artisans: IArtisan[]
   // reviews: IReview[]
   // receivedReviews: IReview[]
@@ -145,6 +146,21 @@ export interface ITip {
   receiverId: string;
   artisanId?: string;
   txHash?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+export interface IMedia {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  path: string;
+  url: string | null;
+  provider: string;
+  userId: string | null;
+  tags: string[];
+  metadata: any;
   createdAt: Date;
   updatedAt: Date;
 }
