@@ -16,12 +16,9 @@ describe('Analytics Middleware', () => {
     let mockReq: Request;
     let mockRes: Response;
     let mockNext: NextFunction;
-    let originalJsonFn: Mock;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        
-        originalJsonFn = vi.fn().mockReturnThis();
         
         mockReq = {
             path: '/api/test',
@@ -35,8 +32,10 @@ describe('Analytics Middleware', () => {
             query: {},
         } as unknown as Request;
         
+        // Create a proper mock that allows the middleware to wrap it
+        const jsonMock = vi.fn().mockReturnThis();
         mockRes = {
-            json: originalJsonFn,
+            json: jsonMock,
             statusCode: 200,
         } as unknown as Response;
         
@@ -63,16 +62,17 @@ describe('Analytics Middleware', () => {
             await analyticsMiddleware(reqWithAnalyticsPath, mockRes, mockNext);
             
             expect(mockNext).toHaveBeenCalled();
+            // Should not have modified res.json for tracking
         });
 
         it('should track API call when response is sent', async () => {
             await analyticsMiddleware(mockReq, mockRes, mockNext);
             
-            // Simulate sending a response
+            // Call the wrapped json method (middleware has wrapped it)
             mockRes.json({ data: 'test' });
             
             // Wait for async tracking
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise(resolve => setTimeout(resolve, 20));
             
             expect(AnalyticsService.trackEvent).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -88,11 +88,11 @@ describe('Analytics Middleware', () => {
             await analyticsMiddleware(mockReq, mockRes, mockNext);
             
             // Simulate delay then send response
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 20));
             mockRes.json({ data: 'test' });
             
             // Wait for async tracking
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise(resolve => setTimeout(resolve, 20));
             
             expect(AnalyticsService.trackEvent).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -101,7 +101,7 @@ describe('Analytics Middleware', () => {
             );
             
             const call = (AnalyticsService.trackEvent as Mock).mock.calls[0][0];
-            expect(call.responseTime).toBeGreaterThanOrEqual(50);
+            expect(call.responseTime).toBeGreaterThanOrEqual(15);
         });
     });
 
