@@ -11,7 +11,7 @@ describe('Analytics Performance Tests', () => {
     const itWithDb = process.env.DATABASE_URL ? it : it.skip;
 
     describe('Aggregation Performance', () => {
-        itWithDb('should complete hourly aggregation within 500ms', async () => {
+        itWithDb('should complete hourly aggregation within 550ms', async () => {
             const startTime = Date.now();
 
             await AnalyticsService.generateAggregation('hourly');
