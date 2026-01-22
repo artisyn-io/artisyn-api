@@ -1,13 +1,9 @@
-
-
 ---
-
 # Artisyn.io Backend API
 
 ## Initial API Endpoints
 
 These are the recommended initial endpoints. Additional endpoints can be added as needed.
-
 ---
 
 ### 📦 Listings API
@@ -100,5 +96,31 @@ POST   /api/tips               → Send a new tip
 PUT    /api/tips/:id           → Update tip status (admin only)
 DELETE /api/tips/:id           → Cancel a tip (sender only, if unclaimed)
 ```
+
+---
+
+### 📊 Analytics API (Admin Only)
+
+```
+GET    /api/admin/analytics                → Get analytics events (with filtering & pagination)
+GET    /api/admin/analytics/summary        → Get analytics dashboard summary
+GET    /api/admin/analytics/aggregations   → Get aggregated reports
+GET    /api/admin/analytics/event-types    → Get available event types for filtering
+POST   /api/admin/analytics/aggregate      → Trigger aggregation report generation
+DELETE /api/admin/analytics/cleanup        → Clean up old analytics data (GDPR)
+```
+
+**Query Parameters for GET /api/admin/analytics:**
+
+- `eventType` - Filter by event type (API_CALL, USER_SIGNUP, etc.)
+- `startDate` - Filter events after this date (ISO 8601)
+- `endDate` - Filter events before this date (ISO 8601)
+- `endpoint` - Filter by API endpoint path
+- `page` - Page number for pagination
+- `limit` - Items per page
+
+**Query Parameters for DELETE /api/admin/analytics/cleanup:**
+
+- `retentionDays` - Keep data for this many days (default: 90)
 
 ---
