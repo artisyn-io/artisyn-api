@@ -6,6 +6,8 @@ import CategoryResource from "src/resources/CategoryResource";
 import BaseController from "./BaseController";
 
 import { prisma } from 'src/db';
+import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { EventType } from '@prisma/client';
 
 /**
  * Admin/CategoryController
@@ -63,6 +65,12 @@ export default class extends BaseController {
         const category = await prisma.category.findFirstOrThrow(
             { where: { id: String(req.params.id) } }
         )
+
+        // Track category view for analytics
+        trackBusinessEvent(EventType.CATEGORY_VIEWED, req.user?.id, {
+            categoryId: category.id,
+            categoryName: category.name,
+        });
 
         ApiResource(new CategoryResource(req, res, {
             data: category,

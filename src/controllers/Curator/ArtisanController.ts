@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 
 import BaseController from "src/controllers/BaseController";
-import { ArtisanType, PrismaClient, Prisma } from "@prisma/client";
+import { ArtisanType, PrismaClient, Prisma, EventType } from "@prisma/client";
 import Resource from 'src/resources/index';
 import { regex } from "simple-body-validator";
 import { validate } from "src/utils/validator";
+import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
 
 import { prisma } from 'src/db';
 
@@ -120,6 +121,14 @@ export default class extends BaseController {
             prisma.artisan.count({ where })
         ])
 
+        // Track search if query was provided
+        if (req.query.search) {
+            trackBusinessEvent(EventType.SEARCH_PERFORMED, req.user?.id, {
+                query: req.query.search,
+                resultsCount: total,
+            });
+        }
+
         Resource(req, res, {
             data,
             pagination: meta(total, data.length)
@@ -140,22 +149,28 @@ export default class extends BaseController {
      * @param res 
      */
     show = async (req: Request, res: Response) => {
-        Resource(req, res, {
-            data: await prisma.artisan.findFirstOrThrow(
-                {
-                    where: {
-                        id: String(req.params.id || '-'),
-                        curator: {
-                            id: req.user?.id
-                        }
-                    },
-                    include: {
-                        category: true,
-                        location: true,
-                    },
-                }
-            ),
-        })
+        const artisan = await prisma.artisan.findFirstOrThrow(
+            {
+                where: {
+                    id: String(req.params.id || '-'),
+                    curator: {
+                        id: req.user?.id
+                    }
+                },
+                include: {
+                    category: true,
+                    location: true,
+                },
+            }
+        );
+
+        // Track artisan/listing view
+        trackBusinessEvent(EventType.ARTISAN_VIEWED, req.user?.id, {
+            artisanId: artisan.id,
+            categoryId: artisan.categoryId,
+        });
+
+        Resource(req, res, { data: artisan })
             .json()
             .status(200)
             .additional({
@@ -183,6 +198,12 @@ export default class extends BaseController {
                 location: true,
             },
         })
+
+        // Track artisan creation
+        trackBusinessEvent(EventType.ARTISAN_CREATED, req.user?.id, {
+            artisanId: data.id,
+            categoryId: data.categoryId,
+        });
 
         Resource(req, res, { data })
             .json()
@@ -215,6 +236,12 @@ export default class extends BaseController {
                 location: true,
             },
         })
+
+        // Track artisan update
+        trackBusinessEvent(EventType.ARTISAN_UPDATED, req.user?.id, {
+            artisanId: data.id,
+            categoryId: data.categoryId,
+        });
 
         Resource(req, res, { data })
             .json()

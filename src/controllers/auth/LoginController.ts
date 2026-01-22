@@ -9,6 +9,8 @@ import argon2 from 'argon2';
 import { constructFrom } from "date-fns";
 import { generateAccessToken } from "src/utils/helpers";
 import { prisma } from 'src/db';
+import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { EventType } from '@prisma/client';
 
 /**
  * RegisterController
@@ -63,6 +65,11 @@ export default class extends BaseController {
             }
         })
 
+        // Track user login for analytics
+        trackBusinessEvent(EventType.USER_LOGIN, user?.id, {
+            method: 'email',
+        });
+
         ApiResource(new UserResource(req, res, user)).json()
             .status(202)
             .additional({
@@ -92,6 +99,12 @@ export default class extends BaseController {
                 expiresAt: constructFrom(jwt.exp!, new Date),
             }
         })
+
+        // Track OAuth login for analytics
+        trackBusinessEvent(EventType.USER_LOGIN, req.user?.id, {
+            method: 'oauth',
+            provider: type,
+        });
 
         ApiResource(new UserResource(req, res, req.user)).json()
             .status(202)

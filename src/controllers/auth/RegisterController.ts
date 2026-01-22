@@ -14,6 +14,8 @@ import base64url from "base64url";
 import { config } from "src/config";
 import { prisma } from 'src/db';
 import { sendMail } from "src/mailer/mailer";
+import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { EventType } from '@prisma/client';
 
 /**
  * RegisterController
@@ -86,6 +88,11 @@ export default class extends BaseController {
         })
 
         await this.#sendMail(otp, data)
+
+        // Track user signup for analytics
+        trackBusinessEvent(EventType.USER_SIGNUP, data.id, {
+            isCurator: formData.type === 'curator',
+        });
 
         ApiResource(new UserResource(req, res, data)).json()
             .status(201)
