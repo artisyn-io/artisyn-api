@@ -5,6 +5,7 @@ import routes, { loadRoutes } from 'src/routes/index';
 import { ErrorHandler } from "./request-handlers";
 import { analyticsMiddleware } from './analyticsMiddleware';
 import { startAnalyticsScheduler } from './analyticsScheduler';
+import { startMediaScheduler } from './mediaScheduler';
 import cors from 'cors';
 import { env } from './helpers';
 import { fileURLToPath } from "url";
@@ -32,9 +33,19 @@ export const initialize = async (app: Express) => {
 
     app.use(routes);
 
+    // Initialize Analytics Scheduler for automatic report generation
+    startAnalyticsScheduler();
+
+    // Start Media Scheduler for orphaned files cleanup
+    startMediaScheduler();
+
     // Passport
-    passport.use(googleStrategy())
-    passport.use(facebookStrategy())
+    if (env('GOOGLE_CLIENT_ID')) {
+        passport.use(googleStrategy())
+    }
+    if (env('FACEBOOK_CLIENT_ID')) {
+        passport.use(facebookStrategy())
+    }
 
     // Initialize 
     app.use(passport.initialize());
@@ -46,8 +57,5 @@ export const initialize = async (app: Express) => {
     if (env('NODE_ENV') !== 'test') {
         app.use(logger())
     }
-
-    // Start Analytics Scheduler for automatic report generation
-    startAnalyticsScheduler();
 }
 
