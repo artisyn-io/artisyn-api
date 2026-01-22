@@ -58,11 +58,36 @@ model User {
   receivedTips         Tip[]                 @relation("TipReceiver")
   location             Location?             @relation(fields: [locationId], references: [id])
   personalAccessTokens PersonalAccessToken[] @relation("TokenUser")
+  media                Media[]
   locationId           String?
 
   @@index([email])
   @@index([walletAddress])
   @@index([role])
+}
+
+// Media model for file storage and management
+model Media {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String   @unique
+  url          String?
+  provider     String   @default("local") // local, s3, cloudinary, etc.
+  userId       String?
+  tags         String[]
+  metadata     Json?    // width, height, etc.
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([provider])
+  @@map("media")
 }
 
 // User personal access token model

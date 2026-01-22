@@ -291,3 +291,28 @@ export const searchValidation = {
     query('limit').optional().isInt({ min: 1, max: 20 }).withMessage('Limit must be between 1 and 20'),
   ],
 };
+
+// Media validation
+export const mediaValidation = {
+  upload: [
+    body('tags').optional().isArray().withMessage('Tags must be an array'),
+    body('tags.*').optional().isString().withMessage('Each tag must be a string'),
+  ],
+  update: [
+    param('id').isUUID().withMessage('Valid media ID is required'),
+    body('tags').optional().isArray().withMessage('Tags must be an array'),
+    body('tags.*').optional().isString().withMessage('Each tag must be a string'),
+  ],
+  getAll: [
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('perPage').optional().isInt({ min: 1, max: 100 }).withMessage('Per page must be between 1 and 100'),
+    query('userId').optional().isUUID().withMessage('Valid user ID is required'),
+    query('tags').optional().isString().withMessage('Tags must be a string'),
+  ],
+  getOne: [
+    param('id').isUUID().withMessage('Valid media ID is required'),
+  ],
+  delete: [
+    param('id').isUUID().withMessage('Valid media ID is required'),
+  ],
+};
