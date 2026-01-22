@@ -10,7 +10,7 @@
     "build": "tsc",
     "test": "vitest",
     "lint": "eslint . --ext .ts",
-    "migrate": "prisma migrate dev",
+    "migrate": "prisma migrate deploy",
     "migrate:reset": "prisma migrate reset",
     "prisma:generate": "prisma generate",
     "seed": "tsx src/database/seed.ts",

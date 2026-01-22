@@ -18,6 +18,9 @@ CREATE TABLE "media" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "media_path_key" ON "media"("path");
+
+-- CreateIndex
 CREATE INDEX "media_user_id_idx" ON "media"("user_id");
 
 -- CreateIndex
