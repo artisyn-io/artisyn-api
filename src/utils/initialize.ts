@@ -18,6 +18,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const initialize = async (app: Express) => {
+    // Parse application/json
+    app.use(express.json());
+
     // Parse application/x-www-form-urlencoded (for non-multipart forms)
     app.use(express.urlencoded({ extended: true }));
 
@@ -28,17 +31,6 @@ export const initialize = async (app: Express) => {
     await loadRoutes(path.resolve(__dirname, '../routes'));
     app.use(cors());
 
-    // Analytics Middleware - Track API calls before routing
-    app.use(analyticsMiddleware);
-
-    app.use(routes);
-
-    // Initialize Analytics Scheduler for automatic report generation
-    startAnalyticsScheduler();
-
-    // Start Media Scheduler for orphaned files cleanup
-    startMediaScheduler();
-
     // Passport
     if (env('GOOGLE_CLIENT_ID')) {
         passport.use(googleStrategy())
@@ -47,8 +39,18 @@ export const initialize = async (app: Express) => {
         passport.use(facebookStrategy())
     }
 
-    // Initialize 
+    // Initialize Passport
     app.use(passport.initialize());
+
+    // Analytics Middleware - Track API calls before routing
+    app.use(analyticsMiddleware);
+
+    // Routes
+    app.use(routes);
+
+    // Initialize Schedulers
+    startAnalyticsScheduler();
+    startMediaScheduler();
 
     // Error Handler
     app.use(ErrorHandler)
