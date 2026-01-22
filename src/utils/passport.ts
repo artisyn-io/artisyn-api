@@ -7,8 +7,8 @@ import { prisma } from 'src/db';
 
 export const googleStrategy = () => {
     return new GoogleStrategy({
-        clientID: env('GOOGLE_CLIENT_ID'),
-        clientSecret: env('GOOGLE_CLIENT_SECRET'),
+        clientID: env('GOOGLE_CLIENT_ID', 'dummy'),
+        clientSecret: env('GOOGLE_CLIENT_SECRET', 'dummy'),
         callbackURL: env('GOOGLE_CALLBACK'),
         scope: ['profile']
     },
@@ -17,7 +17,7 @@ export const googleStrategy = () => {
                 const email = profile.emails?.find(e => !!e.value)?.value!
                 const user = await prisma.user.findFirst({
                     where: { googleId: profile.id },
-                    include: { curator: true }
+                    include: { curator: true, media: true }
                 })
                 if (user) {
                     return cb(undefined, user!);
@@ -30,7 +30,7 @@ export const googleStrategy = () => {
                         password: await argon2.hash(secureOtp(32)),
                         googleId: profile.id,
                     },
-                    include: { curator: true }
+                    include: { curator: true, media: true }
                 })
                 return cb(undefined, cUser);
             } catch (error) {
@@ -42,8 +42,8 @@ export const googleStrategy = () => {
 
 export const facebookStrategy = () => {
     return new FacebookStrategy({
-        clientID: env('FACEBOOK_CLIENT_ID'),
-        clientSecret: env('FACEBOOK_CLIENT_SECRET'),
+        clientID: env('FACEBOOK_CLIENT_ID', 'dummy'),
+        clientSecret: env('FACEBOOK_CLIENT_SECRET', 'dummy'),
         callbackURL: env('FACEBOOK_CALLBACK'),
         profileFields: ['id', 'displayName', 'photos', 'email'],
     },
@@ -52,7 +52,7 @@ export const facebookStrategy = () => {
                 const email = profile.emails?.find(e => !!e.value)?.value!
                 const user = await prisma.user.findFirst({
                     where: { facebookId: profile.id },
-                    include: { curator: true }
+                    include: { curator: true, media: true }
                 })
                 if (user) {
                     return cb(undefined, user!);
@@ -65,7 +65,7 @@ export const facebookStrategy = () => {
                         password: await argon2.hash(secureOtp(32)),
                         facebookId: profile.id,
                     },
-                    include: { curator: true }
+                    include: { curator: true, media: true }
                 })
                 return cb(undefined, cUser);
             } catch (error) {
