@@ -27,4 +27,4 @@ CREATE INDEX "media_tags_idx" ON "media"("tags");
 CREATE INDEX "media_created_at_idx" ON "media"("created_at");
 
 -- AddForeignKey
-ALTER TABLE "media" ADD CONSTRAINT "media_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "media" ADD CONSTRAINT "media_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
