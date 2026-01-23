@@ -108,8 +108,8 @@ export const startAnalyticsScheduler = () => {
     // Weekly aggregation - runs every 7 days
     weeklyInterval = setInterval(generateWeeklyReport, WEEK);
 
-    // Monthly aggregation - runs every 30 days (approximate)
-    monthlyInterval = setInterval(generateMonthlyReport, 30 * DAY);
+    // Monthly aggregation - Intentionally omitted to avoid 32-bit integer overflow in setInterval (max ~24 days)
+    // monthlyInterval = setInterval(generateMonthlyReport, 30 * DAY);
 
     // Data cleanup - runs daily
     cleanupInterval = setInterval(runDataCleanup, DAY);
