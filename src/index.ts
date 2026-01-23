@@ -1,4 +1,4 @@
-import 'src/utils/prototypes'
+import './utils/prototypes'
 
 import dotenv from 'dotenv';
 import { env } from './utils/helpers';
@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { initialize } from './utils/initialize';
 import path from 'path';
 // Initialize Prisma client
-import { prisma } from 'src/db';
+import { prisma } from './db';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
