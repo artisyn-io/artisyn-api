@@ -5,12 +5,12 @@ dotenv.config();
 
 
 export default defineConfig({
-    schema: 'prisma/schema.prisma',
+    schema: process.env.NODE_ENV === 'test' ? 'prisma/schema.test.prisma' : 'prisma/schema.prisma',
     migrations: {
         path: 'prisma/migrations',
         seed: 'tsx src/database/seed.ts',
     },
     datasource: {
-        url: env("DATABASE_URL")
+        url: process.env.NODE_ENV === 'test' ? 'file:./test.db' : env("DATABASE_URL")
     }
 });
