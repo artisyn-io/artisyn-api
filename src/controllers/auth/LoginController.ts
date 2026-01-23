@@ -39,14 +39,28 @@ export default class extends BaseController {
         })
 
         if (!user) {
+            // Track failed login attempt
+            await trackBusinessEvent(EventType.LOGIN_FAILED, undefined, {
+                method: 'email',
+                email: formData.email,
+                reason: 'user_not_found',
+            });
+
             throw new ValidationError("Login failed", {
                 email: ['Invalid email address or password']
             });
         }
-
+ 
         const verify = await argon2.verify(user?.password!, formData.password)
-
+ 
         if (!verify) {
+            // Track failed login attempt (wrong password)
+            await trackBusinessEvent(EventType.LOGIN_FAILED, user.id, {
+                method: 'email',
+                email: formData.email,
+                reason: 'invalid_password',
+            });
+
             throw new ValidationError("Login failed", {
                 email: ['Invalid email address or password']
             });

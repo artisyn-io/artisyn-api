@@ -292,6 +292,7 @@ model Tip {
 }
 
 // Enum for analytics event types
+// Also serves as the activity logging event taxonomy
 enum EventType {
   API_CALL
   USER_SIGNUP
@@ -306,6 +307,10 @@ enum EventType {
   CATEGORY_VIEWED
   SEARCH_PERFORMED
   ERROR_OCCURRED
+  // Security / activity-focused events
+  LOGIN_FAILED
+  PASSWORD_RESET_REQUESTED
+  ADMIN_ACTION
 }
 
 // Analytics Event model for tracking user interactions and API usage
@@ -327,6 +332,9 @@ model AnalyticsEvent {
   @@index([createdAt])
   @@index([anonymizedUserId])
   @@index([endpoint])
+  // Composite indexes to speed up common activity queries
+  @@index([eventType, createdAt])
+  @@index([anonymizedUserId, eventType, createdAt])
   @@map("analytics_events")
 }
 
