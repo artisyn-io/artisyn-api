@@ -16,7 +16,7 @@
     "seed": "tsx src/database/seed.ts",
     "command": "ts-node src/commands/index.ts",
     "initialize": "prisma generate && prisma migrate dev && prisma db seed",
-    "postinstall": "pnpm initialize"
+    "postinstall": "npm run initialize"
   },
   "prisma": {
     "seed": "tsx src/database/seed.ts"
@@ -65,8 +65,9 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^10.2.0",
+    "@types/body-parser": "^1.19.6",
     "@types/cors": "^2.8.17",
-    "@types/express": "latest",
+    "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1",
@@ -81,7 +82,7 @@
     "commander": "^13.1.0",
     "eslint": "^9.25.1",
     "prisma": "^7.2.0",
-    "supertest": "^7.1.0",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.21.0",
