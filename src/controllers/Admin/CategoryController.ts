@@ -6,6 +6,8 @@ import CategoryCollection from "src/resources/CategoryCollection";
 import CategoryResource from "src/resources/CategoryResource";
 
 import { ValidationError } from "src/utils/errors";
+import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { EventType } from '@prisma/client';
 
 import { prisma } from 'src/db';
 
@@ -103,6 +105,13 @@ export default class extends BaseController {
             data: formData,
         })
 
+        // Track admin category creation
+        await trackBusinessEvent(EventType.ADMIN_ACTION, req.user?.id, {
+            action: 'category_create',
+            categoryId: data.id,
+            name: data.name,
+        });
+ 
         ApiResource(new CategoryResource(req, res, {
             data,
         }))
@@ -137,6 +146,13 @@ export default class extends BaseController {
             data: formData,
         })
 
+        // Track admin category update
+        await trackBusinessEvent(EventType.ADMIN_ACTION, req.user?.id, {
+            action: 'category_update',
+            categoryId: data.id,
+            name: data.name,
+        });
+ 
         ApiResource(new CategoryResource(req, res, {
             data,
         }))
@@ -164,6 +180,12 @@ export default class extends BaseController {
             { where: { id: String(req.params.id) } }
         )
 
+        // Track admin category delete
+        await trackBusinessEvent(EventType.ADMIN_ACTION, req.user?.id, {
+            action: 'category_delete',
+            categoryId: String(req.params.id),
+        });
+ 
         ApiResource(new CategoryResource(req, res, {
             data: {},
         }))
