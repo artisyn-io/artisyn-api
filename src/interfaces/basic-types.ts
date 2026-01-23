@@ -1,4 +1,4 @@
-import { IUser } from "src/models/interfaces";
+import { IUser } from "../models/interfaces";
 import { JwtPayload } from "jsonwebtoken";
 import { Request } from "express";
 

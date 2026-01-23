@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 import BaseController from './BaseController';
-import { prisma } from 'src/db';
-import StorageService from 'src/utils/StorageService';
-import { RequestError } from 'src/utils/errors';
-import { ApiResource } from 'src/resources/index';
-import MediaCollection from 'src/resources/MediaCollection';
-import MediaResource from 'src/resources/MediaResource';
+import { prisma } from '../db';
+import StorageService from '../utils/StorageService';
+import { RequestError } from '../utils/errors';
+import { ApiResource } from '../resources/index';
+import MediaCollection from '../resources/MediaCollection';
+import MediaResource from '../resources/MediaResource';
 
 export default class MediaController extends BaseController {
     /**

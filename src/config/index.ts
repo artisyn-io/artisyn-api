@@ -1,5 +1,5 @@
 import app from "./app";
-import { doter } from "src/utils/helpers"
+import { doter } from "../utils/helpers"
 import jwt from "./jwt";
 import mailer from "./mailer"
 

@@ -1,7 +1,7 @@
-import AnalyticsController from 'src/controllers/AnalyticsController';
-import CategoryController from 'src/controllers/Admin/CategoryController';
+import AnalyticsController from '../../controllers/AnalyticsController';
+import CategoryController from '../../controllers/Admin/CategoryController';
 import { Router } from 'express';
-import { authenticateToken } from 'src/utils/helpers';
+import { authenticateToken } from '../../utils/helpers';
 import multer from 'multer';
 
 const router = Router();

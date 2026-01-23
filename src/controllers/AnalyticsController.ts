@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 
-import { ApiResource } from 'src/resources/index';
-import AnalyticsEventCollection from 'src/resources/AnalyticsEventCollection';
-import AnalyticsSummaryResource from 'src/resources/AnalyticsSummaryResource';
-import AnalyticsService from 'src/resources/AnalyticsService';
+import { ApiResource } from '../resources/index';
+import AnalyticsEventCollection from '../resources/AnalyticsEventCollection';
+import AnalyticsSummaryResource from '../resources/AnalyticsSummaryResource';
+import AnalyticsService from '../resources/AnalyticsService';
 import BaseController from './BaseController';
 import { EventType } from '@prisma/client';
 

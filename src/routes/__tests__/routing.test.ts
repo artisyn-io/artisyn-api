@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import app from 'src/index'
+import app from '../../index'
 import { name as appName } from "package.json"
 import request from 'supertest'
 

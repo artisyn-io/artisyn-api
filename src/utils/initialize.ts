@@ -1,6 +1,6 @@
 import express, { Express } from "express"
 import { facebookStrategy, googleStrategy } from './passport';
-import routes, { loadRoutes } from 'src/routes/index';
+import routes, { loadRoutes } from '../routes/index';
 
 import { ErrorHandler } from "./request-handlers";
 import { analyticsMiddleware } from './analyticsMiddleware';

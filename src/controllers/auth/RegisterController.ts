@@ -1,20 +1,20 @@
 import { Request, Response, response } from "express";
-import { RequestError, ValidationError } from "src/utils/errors";
+import { RequestError, ValidationError } from "../../utils/errors";
 import { constructFrom, differenceInMinutes } from "date-fns";
-import { generateAccessToken, secureOtp } from "src/utils/helpers";
+import { generateAccessToken, secureOtp } from "../../utils/helpers";
 
-import { ApiResource } from 'src/resources/index';
-import BaseController from "src/controllers/BaseController";
-import { IUser } from "src/models/interfaces";
+import { ApiResource } from '../../resources/index';
+import BaseController from "../BaseController";
+import { IUser } from "../../models/interfaces";
 import { Password } from "simple-body-validator";
 import { UAParser } from 'ua-parser-js';
-import UserResource from "src/resources/UserResource";
+import UserResource from "../../resources/UserResource";
 import argon2 from 'argon2';
 import base64url from "base64url";
-import { config } from "src/config";
-import { prisma } from 'src/db';
-import { sendMail } from "src/mailer/mailer";
-import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { config } from "../../config";
+import { prisma } from '../../db';
+import { sendMail } from "../../mailer/mailer";
+import { trackBusinessEvent } from '../../utils/analyticsMiddleware';
 import { EventType } from '@prisma/client';
 
 /**

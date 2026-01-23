@@ -1,8 +1,8 @@
-import { RequestError } from "src/utils/errors";
+import { RequestError } from "../utils/errors";
 
 import { Request } from "express";
 import { type InitialRules } from 'simple-body-validator';
-import { validate, validateAsync } from "src/utils/validator";
+import { validate, validateAsync } from "../utils/validator";
 
 export default class {
     request?: Request | undefined;

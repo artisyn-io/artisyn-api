@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
 
-import BaseController from "src/controllers/BaseController";
-import Resource from 'src/resources/index';
-import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import BaseController from "../BaseController";
+import Resource from '../../resources/index';
+import { trackBusinessEvent } from '../../utils/analyticsMiddleware';
 import { EventType } from "@prisma/client";
 
-import { prisma } from 'src/db';
+import { prisma } from '../../db';
 
 /**
  * Curator/ArtisanContactController

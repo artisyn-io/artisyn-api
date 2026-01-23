@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { prisma } from 'src/db';
+import { prisma } from '../db';
 import { EventType, Prisma } from '@prisma/client';
 
 /**

@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { IUser } from 'src/models/interfaces';
-import LoginController from 'src/controllers/auth/LoginController';
-import PasswordResetController from 'src/controllers/auth/PasswordResetController';
-import RegisterController from 'src/controllers/auth/RegisterController';
+import { IUser } from '../../models/interfaces';
+import LoginController from '../auth/LoginController';
+import PasswordResetController from '../auth/PasswordResetController';
+import RegisterController from '../auth/RegisterController';
 import app from '../../index'
 import { faker } from '@faker-js/faker';
 import multer from 'multer';
-import { prisma } from 'src/db';
+import { prisma } from '../../db';
 import request from 'supertest'
 
 describe('Test controllers', () => {

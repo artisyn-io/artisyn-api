@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
-import { ApiResource } from 'src/resources/index';
+import { ApiResource } from '../../resources/index';
 
 import BaseController from "../BaseController";
-import CategoryCollection from "src/resources/CategoryCollection";
-import CategoryResource from "src/resources/CategoryResource";
+import CategoryCollection from "../../resources/CategoryCollection";
+import CategoryResource from "../../resources/CategoryResource";
 
-import { ValidationError } from "src/utils/errors";
+import { ValidationError } from "../../utils/errors";
 
-import { prisma } from 'src/db';
+import { prisma } from '../../db';
 
 /**
  * Admin/CategoryController

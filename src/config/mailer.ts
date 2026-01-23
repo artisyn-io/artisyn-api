@@ -1,4 +1,4 @@
-import { env } from "src/utils/helpers";
+import { env } from "../utils/helpers";
 
 export default {
     from: `"${env('MAIL_FROM_NAME')}" <${env('MAIL_FROM_ADDRESS')}>`,

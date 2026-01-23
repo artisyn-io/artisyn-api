@@ -3,9 +3,9 @@ import { NextFunction, Request, Response } from "express";
 import { constructFrom, isPast } from "date-fns";
 
 import ErrorHandler from "./request-handlers";
-import { Flatten } from "src/interfaces/basic-types";
+import { Flatten } from "../interfaces/basic-types";
 import jwt from "jsonwebtoken";
-import { prisma } from 'src/db';
+import { prisma } from '../db';
 
 /**
  * Flatten an object with array values

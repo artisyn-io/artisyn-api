@@ -1,7 +1,7 @@
 import { InitialRules, make, register, setTranslationObject } from "simple-body-validator";
 
 import { ValidationError } from "./errors";
-import { prisma } from 'src/db';
+import { prisma } from '../db';
 
 type InferInput<X, A extends boolean = false> = A extends true
     ? Promise<{ [P in keyof X]: any }>

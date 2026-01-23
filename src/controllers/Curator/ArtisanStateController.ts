@@ -1,9 +1,9 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 
-import BaseController from "src/controllers/BaseController";
-import Resource from 'src/resources/index';
-import { prisma } from 'src/db';
+import BaseController from "../BaseController";
+import Resource from '../../resources/index';
+import { prisma } from '../../db';
 
 /**
  * Curator/ArtisanStateController

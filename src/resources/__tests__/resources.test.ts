@@ -1,9 +1,9 @@
-import Resource, { ApiResource } from 'src/resources/index';
+import Resource, { ApiResource } from '../index';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import UserCollection from 'src/resources/UserCollection';
-import UserResource from 'src/resources/UserResource';
-import app from 'src/index'
+import UserCollection from '../UserCollection';
+import UserResource from '../UserResource';
+import app from '../../index'
 import request from 'supertest'
 
 describe('Test dynamic routing system', () => {

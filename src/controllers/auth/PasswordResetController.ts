@@ -1,19 +1,19 @@
 import { Request, Response } from "express";
-import { RequestError, ValidationError } from "src/utils/errors";
+import { RequestError, ValidationError } from "../../utils/errors";
 
-import { ApiResource } from 'src/resources/index';
-import BaseController from "src/controllers/BaseController";
-import { IUser } from "src/models/interfaces";
+import { ApiResource } from '../../resources/index';
+import BaseController from "../BaseController";
+import { IUser } from "../../models/interfaces";
 import { Password } from "simple-body-validator";
-import Resource from 'src/resources/index';
-import UserResource from "src/resources/UserResource";
+import Resource from '../../resources/index';
+import UserResource from "../../resources/UserResource";
 import argon2 from 'argon2';
 import base64url from "base64url";
-import { config } from "src/config";
+import { config } from "../../config";
 import { differenceInMinutes } from "date-fns";
-import { prisma } from 'src/db';
-import { secureOtp } from "src/utils/helpers";
-import { sendMail } from "src/mailer/mailer";
+import { prisma } from '../../db';
+import { secureOtp } from "../../utils/helpers";
+import { sendMail } from "../../mailer/mailer";
 
 /**
  * RegisterController

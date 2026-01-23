@@ -1,4 +1,4 @@
-import { env } from "src/utils/helpers";
+import { env } from "../utils/helpers";
 
 export default {
     url: env('APP_URL'),

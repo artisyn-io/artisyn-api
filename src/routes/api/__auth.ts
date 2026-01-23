@@ -1,8 +1,8 @@
-import LoginController from 'src/controllers/auth/LoginController';
-import PasswordResetController from 'src/controllers/auth/PasswordResetController';
-import RegisterController from 'src/controllers/auth/RegisterController';
+import LoginController from '../../controllers/auth/LoginController';
+import PasswordResetController from '../../controllers/auth/PasswordResetController';
+import RegisterController from '../../controllers/auth/RegisterController';
 import { Router } from 'express';
-import { authenticateToken } from 'src/utils/helpers';
+import { authenticateToken } from '../../utils/helpers';
 import multer from 'multer';
 import passport from 'passport';
 

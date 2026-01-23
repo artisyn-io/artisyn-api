@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { prisma } from 'src/db';
+import { prisma } from '../db';
 import { env } from './helpers';
 
 const HOUR = 60 * 60 * 1000;

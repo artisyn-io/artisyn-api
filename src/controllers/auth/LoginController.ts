@@ -1,15 +1,15 @@
 import { Request, Response } from "express";
 
-import { ApiResource } from 'src/resources/index';
-import BaseController from "src/controllers/BaseController";
+import { ApiResource } from '../../resources/index';
+import BaseController from "../BaseController";
 import { UAParser } from "ua-parser-js";
-import UserResource from "src/resources/UserResource";
-import { ValidationError } from "src/utils/errors";
+import UserResource from "../../resources/UserResource";
+import { ValidationError } from "../../utils/errors";
 import argon2 from 'argon2';
 import { constructFrom } from "date-fns";
-import { generateAccessToken } from "src/utils/helpers";
-import { prisma } from 'src/db';
-import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { generateAccessToken } from "../../utils/helpers";
+import { prisma } from '../../db';
+import { trackBusinessEvent } from '../../utils/analyticsMiddleware';
 import { EventType } from '@prisma/client';
 
 /**

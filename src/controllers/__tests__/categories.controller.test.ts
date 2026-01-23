@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import CategoryController from '../Admin/CategoryController';
 import CategoryPublicController from '../CategoryController';
-import { ICategory } from 'src/models/interfaces';
+import { ICategory } from '../../models/interfaces';
 import app from '../../index'
 import multer from 'multer';
 import request from 'supertest'

@@ -1,6 +1,6 @@
-import MediaController from 'src/controllers/MediaController';
+import MediaController from '../../controllers/MediaController';
 import { Router } from 'express';
-import { authenticateToken } from 'src/utils/helpers';
+import { authenticateToken } from '../../utils/helpers';
 import multer from 'multer';
 
 const router = Router();

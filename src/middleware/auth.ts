@@ -46,4 +46,4 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
 };
 
-import ErrorHandler from "src/utils/request-handlers";
+import ErrorHandler from "../utils/request-handlers";

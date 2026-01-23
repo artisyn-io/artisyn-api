@@ -1,8 +1,8 @@
-import ArtisanContactController from 'src/controllers/Curator/ArtisanContactController';
-import ArtisanController from 'src/controllers/Curator/ArtisanController';
-import ArtisanStateController from 'src/controllers/Curator/ArtisanStateController';
+import ArtisanContactController from '../../controllers/Curator/ArtisanContactController';
+import ArtisanController from '../../controllers/Curator/ArtisanController';
+import ArtisanStateController from '../../controllers/Curator/ArtisanStateController';
 import { Router } from 'express';
-import { authenticateToken } from 'src/utils/helpers';
+import { authenticateToken } from '../../utils/helpers';
 import multer from 'multer';
 
 const router = Router();

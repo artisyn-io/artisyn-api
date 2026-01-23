@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import argon2 from 'argon2';
 // Create a new instance of PrismaClient for testing
-import { prisma } from 'src/db';
+import { prisma } from '../../db';
 
 describe('Curator Model', () => {
   let userId: string;

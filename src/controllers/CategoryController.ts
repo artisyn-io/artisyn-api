@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
-import { ApiResource } from 'src/resources/index';
+import { ApiResource } from '../resources/index';
 
-import CategoryCollection from "src/resources/CategoryCollection";
-import CategoryResource from "src/resources/CategoryResource";
+import CategoryCollection from "../resources/CategoryCollection";
+import CategoryResource from "../resources/CategoryResource";
 import BaseController from "./BaseController";
 
-import { prisma } from 'src/db';
-import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { prisma } from '../db';
+import { trackBusinessEvent } from '../utils/analyticsMiddleware';
 import { EventType } from '@prisma/client';
 
 /**

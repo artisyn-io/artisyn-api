@@ -3,7 +3,7 @@ import { env, secureOtp } from "./helpers";
 import { Strategy as FacebookStrategy } from "passport-facebook";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import argon2 from "argon2";
-import { prisma } from 'src/db';
+import { prisma } from '../db';
 
 export const googleStrategy = () => {
     return new GoogleStrategy({

@@ -1,7 +1,7 @@
 import { UserRole, VerificationStatus } from '@prisma/client';
 
 import argon2 from 'argon2';
-import { prisma } from 'src/db';
+import { prisma } from '../db';
 
 async function main () {
   console.log('Starting seed...');

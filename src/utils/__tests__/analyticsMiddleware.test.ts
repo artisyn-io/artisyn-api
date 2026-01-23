@@ -9,7 +9,7 @@ vi.mock('src/resources/AnalyticsService', () => ({
     },
 }));
 
-import AnalyticsService from 'src/resources/AnalyticsService';
+import AnalyticsService from '../../resources/AnalyticsService';
 import { analyticsMiddleware, trackBusinessEvent } from '../analyticsMiddleware';
 
 describe('Analytics Middleware', () => {

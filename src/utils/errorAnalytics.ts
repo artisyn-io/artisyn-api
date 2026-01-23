@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import AnalyticsService from 'src/resources/AnalyticsService';
+import AnalyticsService from '../resources/AnalyticsService';
 import { EventType } from '@prisma/client';
 
 /**

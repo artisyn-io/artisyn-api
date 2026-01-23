@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
 
-import BaseController from "src/controllers/BaseController";
+import BaseController from "../BaseController";
 import { ArtisanType, PrismaClient, Prisma, EventType } from "@prisma/client";
-import Resource from 'src/resources/index';
+import Resource from '../../resources/index';
 import { regex } from "simple-body-validator";
-import { validate } from "src/utils/validator";
-import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { validate } from "../../utils/validator";
+import { trackBusinessEvent } from '../../utils/analyticsMiddleware';
 
-import { prisma } from 'src/db';
+import { prisma } from '../../db';
 
 /**
  * Curator/ArtisanController

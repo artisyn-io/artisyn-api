@@ -17,7 +17,7 @@ vi.mock('../helpers', () => ({
     }),
 }));
 
-import AnalyticsService from 'src/resources/AnalyticsService';
+import AnalyticsService from '../../resources/AnalyticsService';
 import {
     startAnalyticsScheduler,
     stopAnalyticsScheduler,

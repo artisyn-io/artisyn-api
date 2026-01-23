@@ -1,6 +1,6 @@
-import { appUrl } from "src/utils/helpers";
+import { appUrl } from "../utils/helpers";
 
-import { config as conf } from "src/config/index";
+import { config as conf } from "../config/index";
 import path, { join } from "path";
 import nodemailer from "nodemailer"
 import { readFileSync } from "fs";
