@@ -14,6 +14,8 @@ import { differenceInMinutes } from "date-fns";
 import { prisma } from 'src/db';
 import { secureOtp } from "src/utils/helpers";
 import { sendMail } from "src/mailer/mailer";
+import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { EventType } from '@prisma/client';
 
 /**
  * RegisterController
@@ -35,16 +37,21 @@ export default class extends BaseController {
         });
 
         const code = secureOtp();
-
+ 
         const user = await prisma.user.findFirst({
             where: { email }
         })
-
+ 
         if (!user) {
             throw new ValidationError("Account Not Found", {
                 email: ['We were unable to find your account.']
             });
         }
+
+        // Track password reset request
+        await trackBusinessEvent(EventType.PASSWORD_RESET_REQUESTED, user.id, {
+            via: 'email',
+        });
 
         await prisma.passwordCodeResets.deleteMany({
             where: { OR: [{ email }, { phone: email }] }
