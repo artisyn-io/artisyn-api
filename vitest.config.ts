@@ -9,6 +9,9 @@ export default defineConfig({
     passWithNoTests: true,
     environment: 'node',
     include: ['**/__tests__/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    env: {
+      NODE_ENV: 'test',
+    },
     coverage: {
       reporter: ['text', 'json', 'html', 'lcov'],
       reportsDirectory: 'coverage',
