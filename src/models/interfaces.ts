@@ -25,6 +25,28 @@ export enum TipStatus {
   REFUNDED = 'REFUNDED'
 }
 
+export enum ReviewStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED'
+}
+
+export enum ReportStatus {
+  PENDING = 'PENDING',
+  REVIEWED = 'REVIEWED',
+  DISMISSED = 'DISMISSED',
+  ACTION_TAKEN = 'ACTION_TAKEN'
+}
+
+export enum ReportReason {
+  SPAM = 'SPAM',
+  INAPPROPRIATE = 'INAPPROPRIATE',
+  FAKE = 'FAKE',
+  HARASSMENT = 'HARASSMENT',
+  OFF_TOPIC = 'OFF_TOPIC',
+  OTHER = 'OTHER'
+}
+
 // Interfaces
 export interface IUser {
   id: string;
@@ -132,8 +154,48 @@ export interface IReview {
   authorId: string;
   targetId: string;
   artisanId?: string;
+  status: ReviewStatus;
+  moderatedBy?: string;
+  moderatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  response?: IReviewResponse;
+  reports?: IReviewReport[];
+}
+
+export interface IReviewResponse {
+  id: string;
+  reviewId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IReviewReport {
+  id: string;
+  reviewId: string;
+  reporterId: string;
+  reason: ReportReason;
+  details?: string;
+  status: ReportStatus;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  resolution?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IReviewAggregation {
+  targetId: string;
+  totalReviews: number;
+  averageRating: number;
+  ratingDistribution: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
 }
 
 export interface ITip {

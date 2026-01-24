@@ -1,4 +1,4 @@
-import { TipStatus, UserRole, VerificationStatus } from './interfaces';
+import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason } from './interfaces';
 import { body, param, query } from 'express-validator';
 
 // User validation
@@ -192,14 +192,14 @@ export const locationValidation = {
 export const reviewValidation = {
   create: [
     body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
-    body('comment').optional().isString().withMessage('Comment must be a string'),
+    body('comment').optional().isString().isLength({ max: 1000 }).withMessage('Comment must be a string with max 1000 characters'),
     body('targetId').isUUID().withMessage('Valid target user ID is required'),
     body('artisanId').optional().isUUID().withMessage('Valid artisan ID is required'),
   ],
   update: [
     param('id').isUUID().withMessage('Valid review ID is required'),
     body('rating').optional().isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
-    body('comment').optional().isString().withMessage('Comment must be a string'),
+    body('comment').optional().isString().isLength({ max: 1000 }).withMessage('Comment must be a string with max 1000 characters'),
   ],
   getAll: [
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
@@ -208,12 +208,43 @@ export const reviewValidation = {
     query('targetId').optional().isUUID().withMessage('Valid target ID is required'),
     query('artisanId').optional().isUUID().withMessage('Valid artisan ID is required'),
     query('rating').optional().isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
+    query('status').optional().isIn(Object.values(ReviewStatus)).withMessage('Invalid review status'),
   ],
   getOne: [
     param('id').isUUID().withMessage('Valid review ID is required'),
   ],
   delete: [
     param('id').isUUID().withMessage('Valid review ID is required'),
+  ],
+  // Moderation (admin only)
+  moderate: [
+    param('id').isUUID().withMessage('Valid review ID is required'),
+    body('status').isIn([ReviewStatus.APPROVED, ReviewStatus.REJECTED]).withMessage('Status must be APPROVED or REJECTED'),
+  ],
+  // Curator response
+  respond: [
+    param('id').isUUID().withMessage('Valid review ID is required'),
+    body('content').isString().isLength({ min: 1, max: 500 }).withMessage('Response must be between 1 and 500 characters'),
+  ],
+  updateResponse: [
+    param('id').isUUID().withMessage('Valid review ID is required'),
+    body('content').isString().isLength({ min: 1, max: 500 }).withMessage('Response must be between 1 and 500 characters'),
+  ],
+  // Report abuse
+  report: [
+    param('id').isUUID().withMessage('Valid review ID is required'),
+    body('reason').isIn(Object.values(ReportReason)).withMessage('Invalid report reason'),
+    body('details').optional().isString().isLength({ max: 500 }).withMessage('Details must be max 500 characters'),
+  ],
+  // Resolve report (admin only)
+  resolveReport: [
+    param('id').isUUID().withMessage('Valid report ID is required'),
+    body('status').isIn([ReportStatus.DISMISSED, ReportStatus.ACTION_TAKEN]).withMessage('Status must be DISMISSED or ACTION_TAKEN'),
+    body('resolution').optional().isString().isLength({ max: 500 }).withMessage('Resolution must be max 500 characters'),
+  ],
+  // Aggregation
+  aggregation: [
+    param('targetId').isUUID().withMessage('Valid target user ID is required'),
   ],
 };
 
