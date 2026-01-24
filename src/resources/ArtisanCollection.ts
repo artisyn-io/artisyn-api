@@ -1,22 +1,34 @@
-import { ApiResource, JsonResource, Resource } from ".";
+import { ResourceCollection } from './Resource';
 
-import ArtisanResource from "./ArtisanResource";
-
-/**
- * Curator/ArtisanCollection
- */
-export default class extends JsonResource {
-    /**
-     * Build the response object
-     * @returns this
-     */
-    data () {
-        const data = Array.isArray(this.resource) ? this.resource : this.resource.data
-
+export default class ArtisanCollection extends ResourceCollection {
+    toArray() {
         return {
-            data: data.map(
-                (e: Resource) => ApiResource(new ArtisanResource(this.request, this.response, e)).data()
-            )
-        }
+            data: this.collection.map((item: any) => ({
+                id: item.id,
+                name: item.name,
+                phone: item.phone,
+                description: item.description,
+                price: item.price,
+                images: item.images,
+                verified: item.isVerified,
+                active: item.isActive,
+                category: item.category ? {
+                    id: item.category.id,
+                    name: item.category.name,
+                    icon: item.category.icon
+                } : null,
+                location: item.location ? {
+                    id: item.location.id,
+                    city: item.location.city,
+                    state: item.location.state
+                } : null,
+                curator: item.curator ? {
+                    id: item.curator.id,
+                    name: `${item.curator.firstName} ${item.curator.lastName}`
+                } : null,
+                createdAt: item.createdAt
+            })),
+            meta: { pagination: this.meta }
+        };
     }
 }
