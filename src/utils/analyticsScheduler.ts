@@ -1,4 +1,4 @@
-import AnalyticsService from '../resources/AnalyticsService';
+import AnalyticsService from 'src/resources/AnalyticsService';
 import { env } from './helpers';
 
 /**
@@ -109,7 +109,7 @@ export const startAnalyticsScheduler = () => {
     weeklyInterval = setInterval(generateWeeklyReport, WEEK);
 
     // Monthly aggregation - runs every 30 days (approximate)
-    // monthlyInterval = setInterval(generateMonthlyReport, 30 * DAY);
+    monthlyInterval = setInterval(generateMonthlyReport, 30 * DAY);
 
     // Data cleanup - runs daily
     cleanupInterval = setInterval(runDataCleanup, DAY);
