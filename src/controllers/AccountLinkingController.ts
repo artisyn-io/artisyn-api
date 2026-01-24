@@ -1,332 +1,277 @@
-import { Request, Response } from "express";
-import BaseController from "./BaseController";
-import { ApiResource } from 'src/resources/index';
-import AccountLinkResource from "src/resources/AccountLinkResource";
-import AccountLinkCollection from "src/resources/AccountLinkCollection";
+import { Request, Response } from 'express';
 import { prisma } from 'src/db';
+import { validateAsync } from 'src/utils/validator';
+import { accountLinkValidationRules } from 'src/utils/profileValidators';
 import { RequestError } from 'src/utils/errors';
 import { logAuditEvent } from 'src/utils/auditLogger';
-import { accountLinkValidationRules } from 'src/utils/profileValidators';
+import { AccountLinkProvider } from '@prisma/client';
 
 /**
- * AccountLinkingController - Manages social and external account linking
- * Supports Google, Facebook, GitHub, Apple, Twitter, LinkedIn
+ * Link a new account (Google, Facebook, etc.) to the user's profile
  */
-export default class extends BaseController {
-    /**
-     * Get all linked accounts for current user
-     */
-    getLinkedAccounts = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+export const linkAccount = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new RequestError('User not authenticated', 401);
+    }
 
-            const { take, skip, meta } = this.pagination(req);
+    const validated = await validateAsync(req.body, accountLinkValidationRules);
 
-            const [accounts, total] = await Promise.all([
-                prisma.accountLink.findMany({
-                    where: { userId },
-                    orderBy: { linkedAt: 'desc' },
-                    take,
-                    skip,
-                }),
-                prisma.accountLink.count({ where: { userId } }),
-            ]);
+    // Check if this provider is already linked
+    const existingLink = await prisma.accountLink.findFirst({
+      where: {
+        userId,
+        provider: validated.provider as AccountLinkProvider,
+      },
+    });
 
-            ApiResource(new AccountLinkCollection(req, res, {
-                data: accounts,
-                pagination: meta(total, accounts.length),
-            }))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'Linked accounts retrieved',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
-        }
-    };
+    if (existingLink) {
+      throw new RequestError(
+        `${validated.provider} account is already linked to your profile`,
+        400
+      );
+    }
 
-    /**
-     * Link a social account
-     */
-    linkAccount = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+    // Create the account link
+    const accountLink = await prisma.accountLink.create({
+      data: {
+        userId,
+        provider: validated.provider as AccountLinkProvider,
+        providerUserId: validated.providerUserId,
+        accessToken: validated.accessToken,
+      },
+    });
 
-            // Validate input
-            const errors = await this.validateAsync(req, accountLinkValidationRules);
-            if (Object.keys(errors).length > 0) {
-                RequestError.abortIf(true, 'Validation failed', 422);
-            }
+    // Log audit event
+    await logAuditEvent(userId, 'ACCOUNT_LINKED', {
+      entityType: 'AccountLink',
+      entityId: accountLink.id,
+      req,
+      metadata: {
+        provider: validated.provider,
+      },
+    });
 
-            const { provider, providerUserId, accessToken, refreshToken, expiresAt } = req.body;
+    res.status(200).json({
+      status: 'success',
+      message: 'Account linked successfully',
+      data: {
+        id: accountLink.id,
+        provider: accountLink.provider,
+        linkedAt: accountLink.createdAt,
+      },
+    });
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        message: error.message,
+      });
+    }
+    throw error;
+  }
+};
 
-            // Check if account is already linked
-            const existing = await prisma.accountLink.findUnique({
-                where: {
-                    userId_provider: {
-                        userId,
-                        provider: provider as string,
-                    },
-                },
-            });
+/**
+ * Unlink an account from the user's profile
+ */
+export const unlinkAccount = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new RequestError('User not authenticated', 401);
+    }
 
-            if (existing) {
-                // Update existing link
-                const updated = await prisma.accountLink.update({
-                    where: { id: existing.id },
-                    data: {
-                        accessToken,
-                        refreshToken,
-                        expiresAt: expiresAt ? new Date(expiresAt) : null,
-                        isVerified: true,
-                    },
-                });
+    const { id } = req.params;
+    const accountId = Array.isArray(id) ? id[0] : id;
 
-                // Log account link update
-                await logAuditEvent(userId, 'ACCOUNT_LINK', {
-                    req,
-                    entityType: 'AccountLink',
-                    entityId: updated.id,
-                    statusCode: 200,
-                    metadata: { provider, action: 'update_link' },
-                });
+    if (!accountId) {
+      throw new RequestError('Invalid account link ID', 400);
+    }
 
-                ApiResource(new AccountLinkResource(req, res, { data: updated }))
-                    .json()
-                    .status(200)
-                    .additional({
-                        status: 'success',
-                        message: 'Account link updated',
-                        code: 200,
-                    });
-                return;
-            }
+    // Find the account link
+    const accountLink = await prisma.accountLink.findFirst({
+      where: {
+        id: accountId,
+        userId,
+      },
+    });
 
-            // Create new link
-            const accountLink = await prisma.accountLink.create({
-                data: {
-                    userId,
-                    provider: provider as string,
-                    providerUserId,
-                    accessToken,
-                    refreshToken,
-                    expiresAt: expiresAt ? new Date(expiresAt) : null,
-                    providerName: req.body.providerName,
-                    providerEmail: req.body.providerEmail,
-                    isVerified: true,
-                },
-            });
+    if (!accountLink) {
+      throw new RequestError('Account link not found', 404);
+    }
 
-            // Log account link creation
-            await logAuditEvent(userId, 'ACCOUNT_LINK', {
-                req,
-                entityType: 'AccountLink',
-                entityId: accountLink.id,
-                statusCode: 201,
-                metadata: { provider },
-            });
+    // Delete the account link
+    await prisma.accountLink.delete({
+      where: { id: accountId },
+    });
 
-            ApiResource(new AccountLinkResource(req, res, { data: accountLink }))
-                .json()
-                .status(201)
-                .additional({
-                    status: 'success',
-                    message: 'Account linked successfully',
-                    code: 201,
-                });
-        } catch (error) {
-            throw error;
-        }
-    };
+    // Log audit event
+    await logAuditEvent(userId, 'ACCOUNT_UNLINKED', {
+      entityType: 'AccountLink',
+      entityId: accountId,
+      req,
+      metadata: {
+        provider: accountLink.provider,
+      },
+    });
 
-    /**
-     * Unlink a social account
-     */
-    unlinkAccount = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            const { provider } = req.params;
+    res.status(200).json({
+      status: 'success',
+      message: 'Account unlinked successfully',
+    });
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        message: error.message,
+      });
+    }
+    throw error;
+  }
+};
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!provider, 'Provider required', 400);
+/**
+ * Get all linked accounts for the user
+ */
+export const getLinkedAccounts = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new RequestError('User not authenticated', 401);
+    }
 
-            // Find the account link
-            const accountLink = await prisma.accountLink.findUnique({
-                where: {
-                    userId_provider: {
-                        userId,
-                        provider: provider as string,
-                    },
-                },
-            });
+    const linkedAccounts = await prisma.accountLink.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        provider: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-            RequestError.abortIf(!accountLink, 'Account link not found', 404);
+    res.status(200).json({
+      status: 'success',
+      data: linkedAccounts,
+    });
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        message: error.message,
+      });
+    }
+    throw error;
+  }
+};
 
-            // Delete the link
-            const deleted = await prisma.accountLink.delete({
-                where: { id: accountLink.id },
-            });
+/**
+ * Update access token for a linked account (for token refresh)
+ */
+export const updateAccountToken = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new RequestError('User not authenticated', 401);
+    }
 
-            // Log account unlink
-            await logAuditEvent(userId, 'ACCOUNT_UNLINK', {
-                req,
-                entityType: 'AccountLink',
-                entityId: accountLink.id,
-                statusCode: 200,
-                metadata: { provider },
-            });
+    const { id } = req.params;
+    const accountId = Array.isArray(id) ? id[0] : id;
 
-            ApiResource(new AccountLinkResource(req, res, { data: {} }))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'Account unlinked successfully',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
-        }
-    };
+    if (!accountId) {
+      throw new RequestError('Invalid account link ID', 400);
+    }
 
-    /**
-     * Get a specific linked account
-     */
-    getAccountLink = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            const { provider } = req.params;
+    const { accessToken } = req.body;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!provider, 'Provider required', 400);
+    if (!accessToken) {
+      throw new RequestError('Access token is required', 400);
+    }
 
-            const accountLink = await prisma.accountLink.findUnique({
-                where: {
-                    userId_provider: {
-                        userId,
-                        provider: provider as string,
-                    },
-                },
-            });
+    // Find and verify ownership
+    const accountLink = await prisma.accountLink.findFirst({
+      where: {
+        id: accountId,
+        userId,
+      },
+    });
 
-            RequestError.abortIf(!accountLink, 'Account link not found', 404);
+    if (!accountLink) {
+      throw new RequestError('Account link not found', 404);
+    }
 
-            ApiResource(new AccountLinkResource(req, res, { data: accountLink }))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'Account link retrieved',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
-        }
-    };
+    // Update the token
+    const updated = await prisma.accountLink.update({
+      where: { id: accountId },
+      data: { accessToken },
+    });
 
-    /**
-     * Check if a provider account is already linked
-     */
-    checkProviderAvailability = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            const { provider, providerUserId } = req.body;
+    res.status(200).json({
+      status: 'success',
+      message: 'Access token updated successfully',
+      data: {
+        id: updated.id,
+        provider: updated.provider,
+      },
+    });
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        message: error.message,
+      });
+    }
+    throw error;
+  }
+};
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!provider, 'Provider required', 400);
-            RequestError.abortIf(!providerUserId, 'Provider user ID required', 400);
+/**
+ * Check if a specific provider is linked
+ */
+export const checkProviderLinked = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new RequestError('User not authenticated', 401);
+    }
 
-            // Check if this provider account is already linked to current user
-            const ownLink = await prisma.accountLink.findUnique({
-                where: {
-                    userId_provider: {
-                        userId,
-                        provider: provider as string,
-                    },
-                },
-            });
+    const { provider } = req.params;
+    const providerValue = Array.isArray(provider) ? provider[0] : provider;
 
-            // Check if this provider account is linked to another user
-            const otherLink = await prisma.accountLink.findFirst({
-                where: {
-                    provider: provider as string,
-                    providerUserId,
-                    userId: { not: userId },
-                },
-            });
+    if (!providerValue) {
+      throw new RequestError('Invalid provider', 400);
+    }
 
-            const data = {
-                provider,
-                isAvailable: !otherLink,
-                alreadyLinkedToYou: !!ownLink,
-                linkedByAnother: !!otherLink,
-            };
+    // Validate provider is a valid AccountLinkProvider
+    const validProviders = Object.values(AccountLinkProvider);
+    if (!validProviders.includes(providerValue as AccountLinkProvider)) {
+      throw new RequestError('Invalid provider', 400);
+    }
 
-            ApiResource(new AccountLinkResource(req, res, { data }))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'Provider availability checked',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
-        }
-    };
+    const accountLink = await prisma.accountLink.findFirst({
+      where: {
+        userId,
+        provider: providerValue as AccountLinkProvider,
+      },
+    });
 
-    /**
-     * Verify account link ownership
-     */
-    verifyAccountLink = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            const { linkId, verificationCode } = req.body;
-
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!linkId, 'Link ID required', 400);
-            RequestError.abortIf(!verificationCode, 'Verification code required', 400);
-
-            const accountLink = await prisma.accountLink.findFirst({
-                where: {
-                    id: linkId,
-                    userId,
-                },
-            });
-
-            RequestError.abortIf(!accountLink, 'Account link not found', 404);
-
-            // In a real scenario, verify the code with the provider
-            // For now, we'll mark as verified if code is provided
-            const updated = await prisma.accountLink.update({
-                where: { id: linkId },
-                data: { isVerified: true },
-            });
-
-            // Log verification
-            await logAuditEvent(userId, 'ACCOUNT_LINK', {
-                req,
-                entityType: 'AccountLink',
-                entityId: linkId,
-                statusCode: 200,
-                metadata: { action: 'verify_link' },
-            });
-
-            ApiResource(new AccountLinkResource(req, res, { data: updated }))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'Account link verified',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
-        }
-    };
-}
+    res.status(200).json({
+      status: 'success',
+      data: {
+        provider: providerValue,
+        isLinked: !!accountLink,
+        linkedAt: accountLink?.createdAt || null,
+      },
+    });
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        message: error.message,
+      });
+    }
+    throw error;
+  }
+};
