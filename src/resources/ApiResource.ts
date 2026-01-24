@@ -1,29 +1,33 @@
 import { Response } from 'express';
 
 const ApiResource = (resource: any) => {
+    let additionalData: any = {};
+    let responseCode = 200;
+
     return {
         json: () => {
             const data = resource.toArray ? resource.toArray() : resource.data();
             return {
                 status: (code: number) => {
-                    resource['res'].status(code).json({
-                        status: code >= 200 && code < 300 ? 'success' : 'error',
-                        code,
-                        message: 'Success',
-                        data: data.data || data,
-                        meta: data.meta
-                    });
+                    responseCode = code;
                     return {
                         additional: (obj: any) => {
-                            // Already sent json, essentially no-op or we could merge but express sent result.
-                            // In a real implementation this would delay sending.
-                            // For now, simple implementation.
+                            additionalData = obj;
+
+                            // Send the complete response
+                            resource['res'].status(responseCode).json({
+                                status: additionalData.status || (responseCode >= 200 && responseCode < 300 ? 'success' : 'error'),
+                                code: additionalData.code || responseCode,
+                                message: additionalData.message || 'Success',
+                                data: data.data || data,
+                                meta: data.meta
+                            });
                         }
-                    }
+                    };
                 }
-            }
+            };
         }
-    }
-}
+    };
+};
 
 export default ApiResource;
