@@ -3,6 +3,8 @@ import { Request, Response } from "express";
 
 import BaseController from "src/controllers/BaseController";
 import Resource from 'src/resources/index';
+import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { EventType } from '@prisma/client';
 import { prisma } from 'src/db';
 
 /**
@@ -31,6 +33,12 @@ export default class extends BaseController {
             },
         })
 
+        // Track artisan activation/deactivation
+        await trackBusinessEvent(EventType.ADMIN_ACTION, req.user?.id, {
+            action: isActive ? 'artisan_activate' : 'artisan_deactivate',
+            artisanId: data.id,
+        });
+ 
         Resource(req, res, { data })
             .json()
             .status(202)
@@ -73,6 +81,13 @@ export default class extends BaseController {
             }));
         }
 
+        // Track bulk artisan admin action
+        await trackBusinessEvent(EventType.ADMIN_ACTION, req.user?.id, {
+            action: `artisan_bulk_${action}`,
+            affectedIds: ids,
+            updatedCount: count,
+        });
+ 
         Resource(req, res, {
             data: await prisma.artisan.findMany({
                 where: { id: { in: ids } }

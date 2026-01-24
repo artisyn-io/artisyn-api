@@ -20,6 +20,8 @@ router.get('/analytics', authenticateToken, analyticsController.index);
 router.get('/analytics/summary', authenticateToken, analyticsController.summary);
 router.get('/analytics/aggregations', authenticateToken, analyticsController.aggregations);
 router.get('/analytics/event-types', authenticateToken, analyticsController.eventTypes);
+router.get('/analytics/export', authenticateToken, analyticsController.export);
+router.get('/analytics/anomalies', authenticateToken, analyticsController.anomalies);
 router.post('/analytics/aggregate', authenticateToken, analyticsController.create);
 router.delete('/analytics/cleanup', authenticateToken, analyticsController.delete);
 

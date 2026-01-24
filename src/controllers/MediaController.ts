@@ -6,6 +6,8 @@ import { RequestError } from 'src/utils/errors';
 import { ApiResource } from 'src/resources/index';
 import MediaCollection from 'src/resources/MediaCollection';
 import MediaResource from 'src/resources/MediaResource';
+import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { EventType } from '@prisma/client';
 
 export default class MediaController extends BaseController {
     /**
@@ -95,6 +97,13 @@ export default class MediaController extends BaseController {
             },
         });
 
+        // Track media upload
+        await trackBusinessEvent(EventType.ADMIN_ACTION, req.user?.id, {
+            action: 'media_upload',
+            mediaId: media.id,
+            tags: media.tags,
+        });
+ 
         ApiResource(new MediaResource(req, res, {
             data: media,
         }))
@@ -158,6 +167,12 @@ export default class MediaController extends BaseController {
             results.push(media);
         }
 
+        // Track bulk media upload
+        await trackBusinessEvent(EventType.ADMIN_ACTION, req.user?.id, {
+            action: 'media_upload_bulk',
+            count: results.length,
+        });
+ 
         ApiResource(new MediaCollection(req, res, results))
             .json()
             .status(201)
@@ -230,6 +245,12 @@ export default class MediaController extends BaseController {
             },
         });
 
+        // Track media update
+        await trackBusinessEvent(EventType.ADMIN_ACTION, req.user?.id, {
+            action: 'media_update',
+            mediaId: updatedMedia.id,
+        });
+ 
         ApiResource(new MediaResource(req, res, {
             data: updatedMedia,
         }))
@@ -273,6 +294,12 @@ export default class MediaController extends BaseController {
             where: { id },
         });
 
+        // Track media delete
+        await trackBusinessEvent(EventType.ADMIN_ACTION, req.user?.id, {
+            action: 'media_delete',
+            mediaId: id,
+        });
+ 
         return res.json({
             status: 'success',
             message: 'Media deleted successfully',

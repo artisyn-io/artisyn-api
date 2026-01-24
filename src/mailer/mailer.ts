@@ -1,4 +1,4 @@
-import { appUrl } from "src/utils/helpers";
+import { appUrl, env } from "src/utils/helpers";
 
 import { config as conf } from "src/config/index";
 import path, { join } from "path";
@@ -30,6 +30,11 @@ export const sendMail = async (config: {
     caption?: string | undefined;
     data?: { [key: string]: any }
 }) => {
+    // Skip email sending in test environment
+    if (env('NODE_ENV') === 'test') {
+        return null;
+    }
+
     const templatePath = join(TEMPS_DIR, (config.temp ?? 'auth') + '.html')
     let html = readFileSync(templatePath, 'utf-8');
 
@@ -48,11 +53,17 @@ export const sendMail = async (config: {
         html = html.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
     }
 
-    return await transporter.sendMail({
-        from: <string>conf('mailer.from'), // sender address
-        to: config.to, // list of receivers
-        text: config.text, // plain text body
-        subject: config.subject, // Subject line
-        html, // html body
-    });
+    try {
+        return await transporter.sendMail({
+            from: <string>conf('mailer.from'), // sender address
+            to: config.to, // list of receivers
+            text: config.text, // plain text body
+            subject: config.subject, // Subject line
+            html, // html body
+        });
+    } catch (error) {
+        // Log error but don't throw to prevent unhandled rejections
+        console.error('Failed to send email:', error instanceof Error ? error.message : error);
+        return null;
+    }
 }

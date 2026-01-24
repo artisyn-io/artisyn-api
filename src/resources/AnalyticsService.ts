@@ -36,7 +36,7 @@ export class AnalyticsService {
     return simplified.substring(0, 100);
   }
 
-  /**
+/**
    * Records an analytics event with proper anonymization
    */
   static async trackEvent(params: {
@@ -74,16 +74,15 @@ export class AnalyticsService {
   }
 
   /**
-   * Retrieves analytics events with filtering and pagination
+   * Builds a reusable where clause for AnalyticsEvent queries
    */
-  static async getEvents(params: {
+  private static buildEventWhere(params: {
     eventType?: EventType;
     startDate?: Date;
     endDate?: Date;
     endpoint?: string;
-    take?: number;
-    skip?: number;
-  }) {
+    userId?: string;
+  }): Prisma.AnalyticsEventWhereInput {
     const where: Prisma.AnalyticsEventWhereInput = {};
 
     if (params.eventType) {
@@ -104,6 +103,27 @@ export class AnalyticsService {
       where.endpoint = { contains: params.endpoint };
     }
 
+    if (params.userId) {
+      where.anonymizedUserId = this.anonymizeUserId(params.userId) ?? undefined;
+    }
+
+    return where;
+  }
+
+  /**
+   * Retrieves analytics events with filtering and pagination
+   */
+  static async getEvents(params: {
+    eventType?: EventType;
+    startDate?: Date;
+    endDate?: Date;
+    endpoint?: string;
+    userId?: string;
+    take?: number;
+    skip?: number;
+  }) {
+    const where = this.buildEventWhere(params);
+
     const [events, total] = await Promise.all([
       prisma.analyticsEvent.findMany({
         where,
@@ -115,6 +135,119 @@ export class AnalyticsService {
     ]);
 
     return { events, total };
+  }
+
+  /**
+   * Export analytics events for offline analysis
+   * Applies the same filters as getEvents but returns a bounded set
+   */
+  static async exportEvents(params: {
+    eventType?: EventType;
+    startDate?: Date;
+    endDate?: Date;
+    endpoint?: string;
+    userId?: string;
+    limit?: number;
+  }) {
+    const where = this.buildEventWhere(params);
+    const MAX_LIMIT = 10000;
+    const take = Math.min(params.limit ?? 1000, MAX_LIMIT);
+
+    const events = await prisma.analyticsEvent.findMany({
+      where,
+      take,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return events;
+  }
+
+  /**
+   * Detects basic security anomalies using recent analytics events
+   */
+  static async detectAnomalies(params: { windowMinutes?: number } = {}) {
+    const windowMinutes = params.windowMinutes ?? 60;
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - windowMinutes * 60 * 1000);
+
+    const anomalies: Array<{
+      type: string;
+      severity: 'low' | 'medium' | 'high';
+      description: string;
+      context: Record<string, unknown>;
+    }> = [];
+
+    // Rule 1: Possible brute-force login attempts (many LOGIN_FAILED from same IP hash)
+    try {
+      const bruteForceCandidates = await prisma.analyticsEvent.groupBy({
+        by: ['ipHash'],
+        where: {
+          eventType: EventType.LOGIN_FAILED,
+          createdAt: { gte: windowStart, lte: now },
+          ipHash: { not: null },
+        },
+        _count: { id: true },
+        having: {
+          ipHash: { not: null },
+          _count: { id: { gt: 5 } },
+        },
+      });
+
+      for (const row of bruteForceCandidates) {
+        anomalies.push({
+          type: 'BRUTE_FORCE_LOGIN',
+          severity: 'high',
+          description: `Multiple failed logins from the same IP hash in the last ${windowMinutes} minutes`,
+          context: {
+            ipHash: row.ipHash,
+            failedLogins: row._count.id,
+            windowMinutes,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Anomaly detection (brute force) error:', error);
+    }
+
+    // Rule 2: Elevated error rate in recent window compared to previous window
+    try {
+      const previousWindowStart = new Date(windowStart.getTime() - windowMinutes * 60 * 1000);
+
+      const [currentErrors, previousErrors] = await Promise.all([
+        prisma.analyticsEvent.count({
+          where: {
+            eventType: EventType.ERROR_OCCURRED,
+            createdAt: { gte: windowStart, lte: now },
+          },
+        }),
+        prisma.analyticsEvent.count({
+          where: {
+            eventType: EventType.ERROR_OCCURRED,
+            createdAt: { gte: previousWindowStart, lte: windowStart },
+          },
+        }),
+      ]);
+
+      if (currentErrors >= 10 && previousErrors > 0 && currentErrors > previousErrors * 2) {
+        anomalies.push({
+          type: 'ERROR_RATE_SPIKE',
+          severity: 'medium',
+          description: 'Error events spiked compared to the previous window',
+          context: {
+            windowMinutes,
+            currentErrors,
+            previousErrors,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Anomaly detection (error spike) error:', error);
+    }
+
+    return {
+      windowMinutes,
+      anomalies,
+    };
   }
 
   /**

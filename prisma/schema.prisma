@@ -54,6 +54,7 @@ model User {
   artisans             Artisan[]
   reviews              Review[]              @relation("ReviewAuthor")
   receivedReviews      Review[]              @relation("ReviewTarget")
+  reviewReports        ReviewReport[]        @relation("ReportReporter")
   sentTips             Tip[]                 @relation("TipSender")
   receivedTips         Tip[]                 @relation("TipReceiver")
   location             Location?             @relation(fields: [locationId], references: [id])
@@ -243,24 +244,69 @@ model Location {
 
 // Review model
 model Review {
-  id        String   @id @default(uuid())
-  rating    Int // 1-5 star rating
-  comment   String?
-  authorId  String // User who wrote the review
-  targetId  String // User who received the review
-  artisanId String? // Optional artisan reference
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String       @id @default(uuid())
+  rating     Int // 1-5 star rating
+  comment    String?
+  authorId   String // User who wrote the review
+  targetId   String // User who received the review (curator)
+  artisanId  String? // Optional artisan reference
+  status     ReviewStatus @default(PENDING)
+  moderatedBy String? // Admin who moderated the review
+  moderatedAt DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   // Relations
-  author  User     @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  target  User     @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
-  artisan Artisan? @relation(fields: [artisanId], references: [id], onDelete: SetNull)
+  author   User            @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  target   User            @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  artisan  Artisan?        @relation(fields: [artisanId], references: [id], onDelete: SetNull)
+  response ReviewResponse?
+  reports  ReviewReport[]
 
   @@index([authorId])
   @@index([targetId])
   @@index([artisanId])
   @@index([rating])
+  @@index([status])
+}
+
+// Review Response model (curator replies to reviews)
+model ReviewResponse {
+  id        String   @id @default(uuid())
+  reviewId  String   @unique // One response per review
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@map("review_responses")
+}
+
+// Review Report model (abuse detection and reporting)
+model ReviewReport {
+  id         String       @id @default(uuid())
+  reviewId   String
+  reporterId String // User who reported
+  reason     ReportReason
+  details    String? // Additional details
+  status     ReportStatus @default(PENDING)
+  resolvedBy String? // Admin who resolved
+  resolvedAt DateTime?
+  resolution String? // Resolution notes
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  // Relations
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reporter User   @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@index([reporterId])
+  @@index([status])
+  @@map("review_reports")
 }
 
 // Enum for tip status
@@ -297,7 +343,33 @@ model Tip {
   @@index([txHash])
 }
 
+// Enum for review moderation status
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Enum for review report status
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+  ACTION_TAKEN
+}
+
+// Enum for report reason
+enum ReportReason {
+  SPAM
+  INAPPROPRIATE
+  FAKE
+  HARASSMENT
+  OFF_TOPIC
+  OTHER
+}
+
 // Enum for analytics event types
+// Also serves as the activity logging event taxonomy
 enum EventType {
   API_CALL
   USER_SIGNUP
@@ -308,10 +380,19 @@ enum EventType {
   CONTACT_INFO_ACCESSED
   LISTING_ENGAGEMENT
   REVIEW_CREATED
+  REVIEW_UPDATED
+  REVIEW_APPROVED
+  REVIEW_REJECTED
+  REVIEW_RESPONDED
+  REVIEW_REPORTED
   TIP_SENT
   CATEGORY_VIEWED
   SEARCH_PERFORMED
   ERROR_OCCURRED
+  // Security / activity-focused events
+  LOGIN_FAILED
+  PASSWORD_RESET_REQUESTED
+  ADMIN_ACTION
 }
 
 // Analytics Event model for tracking user interactions and API usage
@@ -333,6 +414,9 @@ model AnalyticsEvent {
   @@index([createdAt])
   @@index([anonymizedUserId])
   @@index([endpoint])
+  // Composite indexes to speed up common activity queries
+  @@index([eventType, createdAt])
+  @@index([anonymizedUserId, eventType, createdAt])
   @@map("analytics_events")
 }
 
