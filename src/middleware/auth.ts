@@ -21,27 +21,24 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
 
     try {
-        jwt.verify(token, env('JWT_SECRET', ''), async (err: any, decoded: any) => {
-            if (err) {
-                return ErrorHandler(new RequestError("Unauthenticated", 401), req, res);
-            }
+        // Verify JWT token synchronously
+        const decoded = jwt.verify(token, env('JWT_SECRET', ''));
 
-            // Fetch user and verify token existence in DB
-            const accessToken = await prisma.personalAccessToken.findFirst({
-                where: { token },
-                include: { user: { include: { curator: true, media: true } } },
-            });
-
-            const user = accessToken?.user;
-
-            if (user && !isPast(constructFrom(accessToken?.expiresAt!, new Date())!)) {
-                req.user = user;
-                req.authToken = accessToken?.token;
-                next();
-            } else {
-                return ErrorHandler(new RequestError("Unauthenticated", 401), req, res);
-            }
+        // Fetch user and verify token existence in DB
+        const accessToken = await prisma.personalAccessToken.findFirst({
+            where: { token },
+            include: { user: { include: { curator: true, media: true } } },
         });
+
+        const user = accessToken?.user;
+
+        if (user && !isPast(constructFrom(accessToken?.expiresAt!, new Date())!)) {
+            req.user = user;
+            req.authToken = accessToken?.token;
+            next();
+        } else {
+            return ErrorHandler(new RequestError("Unauthenticated", 401), req, res);
+        }
     } catch (e) {
         return ErrorHandler(new RequestError("Unauthenticated", 401), req, res);
     }

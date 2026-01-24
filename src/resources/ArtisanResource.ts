@@ -1,38 +1,52 @@
-import { Resource } from './Resource';
+import { JsonResource } from ".";
 
-export default class ArtisanResource extends Resource {
-    toArray() {
+/**
+ * ArtisanResource
+ * 
+ * Formats a single Artisan (Listing) for API responses.
+ * Extends the existing JsonResource pattern used across the codebase.
+ */
+export default class extends JsonResource {
+    /**
+     * Transform the resource into an array/object for the response
+     * @returns Formatted artisan data
+     */
+    data() {
         return {
-            id: this.data.id,
-            name: this.data.name,
-            phone: this.data.phone,
-            description: this.data.description,
-            price: this.data.price,
-            priceRange: this.data.priceRange,
-            images: this.data.images,
-            verified: this.data.isVerified,
-            active: this.data.isActive,
-            category: this.data.category ? {
-                id: this.data.category.id,
-                name: this.data.category.name,
-                icon: this.data.category.icon
-            } : null,
-            subcategory: this.data.subcategory ? {
-                id: this.data.subcategory.id,
-                name: this.data.subcategory.name
-            } : null,
-            location: this.data.location ? {
-                id: this.data.location.id,
-                city: this.data.location.city,
-                state: this.data.location.state,
-                country: this.data.location.country
-            } : null,
-            curator: this.data.curator ? {
-                id: this.data.curator.id,
-                name: `${this.data.curator.firstName} ${this.data.curator.lastName}`
-            } : null,
-            createdAt: this.data.createdAt,
-            updatedAt: this.data.updatedAt,
+            id: this.id,
+            name: this.name,
+            description: this.description,
+            phone: this.phone,
+            email: this.email,
+            website: this.website,
+            address: this.address,
+            images: this.images,
+            priceType: this.priceType,
+            fixedPrice: this.fixedPrice,
+            minPrice: this.minPrice,
+            maxPrice: this.maxPrice,
+            isActive: this.isActive,
+            isVerified: this.isVerified,
+            categoryId: this.categoryId,
+            subcategoryId: this.subcategoryId,
+            curatorId: this.curatorId,
+            locationId: this.locationId,
+            createdAt: this.createdAt,
+            updatedAt: this.updatedAt,
+            // Include related entities if loaded
+            category: this.category,
+            subcategory: this.subcategory,
+            location: this.location,
+            // Format curator to exclude sensitive data
+            curator: this.curator ? {
+                id: this.curator.id,
+                email: this.curator.email,
+                firstName: this.curator.firstName,
+                lastName: this.curator.lastName,
+                role: this.curator.role,
+                avatar: this.curator.avatar,
+                bio: this.curator.bio,
+            } : undefined,
         };
     }
 }

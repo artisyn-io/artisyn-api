@@ -1,34 +1,53 @@
-import { ResourceCollection } from './Resource';
+import { JsonResource } from ".";
 
-export default class ArtisanCollection extends ResourceCollection {
-    toArray() {
-        return {
-            data: this.collection.map((item: any) => ({
-                id: item.id,
-                name: item.name,
-                phone: item.phone,
-                description: item.description,
-                price: item.price,
-                images: item.images,
-                verified: item.isVerified,
-                active: item.isActive,
-                category: item.category ? {
-                    id: item.category.id,
-                    name: item.category.name,
-                    icon: item.category.icon
-                } : null,
-                location: item.location ? {
-                    id: item.location.id,
-                    city: item.location.city,
-                    state: item.location.state
-                } : null,
-                curator: item.curator ? {
-                    id: item.curator.id,
-                    name: `${item.curator.firstName} ${item.curator.lastName}`
-                } : null,
-                createdAt: item.createdAt
-            })),
-            meta: { pagination: this.meta }
-        };
+/**
+ * ArtisanCollection
+ * 
+ * Formats a collection of Artisans (Listings) for API responses with pagination.
+ * Extends the existing JsonResource pattern used across the codebase.
+ */
+export default class extends JsonResource {
+    /**
+     * Transform the collection into an array for the response
+     * @returns Array of formatted artisan data
+     */
+    data() {
+        // Map through the artisan data and format each one
+        return this.resource.data.map((artisan: any) => ({
+            id: artisan.id,
+            name: artisan.name,
+            description: artisan.description,
+            phone: artisan.phone,
+            email: artisan.email,
+            website: artisan.website,
+            address: artisan.address,
+            images: artisan.images,
+            priceType: artisan.priceType,
+            fixedPrice: artisan.fixedPrice,
+            minPrice: artisan.minPrice,
+            maxPrice: artisan.maxPrice,
+            isActive: artisan.isActive,
+            isVerified: artisan.isVerified,
+            categoryId: artisan.categoryId,
+            subcategoryId: artisan.subcategoryId,
+            curatorId: artisan.curatorId,
+            locationId: artisan.locationId,
+            createdAt: artisan.createdAt,
+            updatedAt: artisan.updatedAt,
+            // Include related entities if loaded
+            category: artisan.category,
+            subcategory: artisan.subcategory,
+            location: artisan.location,
+            // Format curator to exclude sensitive data
+            curator: artisan.curator ? {
+                id: artisan.curator.id,
+                email: artisan.curator.email,
+                firstName: artisan.curator.firstName,
+                lastName: artisan.curator.lastName,
+                role: artisan.curator.role,
+                avatar: artisan.curator.avatar,
+                bio: artisan.curator.bio,
+            } : undefined,
+        }));
     }
 }

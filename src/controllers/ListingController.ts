@@ -45,7 +45,8 @@ export default class ListingController extends BaseController {
             ApiResource(new ArtisanCollection(req, res, {
                 data,
                 pagination: meta(count, data.length)
-            })).json()
+            }))
+                .json()
                 .status(200);
         } catch (error) {
             next(error);
@@ -105,12 +106,12 @@ export default class ListingController extends BaseController {
 
             ApiResource(new ArtisanResource(req, res, listing))
                 .json()
-                .status(201)
                 .additional({
                     status: 'success',
                     message: 'Listing created successfully',
                     code: 201
-                });
+                })
+                .status(201);
         } catch (error) {
             next(error);
         }
@@ -148,12 +149,12 @@ export default class ListingController extends BaseController {
 
             ApiResource(new ArtisanResource(req, res, updated))
                 .json()
-                .status(202)
                 .additional({
                     status: 'success',
                     message: 'Listing updated successfully',
                     code: 202
-                });
+                })
+                .status(202);
         } catch (error) {
             next(error);
         }
@@ -179,12 +180,12 @@ export default class ListingController extends BaseController {
 
             ApiResource(new ArtisanResource(req, res, {}))
                 .json()
-                .status(202)
                 .additional({
                     status: 'success',
                     message: 'Listing deleted successfully',
                     code: 202
-                });
+                })
+                .status(202);
         } catch (error) {
             next(error);
         }
