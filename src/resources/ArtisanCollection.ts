@@ -1,5 +1,4 @@
-import { JsonResource } from ".";
-import { ApiResource } from "."
+import { JsonResource, ApiResource, Resource } from "."; 
 
 /**
  * ArtisanCollection
