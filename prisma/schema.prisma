@@ -84,7 +84,8 @@ model Media {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                        User?                           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  verificationApplicationDocs CuratorVerificationDocument[]
 
   @@index([userId])
   @@index([provider])
@@ -137,7 +138,9 @@ model Curator {
   updatedAt          DateTime           @updatedAt
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                     User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationApplications CuratorVerificationApplication[]
+  verificationHistory      CuratorVerificationHistory[]
 
   @@index([userId])
   @@index([verificationStatus])
@@ -387,6 +390,12 @@ enum EventType {
   LOGIN_FAILED
   PASSWORD_RESET_REQUESTED
   ADMIN_ACTION
+  // Curator verification events
+  CURATOR_VERIFICATION_SUBMITTED
+  CURATOR_VERIFICATION_APPROVED
+  CURATOR_VERIFICATION_REJECTED
+  CURATOR_VERIFICATION_DOCUMENT_UPLOADED
+  CURATOR_VERIFICATION_VIEWED
 }
 
 // Analytics Event model for tracking user interactions and API usage
@@ -433,4 +442,70 @@ model AnalyticsAggregation {
   @@index([periodStart])
   @@index([eventType])
   @@map("analytics_aggregations")
+}
+
+// Curator Verification Application model
+model CuratorVerificationApplication {
+  id              String             @id @default(uuid())
+  curatorId       String
+  status          VerificationStatus @default(PENDING)
+  submittedAt     DateTime           @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String? // Admin user ID who reviewed
+  rejectionReason String? // Reason for rejection
+  metadata        Json? // Additional application data
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  // Relations
+  curator   Curator                           @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+  documents CuratorVerificationDocument[]
+  history   CuratorVerificationHistory[]
+
+  @@index([curatorId])
+  @@index([status])
+  @@index([submittedAt])
+  @@index([reviewedBy])
+  @@map("curator_verification_applications")
+}
+
+// Join table for verification application documents
+model CuratorVerificationDocument {
+  id            String   @id @default(uuid())
+  applicationId String
+  mediaId       String
+  documentType  String // 'government_id', 'professional_certificate', 'other'
+  documentName  String // User-friendly name for the document
+  createdAt     DateTime @default(now())
+
+  // Relations
+  application CuratorVerificationApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  media       Media                          @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([mediaId])
+  @@map("curator_verification_documents")
+}
+
+// Curator Verification History for audit trail
+model CuratorVerificationHistory {
+  id            String             @id @default(uuid())
+  curatorId     String
+  applicationId String?
+  action        String // 'SUBMITTED', 'APPROVED', 'REJECTED', 'DOCUMENT_UPLOADED', 'VIEWED'
+  status        VerificationStatus? // Status after this action
+  performedBy   String? // User ID who performed the action (admin for approve/reject)
+  notes         String? // Additional notes or rejection reason
+  metadata      Json? // Additional context about the action
+  createdAt     DateTime           @default(now())
+
+  // Relations
+  curator     Curator                         @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+  application CuratorVerificationApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([curatorId])
+  @@index([applicationId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("curator_verification_history")
 }

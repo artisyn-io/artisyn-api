@@ -226,3 +226,40 @@ export interface IMedia {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface ICuratorVerificationApplication {
+  id: string;
+  curatorId: string;
+  status: VerificationStatus;
+  submittedAt: Date;
+  reviewedAt: Date | null;
+  reviewedBy: string | null;
+  rejectionReason: string | null;
+  metadata: any;
+  createdAt: Date;
+  updatedAt: Date;
+  documents?: ICuratorVerificationDocument[];
+  history?: ICuratorVerificationHistory[];
+}
+
+export interface ICuratorVerificationDocument {
+  id: string;
+  applicationId: string;
+  mediaId: string;
+  documentType: string;
+  documentName: string;
+  createdAt: Date;
+  media?: IMedia;
+}
+
+export interface ICuratorVerificationHistory {
+  id: string;
+  curatorId: string;
+  applicationId: string | null;
+  action: string;
+  status: VerificationStatus | null;
+  performedBy: string | null;
+  notes: string | null;
+  metadata: any;
+  createdAt: Date;
+}
