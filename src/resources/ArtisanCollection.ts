@@ -1,5 +1,7 @@
 import { JsonResource, ApiResource, Resource } from "."; 
 
+import ArtisanResource from "./ArtisanResource";
+
 /**
  * ArtisanCollection
  * 
