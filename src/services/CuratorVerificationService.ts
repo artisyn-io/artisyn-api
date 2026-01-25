@@ -5,6 +5,16 @@ import { sendMail } from '../mailer/mailer';
 import { trackBusinessEvent } from '../utils/analyticsMiddleware';
 import StorageService from '../utils/StorageService';
 
+/**
+ * CuratorVerificationService
+ *
+ * Handles business logic for curator verification including:
+ * - Submitting verification applications with document uploads
+ * - Validating documents (size, type)
+ * - Managing application status and history
+ * - Admin review and approval/rejection workflow
+ * - Email notifications for status changes
+ */
 export interface SubmitVerificationApplicationData {
     curatorId: string;
     documents: Array<{
@@ -18,10 +28,19 @@ export interface SubmitVerificationApplicationData {
 export interface ReviewApplicationData {
     applicationId: string;
     adminId: string;
-    status: VerificationStatus.VERIFIED | VerificationStatus.REJECTED;
+    status: 'VERIFIED' | 'REJECTED';
     notes?: string;
 }
 
+/**
+ * CuratorVerificationService
+ *
+ * Handles business logic for curator verification system including:
+ * - Application submission with document validation and upload
+ * - Application status tracking and history
+ * - Admin review and approval/rejection workflow
+ * - Email notifications for status changes
+ */
 export class CuratorVerificationService {
     private static readonly MAX_FILE_SIZE = 250 * 1024;
     private static readonly ALLOWED_MIME_TYPES = [
@@ -32,6 +51,10 @@ export class CuratorVerificationService {
         'image/webp'
     ];
 
+    /**
+     * Submit a new verification application
+     * Validates documents, uploads to storage, creates application record and history
+     */
     static async submitApplication(data: SubmitVerificationApplicationData) {
         const { curatorId, documents, metadata } = data;
 
@@ -44,6 +67,7 @@ export class CuratorVerificationService {
             throw new RequestError('Curator not found', 404);
         }
 
+        // Prevent duplicate pending applications
         const existingPendingApplication = await prisma.curatorVerificationApplication.findFirst({
             where: {
                 curatorId,
@@ -59,6 +83,7 @@ export class CuratorVerificationService {
             throw new RequestError('At least one document is required', 400);
         }
 
+        // Validate all documents before processing
         for (const doc of documents) {
             this.validateDocument(doc.file);
         }
@@ -72,6 +97,7 @@ export class CuratorVerificationService {
             }
         });
 
+        // Upload documents and create records
         const uploadedDocs = [];
         for (const doc of documents) {
             const uploadResult = await StorageService.upload(doc.file, {
@@ -79,6 +105,7 @@ export class CuratorVerificationService {
                 tags: ['curator_verification', curatorId]
             });
 
+            // Create media record for uploaded document
             const media = await prisma.media.create({
                 data: {
                     filename: uploadResult.path.split('/').pop()!,
@@ -94,6 +121,7 @@ export class CuratorVerificationService {
                 }
             });
 
+            // Link document to application
             const verificationDoc = await prisma.curatorVerificationDocument.create({
                 data: {
                     applicationId: application.id,
@@ -154,6 +182,10 @@ export class CuratorVerificationService {
         });
     }
 
+    /**
+     * Get all verification applications and history for a curator
+     * Returns applications ordered by submission date (newest first)
+     */
     static async getApplicationStatus(curatorId: string) {
         const applications = await prisma.curatorVerificationApplication.findMany({
             where: { curatorId },
@@ -178,13 +210,20 @@ export class CuratorVerificationService {
         };
     }
 
+    /**
+     * List verification applications with pagination and filtering
+     * Supports filtering by status and submission date range
+     * Returns applications with curator and document details
+     */
     static async listPendingApplications(page: number = 1, limit: number = 15, filters?: any) {
         const skip = (page - 1) * limit;
 
+        // Build filter conditions
         const where: any = {
             status: filters?.status || VerificationStatus.PENDING
         };
 
+        // Filter by submission date range
         if (filters?.submittedAfter) {
             where.submittedAt = { gte: new Date(filters.submittedAfter) };
         }
@@ -234,6 +273,11 @@ export class CuratorVerificationService {
         };
     }
 
+    /**
+     * Get a specific verification application by ID
+     * If adminId is provided, tracks view event and creates history entry
+     * Returns application with full curator, document, and history details
+     */
     static async getApplicationById(applicationId: string, adminId?: string) {
         const application = await prisma.curatorVerificationApplication.findUnique({
             where: { id: applicationId },
@@ -268,6 +312,7 @@ export class CuratorVerificationService {
             throw new RequestError('Application not found', 404);
         }
 
+        // Track admin view for audit purposes
         if (adminId) {
             trackBusinessEvent(EventType.CURATOR_VERIFICATION_VIEWED, adminId, {
                 applicationId,
@@ -290,6 +335,11 @@ export class CuratorVerificationService {
         return application;
     }
 
+    /**
+     * Review and approve or reject a verification application
+     * Updates application status, curator verification status, and creates history entry
+     * Sends email notification to curator with result
+     */
     static async reviewApplication(data: ReviewApplicationData) {
         const { applicationId, adminId, status, notes } = data;
 
@@ -308,10 +358,12 @@ export class CuratorVerificationService {
             throw new RequestError('Application not found', 404);
         }
 
+        // Only pending applications can be reviewed
         if (application.status !== VerificationStatus.PENDING) {
             throw new RequestError('This application has already been reviewed', 400);
         }
 
+        // Update application and curator status in a transaction
         const [updatedApplication, updatedCurator] = await prisma.$transaction([
             prisma.curatorVerificationApplication.update({
                 where: { id: applicationId },
@@ -329,6 +381,7 @@ export class CuratorVerificationService {
                     }
                 }
             }),
+            // Update curator's verification status
             prisma.curator.update({
                 where: { id: application.curatorId },
                 data: {
@@ -352,6 +405,7 @@ export class CuratorVerificationService {
             }
         });
 
+        // Track review event
         const eventType = status === VerificationStatus.VERIFIED 
             ? EventType.CURATOR_VERIFICATION_APPROVED 
             : EventType.CURATOR_VERIFICATION_REJECTED;
@@ -362,6 +416,7 @@ export class CuratorVerificationService {
             notes
         });
 
+        // Prepare email notification
         const emailSubject = status === VerificationStatus.VERIFIED
             ? 'Curator Verification Approved'
             : 'Curator Verification Application Update';
@@ -392,6 +447,10 @@ export class CuratorVerificationService {
         return updatedApplication;
     }
 
+    /**
+     * Validate document file size and MIME type
+     * Throws RequestError if validation fails
+     */
     private static validateDocument(file: Express.Multer.File) {
         if (file.size > this.MAX_FILE_SIZE) {
             throw new RequestError(

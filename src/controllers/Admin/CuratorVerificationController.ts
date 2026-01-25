@@ -6,7 +6,21 @@ import Resource from '../../resources/index';
 import { validate } from "../../utils/validator";
 import { RequestError } from "../../utils/errors";
 
+/**
+ * AdminCuratorVerificationController
+ *
+ * Handles admin operations for curator verification including:
+ * - Listing and filtering verification applications
+ * - Viewing application details
+ * - Approving or rejecting verification applications
+ */
 export default class AdminCuratorVerificationController extends BaseController {
+    /**
+     * List all verification applications with filtering and pagination
+     * Supports filtering by status and submission date range
+     *
+     * GET /api/admin/curator-verifications
+     */
     index = async (req: Request, res: Response) => {
         const { page, limit, status, submittedAfter, submittedBefore } = validate(req.query, {
             page: 'nullable|integer|min:1',
@@ -39,6 +53,12 @@ export default class AdminCuratorVerificationController extends BaseController {
             });
     }
 
+    /**
+     * Get a specific verification application by ID
+     * Tracks admin view event and creates history entry
+     *
+     * GET /api/admin/curator-verifications/:id
+     */
     show = async (req: Request, res: Response) => {
         const applicationId = String(req.params.id);
 
@@ -57,6 +77,12 @@ export default class AdminCuratorVerificationController extends BaseController {
             });
     }
 
+    /**
+     * Approve a verification application
+     * Updates curator verification status and sends approval email
+     *
+     * POST /api/admin/curator-verifications/:id/approve
+     */
     approve = async (req: Request, res: Response) => {
         const applicationId = String(req.params.id);
 
@@ -81,6 +107,12 @@ export default class AdminCuratorVerificationController extends BaseController {
             });
     }
 
+    /**
+     * Reject a verification application
+     * Updates curator verification status and sends rejection email with reason
+     *
+     * POST /api/admin/curator-verifications/:id/reject
+     */
     reject = async (req: Request, res: Response) => {
         const applicationId = String(req.params.id);
 

@@ -5,7 +5,21 @@ import Resource from '../../resources/index';
 import { validate } from "../../utils/validator";
 import { RequestError } from "../../utils/errors";
 
+/**
+ * CuratorVerificationController
+ *
+ * Handles curator operations for verification including:
+ * - Submitting verification applications with documents
+ * - Checking application status and history
+ */
 export default class CuratorVerificationController extends BaseController {
+    /**
+     * Submit a new verification application
+     * Requires at least one document upload with metadata
+     * Prevents duplicate pending applications
+     *
+     * POST /api/curator/verification/submit
+     */
     submit = async (req: Request, res: Response) => {
         const curator = await this.getCurator(req);
 
@@ -54,6 +68,12 @@ export default class CuratorVerificationController extends BaseController {
             });
     }
 
+    /**
+     * Get verification application status and history for the current curator
+     * Returns all applications and their history for the authenticated curator
+     *
+     * GET /api/curator/verification/status
+     */
     getStatus = async (req: Request, res: Response) => {
         const curator = await this.getCurator(req);
 
@@ -69,6 +89,10 @@ export default class CuratorVerificationController extends BaseController {
             });
     }
 
+    /**
+     * Helper method to get the curator profile for the authenticated user
+     * Throws error if curator profile not found
+     */
     private getCurator = async (req: Request) => {
         const { prisma } = await import('../../db');
         

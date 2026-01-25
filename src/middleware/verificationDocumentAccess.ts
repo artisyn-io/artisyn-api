@@ -4,6 +4,18 @@ import { RequestError } from "../utils/errors";
 import ErrorHandler from "../utils/request-handlers";
 import { UserRole } from "@prisma/client";
 
+/**
+ * Middleware to verify access to curator verification documents
+ * 
+ * Access rules:
+ * - Admins can access any verification document
+ * - Curators can only access their own verification documents
+ * - Documents must be tagged with 'curator_verification'
+ * 
+ * @param req - Express request object (expects mediaId in params or query)
+ * @param res - Express response object
+ * @param next - Express next function
+ */
 export const canAccessVerificationDocument = async (
     req: Request,
     res: Response,
@@ -40,6 +52,7 @@ export const canAccessVerificationDocument = async (
             return ErrorHandler(new RequestError("Document not found", 404), req, res);
         }
 
+        // Verify document is a verification document
         if (!media.tags.includes('curator_verification')) {
             return ErrorHandler(
                 new RequestError("This is not a verification document", 403),
@@ -48,8 +61,10 @@ export const canAccessVerificationDocument = async (
             );
         }
 
+        // Check access permissions
         const isAdmin = user.role === UserRole.ADMIN;
         
+        // Check if user is the curator who submitted the application
         const isOwner = media.verificationApplicationDocs.some(
             doc => doc.application.curator.userId === user.id
         );
