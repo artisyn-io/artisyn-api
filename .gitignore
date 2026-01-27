@@ -50,4 +50,5 @@ prisma/.env
 
 # Pnpm
 .pnpm-store/
+package-lock.json
 pnpm-lock.yaml

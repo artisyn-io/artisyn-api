@@ -77,12 +77,102 @@ GET    /api/search/suggestions → Get search suggestions
 
 ### 📝 Reviews API
 
+#### Basic CRUD
 ```
-GET    /api/reviews            → Get all reviews (with pagination)
+GET    /api/reviews            → Get all reviews (with pagination and filters)
 GET    /api/reviews/:id        → Get a specific review
-POST   /api/reviews            → Create a review
-PUT    /api/reviews/:id        → Update review (author only)
+POST   /api/reviews            → Create a review (rate limited: 10/15min)
+PUT    /api/reviews/:id        → Update review (author only, while pending)
 DELETE /api/reviews/:id        → Delete review (author or admin only)
+```
+
+**Query Parameters for GET /api/reviews:**
+
+- `page` - Page number for pagination
+- `perPage` - Items per page (max 100)
+- `authorId` - Filter by review author
+- `targetId` - Filter by reviewed curator
+- `artisanId` - Filter by artisan
+- `rating` - Filter by exact rating (1-5)
+- `status` - Filter by status (admin only): PENDING, APPROVED, REJECTED
+- `orderBy` - Sort by: id, rating, createdAt (default)
+- `orderDir` - Sort direction: asc, desc (default)
+
+#### Moderation (Admin Only)
+```
+GET    /api/reviews/moderation-queue    → Get pending reviews for moderation
+PUT    /api/reviews/:id/moderate        → Approve or reject a review
+```
+
+**Body for PUT /api/reviews/:id/moderate:**
+```json
+{
+  "status": "APPROVED | REJECTED"
+}
+```
+
+#### Curator Responses
+```
+POST   /api/reviews/:id/respond → Add response to review (target curator only)
+PUT    /api/reviews/:id/respond → Update response (target curator only)
+DELETE /api/reviews/:id/respond → Delete response (curator or admin)
+```
+
+**Body for POST/PUT /api/reviews/:id/respond:**
+```json
+{
+  "content": "Response text (1-500 chars)"
+}
+```
+
+#### Abuse Reporting
+```
+POST   /api/reviews/:id/report      → Report a review (rate limited: 5/hour)
+GET    /api/reviews/reports         → Get all reports (admin only)
+PUT    /api/reviews/reports/:id     → Resolve a report (admin only)
+```
+
+**Body for POST /api/reviews/:id/report:**
+```json
+{
+  "reason": "SPAM | INAPPROPRIATE | FAKE | HARASSMENT | OFF_TOPIC | OTHER",
+  "details": "Optional details (max 500 chars)"
+}
+```
+
+**Body for PUT /api/reviews/reports/:id:**
+```json
+{
+  "status": "DISMISSED | ACTION_TAKEN",
+  "resolution": "Optional resolution notes"
+}
+```
+
+#### Rating Aggregation
+```
+GET    /api/reviews/aggregation/:targetId → Get rating statistics for a curator
+```
+
+**Response for GET /api/reviews/aggregation/:targetId:**
+```json
+{
+  "targetId": "uuid",
+  "totalReviews": 42,
+  "averageRating": 4.25,
+  "ratingDistribution": {
+    "1": 2,
+    "2": 3,
+    "3": 5,
+    "4": 12,
+    "5": 20
+  }
+}
+```
+
+#### Resource-Specific Reviews
+```
+GET    /api/artisans/:id/reviews  → Get reviews for a specific artisan
+GET    /api/curators/:id/reviews  → Get reviews for a specific curator
 ```
 
 ---

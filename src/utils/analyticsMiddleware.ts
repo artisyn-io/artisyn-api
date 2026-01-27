@@ -13,9 +13,9 @@ export const analyticsMiddleware = async (
   next: NextFunction
 ) => {
   const startTime = Date.now();
-
+ 
   // Skip analytics tracking for the analytics endpoints themselves
-  if (req.path.startsWith('/api/analytics')) {
+  if (req.path.startsWith('/api/admin/analytics')) {
     return next();
   }
 

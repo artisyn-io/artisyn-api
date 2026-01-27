@@ -8,21 +8,26 @@ The Artisyn Analytics System provides comprehensive tracking, aggregation, and r
 
 ## Event Types
 
-| Event Type              | Description                 | Tracked Data                            |
-| ----------------------- | --------------------------- | --------------------------------------- |
-| `API_CALL`              | All API endpoint requests   | endpoint, method, status, response time |
-| `USER_SIGNUP`           | New user registration       | anonymized user ID                      |
-| `USER_LOGIN`            | User authentication         | anonymized user ID                      |
-| `ARTISAN_CREATED`       | New artisan listing created | artisan ID, category ID                 |
-| `ARTISAN_UPDATED`       | Artisan listing modified    | artisan ID, category ID                 |
-| `ARTISAN_VIEWED`        | Artisan listing viewed      | artisan ID, category ID                 |
-| `CONTACT_INFO_ACCESSED` | Contact details accessed    | artisan ID, accessed fields             |
-| `LISTING_ENGAGEMENT`    | User engagement metrics     | artisan ID, engagement type             |
-| `REVIEW_CREATED`        | New review submitted        | review ID, artisan ID                   |
-| `TIP_SENT`              | Payment tip sent            | tip ID, amount                          |
-| `CATEGORY_VIEWED`       | Category browsed            | category ID                             |
-| `SEARCH_PERFORMED`      | Search query executed       | query terms                             |
-| `ERROR_OCCURRED`        | Error events                | error type, stack trace                 |
+The analytics subsystem also serves as the **activity logging** system. Event types capture both usage analytics and security-/activity-related events.
+
+| Event Type                  | Description                          | Tracked Data                            |
+| --------------------------- | ------------------------------------ | --------------------------------------- |
+| `API_CALL`                  | All API endpoint requests            | endpoint, method, status, response time |
+| `USER_SIGNUP`               | New user registration                | anonymized user ID                      |
+| `USER_LOGIN`                | Successful user authentication       | anonymized user ID                      |
+| `ARTISAN_CREATED`           | New artisan listing created          | artisan ID, category ID                 |
+| `ARTISAN_UPDATED`           | Artisan listing modified             | artisan ID, category ID                 |
+| `ARTISAN_VIEWED`            | Artisan listing viewed               | artisan ID, category ID                 |
+| `CONTACT_INFO_ACCESSED`     | Contact details accessed             | artisan ID, accessed fields             |
+| `LISTING_ENGAGEMENT`        | User engagement metrics              | artisan ID, engagement type             |
+| `REVIEW_CREATED`            | New review submitted                 | review ID, artisan ID                   |
+| `TIP_SENT`                  | Payment tip sent                     | tip ID, amount                          |
+| `CATEGORY_VIEWED`           | Category browsed                     | category ID                             |
+| `SEARCH_PERFORMED`          | Search query executed                | query terms                             |
+| `ERROR_OCCURRED`            | Error events                         | error type, stack trace                 |
+| `LOGIN_FAILED`              | Failed authentication attempt        | anonymized user ID, IP hash             |
+| `PASSWORD_RESET_REQUESTED`  | Password reset flow initiated        | anonymized user ID                      |
+| `ADMIN_ACTION`              | Privileged/admin action performed    | action type, target entity              |
 
 ---
 
@@ -48,7 +53,7 @@ All personal data is anonymized before storage:
 
 ## API Endpoints
 
-All analytics endpoints require authentication and are mounted at `/api/admin/analytics`.
+All analytics (activity logging) endpoints require authentication and are mounted at `/api/admin/analytics`.
 
 ### GET /api/admin/analytics
 
@@ -134,12 +139,38 @@ Manually trigger aggregation report generation.
 
 ### DELETE /api/admin/analytics/cleanup
 
-Clean up old analytics data (GDPR compliance).
+Clean up old analytics/activity data (GDPR compliance).
 
 **Query Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `retentionDays` | integer | 90 | Keep data for this many days |
+
+### GET /api/admin/analytics/export
+
+Export filtered analytics/activity events for offline analysis.
+
+**Query Parameters (subset):**
+| Parameter   | Type    | Description                                              |
+|------------|---------|----------------------------------------------------------|
+| `eventType`| string  | Filter by event type (e.g., `API_CALL`, `LOGIN_FAILED`)  |
+| `startDate`| ISO 8601| Filter events after this date                            |
+| `endDate`  | ISO 8601| Filter events before this date                           |
+| `endpoint` | string  | Filter by API endpoint path                              |
+| `userId`   | string  | Filter by logical user ID (mapped to anonymized value)   |
+| `limit`    | integer | Max number of events to export (bounded server-side)     |
+| `format`   | string  | `json` (default) or `csv`                                |
+
+### GET /api/admin/analytics/anomalies
+
+Retrieve detected security/reliability anomalies over a recent time window.
+
+**Query Parameters:**
+| Parameter       | Type    | Default | Description                                           |
+|----------------|---------|---------|-------------------------------------------------------|
+| `windowMinutes`| integer | 60      | Look-back window for anomaly detection (in minutes)   |
+
+The response contains a list of anomaly descriptors, including type, severity, and context.
 
 ---
 

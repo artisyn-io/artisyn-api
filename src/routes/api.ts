@@ -2,6 +2,7 @@ import CategoryController from "src/controllers/CategoryController";
 import { Router, Request, Response } from "express";
 
 const router = Router();
+const reviewController = new ReviewController();
 
 router.get("/", (req: Request, res: Response) => {
   res.json({
