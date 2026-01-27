@@ -1,19 +1,20 @@
 import { performance } from "perf_hooks";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ArtisanSearchController from "../ArtisanSearchController";
 import { prisma } from "../../db";
 
 // Mock the dependencies
-jest.mock("../../db", () => ({
+vi.mock("../../db", () => ({
   prisma: {
     artisan: {
-      findMany: jest.fn(),
-      count: jest.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
     },
   },
 }));
 
-jest.mock("../../utils/analyticsMiddleware", () => ({
-  trackBusinessEvent: jest.fn(),
+vi.mock("../../utils/analyticsMiddleware", () => ({
+  trackBusinessEvent: vi.fn(),
 }));
 
 describe("ArtisanSearchController Performance Tests", () => {
@@ -28,24 +29,24 @@ describe("ArtisanSearchController Performance Tests", () => {
       user: { id: "test-user-id" },
     };
     mockResponse = {
-      json: jest.fn().mockReturnThis(),
-      status: jest.fn().mockReturnThis(),
-      additional: jest.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+      status: vi.fn().mockReturnThis(),
+      additional: vi.fn().mockReturnThis(),
     };
 
     // Mock pagination method from BaseController
-    (controller as any).pagination = jest.fn().mockReturnValue({
+    (controller as any).pagination = vi.fn().mockReturnValue({
       take: 20,
       skip: 0,
-      meta: jest.fn().mockReturnValue({ page: 1, totalPages: 1 }),
+      meta: vi.fn().mockReturnValue({ page: 1, totalPages: 1 }),
     });
 
     // Mock validate method from BaseController
-    (controller as any).validate = jest.fn().mockReturnValue({});
+    (controller as any).validate = vi.fn().mockReturnValue({});
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("Search Performance", () => {
@@ -75,8 +76,8 @@ describe("ArtisanSearchController Performance Tests", () => {
         })),
       }));
 
-      (prisma.artisan.findMany as jest.Mock).mockResolvedValue(mockArtisans);
-      (prisma.artisan.count as jest.Mock).mockResolvedValue(1000);
+      (prisma.artisan.findMany as any).mockResolvedValue(mockArtisans);
+      (prisma.artisan.count as any).mockResolvedValue(1000);
 
       mockRequest.query = { search: "Artisan" };
 
@@ -107,8 +108,8 @@ describe("ArtisanSearchController Performance Tests", () => {
         reviews: Array.from({ length: 3 }, (_, j) => ({ rating: 5 })),
       }));
 
-      (prisma.artisan.findMany as jest.Mock).mockResolvedValue(mockArtisans);
-      (prisma.artisan.count as jest.Mock).mockResolvedValue(500);
+      (prisma.artisan.findMany as any).mockResolvedValue(mockArtisans);
+      (prisma.artisan.count as any).mockResolvedValue(500);
 
       mockRequest.query = {
         search: "Woodworking",
@@ -154,8 +155,8 @@ describe("ArtisanSearchController Performance Tests", () => {
         reviews: [],
       }));
 
-      (prisma.artisan.findMany as jest.Mock).mockResolvedValue(mockArtisans);
-      (prisma.artisan.count as jest.Mock).mockResolvedValue(30);
+      (prisma.artisan.findMany as any).mockResolvedValue(mockArtisans);
+      (prisma.artisan.count as any).mockResolvedValue(30);
 
       mockRequest.query = {
         latitude: "40.7128",
@@ -197,8 +198,8 @@ describe("ArtisanSearchController Performance Tests", () => {
         reviews: [],
       }));
 
-      (prisma.artisan.findMany as jest.Mock).mockResolvedValue(mockArtisans);
-      (prisma.artisan.count as jest.Mock).mockResolvedValue(100000); // Large dataset
+      (prisma.artisan.findMany as any).mockResolvedValue(mockArtisans);
+      (prisma.artisan.count as any).mockResolvedValue(100000); // Large dataset
 
       mockRequest.query = { page: "50", limit: "20" }; // Deep pagination
 
@@ -218,7 +219,7 @@ describe("ArtisanSearchController Performance Tests", () => {
         category: { name: "Test Category" },
       }));
 
-      (prisma.artisan.findMany as jest.Mock).mockResolvedValue(mockSuggestions);
+      (prisma.artisan.findMany as any).mockResolvedValue(mockSuggestions);
 
       mockRequest.query = { query: "Test" };
 
@@ -255,8 +256,8 @@ describe("ArtisanSearchController Performance Tests", () => {
         reviews: Array.from({ length: 5 }, (_, j) => ({ rating: 5 })),
       }));
 
-      (prisma.artisan.findMany as jest.Mock).mockResolvedValue(mockArtisans);
-      (prisma.artisan.count as jest.Mock).mockResolvedValue(1000);
+      (prisma.artisan.findMany as any).mockResolvedValue(mockArtisans);
+      (prisma.artisan.count as any).mockResolvedValue(1000);
 
       mockRequest.query = { search: "Test" };
 
