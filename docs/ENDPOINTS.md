@@ -53,16 +53,61 @@ DELETE /api/users/:id          → Delete user account (self only)
 
 ---
 
-### 🔐 Authentication API
+### 👥 User Profile & Preferences API
 
+**User Profile Endpoints:**
 ```
-POST   /api/auth/login         → User login
-POST   /api/auth/register      → User registration
-POST   /api/auth/logout        → User logout
-POST   /api/auth/refresh       → Refresh auth token
-POST   /api/auth/forgot-password → Request password reset
-POST   /api/auth/reset-password  → Reset password with token
+GET    /api/profile            → Get current user's profile
+POST   /api/profile            → Update user's profile
+GET    /api/profile/completion → Get profile completion percentage
+GET    /api/profile/:userId/public → Get public profile of another user
+DELETE /api/profile            → Delete user's profile
 ```
+
+**User Preferences Endpoints:**
+```
+GET    /api/preferences                        → Get user's preferences
+POST   /api/preferences                        → Update all preferences
+POST   /api/preferences/notifications          → Update notification preferences
+POST   /api/preferences/two-factor/toggle      → Toggle 2FA
+POST   /api/preferences/reset                  → Reset preferences to defaults
+```
+
+**Privacy Settings Endpoints:**
+```
+GET    /api/privacy                            → Get privacy settings
+POST   /api/privacy                            → Update privacy settings
+POST   /api/privacy/visibility                 → Update profile visibility
+POST   /api/privacy/block                      → Block a user
+POST   /api/privacy/unblock                    → Unblock a user
+GET    /api/privacy/blocklist                  → Get list of blocked users
+POST   /api/privacy/retention                  → Update data retention policy
+```
+
+**Account Linking Endpoints:**
+```
+GET    /api/account-links                      → Get all linked accounts
+POST   /api/account-links                      → Link a new social account
+GET    /api/account-links/:provider            → Get specific linked account
+DELETE /api/account-links/:provider            → Unlink a social account
+POST   /api/account-links/check-availability   → Check if provider available
+POST   /api/account-links/verify               → Verify account link ownership
+```
+
+**GDPR Data Export & Account Deletion:**
+```
+POST   /api/data-export/request                → Request data export (GDPR)
+GET    /api/data-export/requests               → Get all export requests
+GET    /api/data-export/:requestId/status      → Get export status
+GET    /api/data-export/:requestId/download    → Download exported data
+POST   /api/data-export/:requestId/cancel      → Cancel export request
+POST   /api/account/deletion-request           → Request account deletion (30-day delay)
+POST   /api/account/cancel-deletion            → Cancel pending deletion
+```
+
+For detailed API documentation, see [USER_PROFILE_PREFERENCES_API.md](./USER_PROFILE_PREFERENCES_API.md)
+
+---
 
 ---
 
