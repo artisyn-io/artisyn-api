@@ -3,15 +3,14 @@ import ProfileController from 'src/controllers/ProfileController';
 import PreferencesController from 'src/controllers/PreferencesController';
 import PrivacySettingsController from 'src/controllers/PrivacySettingsController';
 import AccountLinkingController from 'src/controllers/AccountLinkingController';
-import DataExportController from 'src/controllers/DataExportController';
-import { Router } from 'express';
-import ReviewController from "src/controllers/ReviewController";
-import { Router } from "express";
+import DataExportController from 'src/controllers/DataExportController'; 
+import ReviewController from "src/controllers/ReviewController"; 
+import { Router, Request, Response } from "express";
 
 const router = Router();
 const reviewController = new ReviewController();
 
-router.get("/", (req, res) => {
+router.get("/", (req: Request, res: Response) => {
   res.json({
     data: {
       message: "Welcome to Artisyn API",
@@ -29,8 +28,8 @@ router.get('/categories/:id', new CategoryController().show);
 router.get("/categories", new CategoryController().index);
 
 
-// Get reviews for a specific artisan
-router.get("/artisans/:id/reviews", reviewController.artisanReviews);
+// Artisan search and listing endpoints
+router.use("/artisans", (await import("./api/artisans")).default);
 
 // Get reviews for a specific curator
 router.get("/curators/:id/reviews", reviewController.curatorReviews);
@@ -75,4 +74,4 @@ router.post('/data-export/:requestId/cancel', new DataExportController().cancelE
 router.post('/account/deletion-request', new DataExportController().requestAccountDeletion);
 router.post('/account/cancel-deletion', new DataExportController().cancelAccountDeletion);
 
-export default router;
+export default router; 
