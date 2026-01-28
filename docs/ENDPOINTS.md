@@ -259,3 +259,132 @@ DELETE /api/admin/analytics/cleanup        → Clean up old analytics data (GDPR
 - `retentionDays` - Keep data for this many days (default: 90)
 
 ---
+
+### ✅ Curator Verification API
+
+#### Curator Endpoints
+
+```
+POST   /api/curator/verification/submit    → Submit verification application with documents
+GET    /api/curator/verification/status    → Get verification status and history
+```
+
+**POST /api/curator/verification/submit:**
+
+- Requires `CURATOR` role
+- Content-Type: `multipart/form-data`
+- Max file size: 250KB per document
+- Allowed file types: PDF, JPEG, PNG, WebP
+- Max documents: 10
+
+**Body Parameters:**
+
+- `documents` (form-data, required): Array of files
+- `documents` (JSON string, required): Document metadata array
+
+**Example `documents` metadata:**
+```json
+[
+  {
+    "document_type": "government_id",
+    "document_name": "National ID Card"
+  },
+  {
+    "document_type": "professional_certificate",
+    "document_name": "Art Certification"
+  }
+]
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Verification application submitted successfully",
+  "code": 201,
+  "data": {
+    "id": "uuid",
+    "curatorId": "uuid",
+    "status": "PENDING",
+    "submittedAt": "2026-01-25T12:00:00Z",
+    "documents": [
+      {
+        "id": "uuid",
+        "documentType": "government_id",
+        "documentName": "National ID Card",
+        "media": { ... }
+      }
+    ]
+  }
+}
+```
+
+**GET /api/curator/verification/status:**
+
+Returns curator's verification applications and history.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "applications": [ ... ],
+    "history": [ ... ]
+  }
+}
+```
+
+---
+
+#### Admin Endpoints
+
+```
+GET    /api/admin/curator-verifications           → List all verification applications
+GET    /api/admin/curator-verifications/:id       → Get single application details
+PUT    /api/admin/curator-verifications/:id/approve → Approve verification application
+PUT    /api/admin/curator-verifications/:id/reject  → Reject verification application
+```
+
+**GET /api/admin/curator-verifications:**
+
+**Query Parameters:**
+
+- `page` - Page number (default: 1)
+- `limit` - Items per page (default: 15, max: 100)
+- `status` - Filter by status: PENDING, VERIFIED, REJECTED
+- `submittedAfter` - Filter applications submitted after date (ISO 8601)
+- `submittedBefore` - Filter applications submitted before date (ISO 8601)
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": [ ... ],
+  "pagination": {
+    "total": 42,
+    "page": 1,
+    "limit": 15,
+    "pages": 3
+  }
+}
+```
+
+**PUT /api/admin/curator-verifications/:id/approve:**
+
+**Body:**
+```json
+{
+  "notes": "Optional approval notes"
+}
+```
+
+**PUT /api/admin/curator-verifications/:id/reject:**
+
+**Body:**
+```json
+{
+  "reason": "Required rejection reason (min 10 chars)"
+}
+```
+
+---

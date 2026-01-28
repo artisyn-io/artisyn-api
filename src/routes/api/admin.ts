@@ -1,5 +1,6 @@
 import AnalyticsController from 'src/controllers/AnalyticsController';
 import CategoryController from 'src/controllers/Admin/CategoryController';
+import AdminCuratorVerificationController from 'src/controllers/Admin/CuratorVerificationController';
 import { Router } from 'express';
 import { authenticateToken } from 'src/utils/helpers';
 import multer from 'multer';
@@ -24,5 +25,12 @@ router.get('/analytics/export', authenticateToken, analyticsController.export);
 router.get('/analytics/anomalies', authenticateToken, analyticsController.anomalies);
 router.post('/analytics/aggregate', authenticateToken, analyticsController.create);
 router.delete('/analytics/cleanup', authenticateToken, analyticsController.delete);
+
+// Curator verification routes (admin)
+const verificationController = new AdminCuratorVerificationController();
+router.get('/curator-verifications', authenticateToken, verificationController.index);
+router.get('/curator-verifications/:id', authenticateToken, verificationController.show);
+router.put('/curator-verifications/:id/approve', authenticateToken, upload.none(), verificationController.approve);
+router.put('/curator-verifications/:id/reject', authenticateToken, upload.none(), verificationController.reject);
 
 export default router;
