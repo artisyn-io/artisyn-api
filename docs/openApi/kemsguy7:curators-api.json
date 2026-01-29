@@ -1,0 +1,517 @@
+{
+  "name": "Curators",
+  "id": 4200000,
+  "auth": {},
+  "securityScheme": {},
+  "parentId": 0,
+  "serverId": "",
+  "description": "Curator listing and profile preview endpoints (public)",
+  "identityPattern": {
+    "httpApi": {
+      "type": "inherit",
+      "bodyType": "",
+      "fields": []
+    }
+  },
+  "shareSettings": {},
+  "visibility": "INHERITED",
+  "preProcessors": [
+    {
+      "id": "inheritProcessors",
+      "type": "inheritProcessors",
+      "data": {}
+    }
+  ],
+  "postProcessors": [
+    {
+      "id": "inheritProcessors",
+      "type": "inheritProcessors",
+      "data": {}
+    }
+  ],
+  "inheritPostProcessors": {},
+  "inheritPreProcessors": {},
+  "items": [
+    {
+      "name": "List Curators",
+      "api": {
+        "id": "17200001",
+        "method": "get",
+        "path": "/curators",
+        "parameters": {
+          "query": [
+            {
+              "required": false,
+              "description": "Page number for pagination",
+              "type": "integer",
+              "id": "curators_page",
+              "enable": true,
+              "name": "page",
+              "example": "1",
+              "schema": {
+                "type": ["integer", "null"],
+                "default": 1
+              }
+            },
+            {
+              "required": false,
+              "description": "Items per page",
+              "type": "integer",
+              "id": "curators_limit",
+              "enable": true,
+              "name": "limit",
+              "example": "15",
+              "schema": {
+                "type": ["integer", "null"],
+                "default": 15
+              }
+            },
+            {
+              "required": false,
+              "description": "Search by name, email, or specialty",
+              "type": "string",
+              "id": "curators_search",
+              "enable": true,
+              "name": "search",
+              "example": "John"
+            },
+            {
+              "required": false,
+              "description": "Filter by verification status",
+              "type": "string",
+              "id": "curators_verification_status",
+              "enable": true,
+              "name": "verificationStatus",
+              "schema": {
+                "type": ["string", "null"],
+                "enum": ["PENDING", "VERIFIED", "REJECTED"],
+                "x-apidog-enum": [
+                  {
+                    "value": "PENDING",
+                    "name": "Pending",
+                    "description": ""
+                  },
+                  {
+                    "value": "VERIFIED",
+                    "name": "Verified",
+                    "description": ""
+                  },
+                  {
+                    "value": "REJECTED",
+                    "name": "Rejected",
+                    "description": ""
+                  }
+                ]
+              },
+              "example": "VERIFIED"
+            },
+            {
+              "required": false,
+              "description": "Filter by specialty",
+              "type": "string",
+              "id": "curators_specialty",
+              "enable": true,
+              "name": "specialty",
+              "example": "Art"
+            },
+            {
+              "required": false,
+              "description": "Minimum years of experience",
+              "type": "integer",
+              "id": "curators_min_experience",
+              "enable": true,
+              "name": "minExperience",
+              "example": "5"
+            },
+            {
+              "required": false,
+              "description": "Show only verified curators",
+              "type": "boolean",
+              "id": "curators_verified",
+              "enable": true,
+              "name": "verified",
+              "example": "true",
+              "schema": {
+                "type": ["boolean", "null"],
+                "default": true
+              }
+            }
+          ],
+          "path": [],
+          "cookie": [],
+          "header": []
+        },
+        "auth": {},
+        "securityScheme": {},
+        "commonParameters": {
+          "query": [],
+          "body": [],
+          "cookie": [],
+          "header": []
+        },
+        "responses": [
+          {
+            "id": "24200001",
+            "code": 200,
+            "name": "OK",
+            "headers": [],
+            "jsonSchema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "userId": {
+                        "type": "string"
+                      },
+                      "verificationStatus": {
+                        "type": "string"
+                      },
+                      "specialties": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "experience": {
+                        "type": "integer"
+                      },
+                      "portfolio": {
+                        "type": ["string", "null"]
+                      },
+                      "certificates": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "verifiedAt": {
+                        "type": ["string", "null"]
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "type": "string"
+                      },
+                      "user": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "firstName": {
+                            "type": "string"
+                          },
+                          "lastName": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "avatar": {
+                            "type": ["string", "null"]
+                          },
+                          "bio": {
+                            "type": ["string", "null"]
+                          },
+                          "phone": {
+                            "type": ["string", "null"]
+                          },
+                          "emailVerifiedAt": {
+                            "type": ["string", "null"]
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "userId",
+                      "verificationStatus",
+                      "specialties",
+                      "experience",
+                      "createdAt",
+                      "updatedAt"
+                    ]
+                  }
+                },
+                "status": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "integer"
+                },
+                "meta": {
+                  "type": "object",
+                  "properties": {
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "integer"
+                        },
+                        "to": {
+                          "type": "integer"
+                        },
+                        "perPage": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "required": ["data", "status", "message", "code"]
+            },
+            "description": "",
+            "contentType": "json",
+            "mediaType": "",
+            "oasExtensions": ""
+          }
+        ],
+        "responseExamples": [],
+        "requestBody": {
+          "type": "none",
+          "parameters": [],
+          "mediaType": "",
+          "examples": [],
+          "oasExtensions": ""
+        },
+        "description": "List all curators with search, filtering, and pagination support. Public endpoint - no authentication required.",
+        "tags": [],
+        "status": "released",
+        "serverId": "",
+        "operationId": "",
+        "sourceUrl": "",
+        "ordering": 0,
+        "cases": [],
+        "mocks": [],
+        "customApiFields": "{}",
+        "advancedSettings": {
+          "disabledSystemHeaders": {}
+        },
+        "mockScript": {},
+        "codeSamples": [],
+        "commonResponseStatus": {},
+        "responseChildren": ["BLANK.24200001"],
+        "visibility": "INHERITED",
+        "oasExtensions": "",
+        "preProcessors": [],
+        "postProcessors": [],
+        "inheritPostProcessors": {},
+        "inheritPreProcessors": {}
+      }
+    },
+    {
+      "name": "Get Curator",
+      "api": {
+        "id": "17200002",
+        "method": "get",
+        "path": "/curators/{curator_id}",
+        "parameters": {
+          "path": [
+            {
+              "id": "curator_id#curator",
+              "name": "curator_id",
+              "required": true,
+              "description": "The curator UUID",
+              "type": "string",
+              "enable": true,
+              "example": "{{curator_id}}"
+            }
+          ],
+          "query": [],
+          "cookie": [],
+          "header": []
+        },
+        "auth": {},
+        "securityScheme": {},
+        "commonParameters": {
+          "query": [],
+          "body": [],
+          "cookie": [],
+          "header": []
+        },
+        "responses": [
+          {
+            "id": "24200002",
+            "code": 200,
+            "name": "OK",
+            "headers": [],
+            "jsonSchema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "verificationStatus": {
+                      "type": "string"
+                    },
+                    "specialties": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "experience": {
+                      "type": "integer"
+                    },
+                    "portfolio": {
+                      "type": ["string", "null"]
+                    },
+                    "certificates": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "verifiedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "firstName": {
+                          "type": "string"
+                        },
+                        "lastName": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        },
+                        "avatar": {
+                          "type": ["string", "null"]
+                        },
+                        "bio": {
+                          "type": ["string", "null"]
+                        },
+                        "phone": {
+                          "type": ["string", "null"]
+                        },
+                        "emailVerifiedAt": {
+                          "type": ["string", "null"]
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "verificationStatus",
+                    "specialties",
+                    "experience",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "integer"
+                }
+              },
+              "required": ["data", "status", "message", "code"]
+            },
+            "description": "",
+            "contentType": "json",
+            "mediaType": "",
+            "oasExtensions": ""
+          },
+          {
+            "id": "24200003",
+            "code": 404,
+            "name": "Not Found",
+            "headers": [],
+            "jsonSchema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": ["status", "code", "message"]
+            },
+            "description": "",
+            "contentType": "json",
+            "mediaType": "",
+            "oasExtensions": ""
+          }
+        ],
+        "responseExamples": [],
+        "requestBody": {
+          "type": "none",
+          "parameters": [],
+          "mediaType": "",
+          "examples": [],
+          "oasExtensions": ""
+        },
+        "description": "Get a specific curator by ID with full profile details. Public endpoint - no authentication required.",
+        "tags": [],
+        "status": "released",
+        "serverId": "",
+        "operationId": "",
+        "sourceUrl": "",
+        "ordering": 1,
+        "cases": [],
+        "mocks": [],
+        "customApiFields": "{}",
+        "advancedSettings": {
+          "disabledSystemHeaders": {}
+        },
+        "mockScript": {},
+        "codeSamples": [],
+        "commonResponseStatus": {},
+        "responseChildren": ["BLANK.24200002", "BLANK.24200003"],
+        "visibility": "INHERITED",
+        "oasExtensions": "",
+        "preProcessors": [],
+        "postProcessors": [],
+        "inheritPostProcessors": {},
+        "inheritPreProcessors": {}
+      }
+    }
+  ]
+}

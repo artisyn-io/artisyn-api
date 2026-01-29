@@ -136,22 +136,26 @@ describe("Curators Controller", () => {
     // Clean up after tests
     afterAll(async () => {
         // Delete curator profiles first (foreign key constraints)
-        await prisma.curator.deleteMany({
-            where: {
-                userId: {
-                    in: [curator1?.id, curator2?.id, curator3?.id].filter(Boolean),
-                },
-            },
-        });
+        if (curator1?.id) {
+            await prisma.curator.deleteMany({ where: { userId: curator1.id } });
+        }
+        if (curator2?.id) {
+            await prisma.curator.deleteMany({ where: { userId: curator2.id } });
+        }
+        if (curator3?.id) {
+            await prisma.curator.deleteMany({ where: { userId: curator3.id } });
+        }
 
         // Delete users
-        await prisma.user.deleteMany({
-            where: {
-                id: {
-                    in: [curator1?.id, curator2?.id, curator3?.id].filter(Boolean),
-                },
-            },
-        });
+        if (curator1?.id) {
+            await prisma.user.delete({ where: { id: curator1.id } });
+        }
+        if (curator2?.id) {
+            await prisma.user.delete({ where: { id: curator2.id } });
+        }
+        if (curator3?.id) {
+            await prisma.user.delete({ where: { id: curator3.id } });
+        }
     });
 
     describe("GET /test/curators", () => {
