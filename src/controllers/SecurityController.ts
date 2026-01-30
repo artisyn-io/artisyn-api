@@ -44,7 +44,8 @@ export class SecurityController {
    */
   static async getAlerts(req: Request, res: Response) {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limitParam = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+      const limit = parseInt(limitParam as string) || 50;
       const alerts = getRecentAlerts(limit);
 
       return res.json({
@@ -67,7 +68,7 @@ export class SecurityController {
    */
   static async resolveSecurityAlert(req: Request, res: Response) {
     try {
-      const { alertId } = req.params;
+      const alertId = Array.isArray(req.params.alertId) ? req.params.alertId[0] : req.params.alertId;
       const resolved = resolveAlert(alertId);
 
       if (!resolved) {
@@ -152,7 +153,7 @@ export class SecurityController {
    */
   static async unblockIPAddress(req: Request, res: Response) {
     try {
-      const { ip } = req.params;
+      const ip = Array.isArray(req.params.ip) ? req.params.ip[0] : req.params.ip;
 
       if (!ip) {
         return res.status(400).json({
@@ -182,17 +183,18 @@ export class SecurityController {
    */
   static async getLogs(req: Request, res: Response) {
     try {
-      const limit = parseInt(req.query.limit as string) || 100;
-      const type = req.query.type as string;
-      const severity = req.query.severity as string;
+      const limitParam = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+      const limit = parseInt(limitParam as string) || 100;
+      const type = Array.isArray(req.query.type) ? req.query.type[0] : (req.query.type as string);
+      const severity = Array.isArray(req.query.severity) ? req.query.severity[0] : (req.query.severity as string);
 
       let logs = getRecentLogs(limit);
 
-      if (type) {
+      if (type && typeof type === 'string') {
         logs = logs.filter(log => log.eventType.toLowerCase().includes(type.toLowerCase()));
       }
 
-      if (severity) {
+      if (severity && typeof severity === 'string') {
         logs = logs.filter(log => log.severity === severity);
       }
 
@@ -217,7 +219,8 @@ export class SecurityController {
   static async exportLogs(req: Request, res: Response) {
     try {
       const { fileName } = req.body;
-      const limit = parseInt(req.body.limit as string) || 1000;
+      const limitParam = Array.isArray(req.body.limit) ? req.body.limit[0] : req.body.limit;
+      const limit = parseInt(limitParam as string) || 1000;
       const logs = getRecentLogs(limit);
 
       const success = exportLogsToFile(fileName || `security_logs_${Date.now()}.log`, logs);
@@ -273,7 +276,7 @@ export class SecurityController {
    */
   static async getAPIKeyDetails(req: Request, res: Response) {
     try {
-      const { keyId } = req.params;
+      const keyId = Array.isArray(req.params.keyId) ? req.params.keyId[0] : req.params.keyId;
       const apiKey = await getAPIKeyInfo(keyId);
 
       if (!apiKey) {
