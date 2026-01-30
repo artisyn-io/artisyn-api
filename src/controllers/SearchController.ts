@@ -12,10 +12,7 @@ enum SearchResultType {
 export default class SearchController extends BaseController {
      /**
       * GET /api/search
-      * 
-      * Note: Pagination is applied to each entity type separately,
-      * so results may contain up to (limit * 2) items.
-      */
+     */
      index = async (req: Request, res: Response) => {
           try {
                const { query } = validate(req.query, {
