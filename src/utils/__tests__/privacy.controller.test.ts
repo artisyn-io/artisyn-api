@@ -163,4 +163,42 @@ describe('Privacy Controller', () => {
 
     it('should validate privacy setting values', async () => {
       const req = {
-        user: { id: testUs
+        user: { id: testUserId },
+        body: {
+          profileVisibility: 'PRIVATE',
+        },
+      } as unknown as Request;
+
+      const res = {
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn(),
+      } as unknown as Response;
+
+      await updatePrivacySettings(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+  });
+
+  describe('deleteUserData', () => {
+    it('should delete user data successfully', async () => {
+      const req = {
+        user: { id: testUserId },
+      } as unknown as Request;
+
+      const res = {
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn(),
+      } as unknown as Response;
+
+      await deleteUserData(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'success',
+        })
+      );
+    });
+  });
+});
