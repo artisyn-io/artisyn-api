@@ -3,12 +3,14 @@ import ProfileController from 'src/controllers/ProfileController';
 import PreferencesController from 'src/controllers/PreferencesController';
 import PrivacySettingsController from 'src/controllers/PrivacySettingsController';
 import AccountLinkingController from 'src/controllers/AccountLinkingController';
-import DataExportController from 'src/controllers/DataExportController'; 
-import ReviewController from "src/controllers/ReviewController"; 
+import DataExportController from 'src/controllers/DataExportController';
+import ReviewController from "src/controllers/ReviewController";
+import SearchController from "src/controllers/SearchController";
 import { Router, Request, Response } from "express";
 
 const router = Router();
 const reviewController = new ReviewController();
+const searchController = new SearchController();
 
 router.get("/", (req: Request, res: Response) => {
   res.json({
@@ -26,6 +28,10 @@ router.get("/", (req: Request, res: Response) => {
 router.get('/categories', new CategoryController().index);
 router.get('/categories/:id', new CategoryController().show);
 router.get("/categories", new CategoryController().index);
+
+// Search routes (Public)
+router.get("/search", searchController.index);
+router.get("/search/suggestions", searchController.suggestions);
 
 
 // Artisan search and listing endpoints
