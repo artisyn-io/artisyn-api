@@ -215,31 +215,6 @@ describe('Analytics Performance Tests', () => {
       (prisma.analyticsEvent.deleteMany as any).mockResolvedValue({ count: 50 });
 
       const startTime = Date.now();
-    describe('Export and anomaly detection performance', () => {
-        itWithDb('should export events within 200ms', async () => {
-            const startTime = Date.now();
-
-            await AnalyticsService.exportEvents({
-                limit: 500,
-            });
-
-            const duration = Date.now() - startTime;
-            expect(duration).toBeLessThan(200);
-        });
-
-        itWithDb('should detect anomalies within 200ms', async () => {
-            const startTime = Date.now();
-
-            await AnalyticsService.detectAnomalies({ windowMinutes: 60 });
-
-            const duration = Date.now() - startTime;
-            expect(duration).toBeLessThan(200);
-        });
-    });
-
-    describe('Cleanup Performance', () => {
-        itWithDb('should cleanup old data within 500ms', async () => {
-            const startTime = Date.now();
 
       await AnalyticsService.cleanupOldData(365);
 

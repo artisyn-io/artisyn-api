@@ -514,6 +514,8 @@ model CuratorVerificationHistory {
   @@index([action])
   @@index([createdAt])
   @@map("curator_verification_history")
+}
+
 // Enum for account link providers
 enum AccountLinkProvider {
   GOOGLE
