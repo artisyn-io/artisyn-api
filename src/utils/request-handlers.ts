@@ -1,10 +1,9 @@
 import { NextFunction, Request, Response } from "express"
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 import { BaseError } from "./errors";
 import { Prisma } from "@prisma/client";
 import { env } from "./helpers";
-import { mk } from "@faker-js/faker";
 import path from "node:path";
 
 export const ErrorHandler = (err: BaseError | string, req: Request, res: Response, next?: NextFunction) => {

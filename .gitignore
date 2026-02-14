@@ -44,7 +44,8 @@ coverage/
 .temp/
 tmp/
 temp/
-storage/
+storage/**/*.logs
+!storage/logs
 
 # Prisma
 prisma/.env
