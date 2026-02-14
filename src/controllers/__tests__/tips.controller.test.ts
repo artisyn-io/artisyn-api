@@ -1,15 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { IUser } from "src/models/interfaces";
-import TipController from "src/controllers/TipController";
-import RegisterController from "src/controllers/auth/RegisterController";
-import LoginController from "src/controllers/auth/LoginController";
 import app from "../../index";
 import { faker } from "@faker-js/faker";
-import multer from "multer";
 import { prisma } from "src/db";
 import request from "supertest";
-import { authenticateToken } from "src/utils/helpers";
 
 describe("Tips Controller", () => {
     let sender: IUser;
@@ -21,30 +16,9 @@ describe("Tips Controller", () => {
     const receiverEmail = faker.internet.email();
 
     beforeAll(async () => {
-        const upload = multer();
-
-        // Register routes
-        app.post(
-            "/test/auth/signup",
-            upload.none(),
-            new RegisterController().create
-        );
-        app.post(
-            "/test/auth/login",
-            upload.none(),
-            new LoginController().create
-        );
-
-        // Tips routes
-        const tipController = new TipController();
-        app.get("/test/tips", authenticateToken, tipController.index);
-        app.get("/test/tips/:id", authenticateToken, tipController.show);
-        app.post("/test/tips", authenticateToken, upload.none(), tipController.create);
-        app.put("/test/tips/:id", authenticateToken, upload.none(), tipController.update);
-
         // Create sender user
         const senderResponse = await request(app)
-            .post("/test/auth/signup")
+            .post("/api/auth/signup")
             .send({
                 email: senderEmail,
                 lastName: faker.person.lastName(),
@@ -58,7 +32,7 @@ describe("Tips Controller", () => {
 
         // Create receiver user
         const receiverResponse = await request(app)
-            .post("/test/auth/signup")
+            .post("/api/auth/signup")
             .send({
                 email: receiverEmail,
                 lastName: faker.person.lastName(),
@@ -92,7 +66,7 @@ describe("Tips Controller", () => {
     describe("POST /tips", () => {
         it("should create a new tip", async () => {
             const response = await request(app)
-                .post("/test/tips")
+                .post("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     amount: 10,
@@ -113,7 +87,7 @@ describe("Tips Controller", () => {
 
         it("should prevent self-tipping", async () => {
             const response = await request(app)
-                .post("/test/tips")
+                .post("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     amount: 5,
@@ -125,7 +99,7 @@ describe("Tips Controller", () => {
 
         it("should validate required fields", async () => {
             const response = await request(app)
-                .post("/test/tips")
+                .post("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({});
 
@@ -134,7 +108,7 @@ describe("Tips Controller", () => {
 
         it("should validate minimum amount", async () => {
             const response = await request(app)
-                .post("/test/tips")
+                .post("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     amount: 0,
@@ -148,7 +122,7 @@ describe("Tips Controller", () => {
     describe("GET /tips", () => {
         it("should list tips for sender", async () => {
             const response = await request(app)
-                .get("/test/tips")
+                .get("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`);
 
             expect(response.statusCode).toBe(200);
@@ -159,7 +133,7 @@ describe("Tips Controller", () => {
 
         it("should list tips for receiver", async () => {
             const response = await request(app)
-                .get("/test/tips")
+                .get("/api/tips")
                 .set("Authorization", `Bearer ${receiverToken}`);
 
             expect(response.statusCode).toBe(200);
@@ -169,7 +143,7 @@ describe("Tips Controller", () => {
 
         it("should filter by type=sent", async () => {
             const response = await request(app)
-                .get("/test/tips?type=sent")
+                .get("/api/tips?type=sent")
                 .set("Authorization", `Bearer ${senderToken}`);
 
             expect(response.statusCode).toBe(200);
@@ -180,7 +154,7 @@ describe("Tips Controller", () => {
 
         it("should filter by type=received", async () => {
             const response = await request(app)
-                .get("/test/tips?type=received")
+                .get("/api/tips?type=received")
                 .set("Authorization", `Bearer ${receiverToken}`);
 
             expect(response.statusCode).toBe(200);
@@ -194,7 +168,7 @@ describe("Tips Controller", () => {
         it("should return tip for sender", async () => {
             // Create a tip first to ensure we have a valid tipId
             const createResponse = await request(app)
-                .post("/test/tips")
+                .post("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     amount: 7,
@@ -204,7 +178,7 @@ describe("Tips Controller", () => {
             const testTipId = createResponse.body.data.id;
 
             const response = await request(app)
-                .get(`/test/tips/${testTipId}`)
+                .get(`/api/tips/${testTipId}`)
                 .set("Authorization", `Bearer ${senderToken}`);
 
             expect(response.statusCode).toBe(200);
@@ -214,7 +188,7 @@ describe("Tips Controller", () => {
         it("should return tip for receiver", async () => {
             // Create a tip first
             const createResponse = await request(app)
-                .post("/test/tips")
+                .post("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     amount: 8,
@@ -224,7 +198,7 @@ describe("Tips Controller", () => {
             const testTipId = createResponse.body.data.id;
 
             const response = await request(app)
-                .get(`/test/tips/${testTipId}`)
+                .get(`/api/tips/${testTipId}`)
                 .set("Authorization", `Bearer ${receiverToken}`);
 
             expect(response.statusCode).toBe(200);
@@ -233,7 +207,7 @@ describe("Tips Controller", () => {
 
         it("should return 404 for non-existent tip", async () => {
             const response = await request(app)
-                .get("/test/tips/non-existent-id")
+                .get("/api/tips/non-existent-id")
                 .set("Authorization", `Bearer ${senderToken}`);
 
             expect(response.statusCode).toBe(404);
@@ -244,7 +218,7 @@ describe("Tips Controller", () => {
         it("should update tip status to COMPLETED with tx_hash", async () => {
             // Create a new pending tip for update test
             const createResponse = await request(app)
-                .post("/test/tips")
+                .post("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     amount: 5,
@@ -255,7 +229,7 @@ describe("Tips Controller", () => {
             const newTipId = createResponse.body.data.id;
 
             const response = await request(app)
-                .put(`/test/tips/${newTipId}`)
+                .put(`/api/tips/${newTipId}`)
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     tx_hash: "0x123abc456def",
@@ -270,7 +244,7 @@ describe("Tips Controller", () => {
         it("should update tip status to CANCELLED", async () => {
             // Create another pending tip
             const createResponse = await request(app)
-                .post("/test/tips")
+                .post("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     amount: 3,
@@ -281,7 +255,7 @@ describe("Tips Controller", () => {
             const newTipId = createResponse.body.data.id;
 
             const response = await request(app)
-                .put(`/test/tips/${newTipId}`)
+                .put(`/api/tips/${newTipId}`)
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     status: "CANCELLED",
@@ -295,7 +269,7 @@ describe("Tips Controller", () => {
         it("should deny update for non-sender", async () => {
             // Create a fresh tip for this test
             const createResponse = await request(app)
-                .post("/test/tips")
+                .post("/api/tips")
                 .set("Authorization", `Bearer ${senderToken}`)
                 .send({
                     amount: 2,
@@ -306,7 +280,7 @@ describe("Tips Controller", () => {
             const freshTipId = createResponse.body.data.id;
 
             const response = await request(app)
-                .put(`/test/tips/${freshTipId}`)
+                .put(`/api/tips/${freshTipId}`)
                 .set("Authorization", `Bearer ${receiverToken}`)
                 .send({
                     status: "CANCELLED",

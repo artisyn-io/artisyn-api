@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
-import { RequestError, ValidationError } from "src/utils/errors";
 
-import { ApiResource } from 'src/resources/index';
 import BaseController from "src/controllers/BaseController";
+import { EventType } from '@prisma/client';
 import { IUser } from "src/models/interfaces";
 import { Password } from "simple-body-validator";
 import Resource from 'src/resources/index';
 import UserResource from "src/resources/UserResource";
+import { ValidationError } from "src/utils/errors";
 import argon2 from 'argon2';
 import base64url from "base64url";
 import { config } from "src/config";
@@ -15,7 +15,6 @@ import { prisma } from 'src/db';
 import { secureOtp } from "src/utils/helpers";
 import { sendMail } from "src/mailer/mailer";
 import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
-import { EventType } from '@prisma/client';
 
 /**
  * RegisterController
@@ -37,11 +36,11 @@ export default class extends BaseController {
         });
 
         const code = secureOtp();
- 
+
         const user = await prisma.user.findFirst({
             where: { email }
         })
- 
+
         if (!user) {
             throw new ValidationError("Account Not Found", {
                 email: ['We were unable to find your account.']
@@ -119,7 +118,7 @@ export default class extends BaseController {
                 where: { OR: [{ email }, { phone: email }] }
             })
 
-            ApiResource(new UserResource(req, res, data)).json()
+            new UserResource(req, res, data).json()
                 .status(202)
                 .additional({
                     status: 'success',
@@ -137,7 +136,7 @@ export default class extends BaseController {
             });
     }
 
-    #sendMail = async (otp: string, data: Omit<IUser, 'curator'>) => {
+    #sendMail = async (otp: string, data: Omit<IUser, 'curator' | 'media'>) => {
         const hashBuffer = await argon2.hash(otp); // Buffer
         const hashEncoded = base64url.encode(hashBuffer); // URL-safe string
         const link = `${config('app.front_url')}/account/password/reset?token=${hashEncoded.split('|').at(-1)}`

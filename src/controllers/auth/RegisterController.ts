@@ -3,8 +3,8 @@ import { RequestError, ValidationError } from "src/utils/errors";
 import { constructFrom, differenceInMinutes } from "date-fns";
 import { generateAccessToken, secureOtp } from "src/utils/helpers";
 
-import { ApiResource } from 'src/resources/index';
 import BaseController from "src/controllers/BaseController";
+import { EventType } from '@prisma/client';
 import { IUser } from "src/models/interfaces";
 import { Password } from "simple-body-validator";
 import { UAParser } from 'ua-parser-js';
@@ -15,7 +15,6 @@ import { config } from "src/config";
 import { prisma } from 'src/db';
 import { sendMail } from "src/mailer/mailer";
 import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
-import { EventType } from '@prisma/client';
 
 /**
  * RegisterController
@@ -94,7 +93,7 @@ export default class extends BaseController {
             isCurator: formData.type === 'curator',
         });
 
-        ApiResource(new UserResource(req, res, data)).json()
+        new UserResource(req, res, data).json()
             .status(201)
             .additional({
                 status: 'success',
@@ -141,7 +140,7 @@ export default class extends BaseController {
             },
         })
 
-        ApiResource(new UserResource(req, res, data)).json()
+        new UserResource(req, res, data).json()
             .status(202)
             .additional({
                 status: 'success',
@@ -163,7 +162,7 @@ export default class extends BaseController {
 
         await this.#sendMail(otp, data)
 
-        ApiResource(new UserResource(req, res, data)).json()
+        new UserResource(req, res, data).json()
             .status(202)
             .additional({
                 status: 'success',
@@ -172,7 +171,7 @@ export default class extends BaseController {
             });
     }
 
-    #sendMail = async (otp: string, data: Omit<IUser, 'curator'>) => {
+    #sendMail = async (otp: string, data: Omit<IUser, 'curator' | 'media'>) => {
         const hashBuffer = await argon2.hash(otp); // Buffer
         const hashEncoded = base64url.encode(hashBuffer); // URL-safe string
         const link = `${config('app.front_url')}/account/verify/email?token=${hashEncoded.split('|').at(-1)}`

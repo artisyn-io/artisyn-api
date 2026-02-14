@@ -1,9 +1,10 @@
-import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import app from '../index';
-import { prisma } from '../db';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { UserRole } from '@prisma/client';
+import app from '../index';
 import { generateAccessToken } from '../utils/helpers';
+import { prisma } from '../db';
+import request from 'supertest';
 
 describe('Listings API Integration Tests', () => {
     let curatorToken: string;
@@ -135,6 +136,7 @@ describe('Listings API Integration Tests', () => {
         const res = await request(app)
             .post('/api/listings')
             .set('Authorization', `Bearer ${curatorToken}`)
+            .expect(201)
             .send({
                 name: 'New Listing',
                 phone: '555-5555',
@@ -145,7 +147,6 @@ describe('Listings API Integration Tests', () => {
                 isActive: true
             });
 
-        expect(res.status).toBe(201);
         expect(res.body.data.name).toBe('New Listing');
         // Verify curator info is in response but stripped of sensitive data
         expect(res.body.data.curator.id).toBe(curatorId);

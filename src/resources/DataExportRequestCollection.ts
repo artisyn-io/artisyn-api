@@ -1,8 +1,11 @@
 import { JsonResource, Resource } from ".";
 
-import UserResource from "./UserResource";
+import DataExportRequestResource from "./DataExportRequestResource";
 
-export default class extends JsonResource<Resource[] | Resource> {
+/**
+ * DataExportRequestCollection
+ */
+export default class extends JsonResource {
     /**
      * Build the response object
      * @returns this
@@ -12,7 +15,7 @@ export default class extends JsonResource<Resource[] | Resource> {
 
         return {
             data: data.map(
-                (e: Resource) => new UserResource(this.request, this.response, e).data()
+                (e: Resource) => new DataExportRequestResource(this.request, this.response, e).data()
             )
         }
     }

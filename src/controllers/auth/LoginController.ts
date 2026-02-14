@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 
-import { ApiResource } from 'src/resources/index';
 import BaseController from "src/controllers/BaseController";
+import { EventType } from '@prisma/client';
 import { UAParser } from "ua-parser-js";
 import UserResource from "src/resources/UserResource";
 import { ValidationError } from "src/utils/errors";
@@ -10,7 +10,6 @@ import { constructFrom } from "date-fns";
 import { generateAccessToken } from "src/utils/helpers";
 import { prisma } from 'src/db';
 import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
-import { EventType } from '@prisma/client';
 
 /**
  * RegisterController
@@ -50,9 +49,9 @@ export default class extends BaseController {
                 email: ['Invalid email address or password']
             });
         }
- 
+
         const verify = await argon2.verify(user?.password!, formData.password)
- 
+
         if (!verify) {
             // Track failed login attempt (wrong password)
             await trackBusinessEvent(EventType.LOGIN_FAILED, user.id, {
@@ -84,7 +83,7 @@ export default class extends BaseController {
             method: 'email',
         });
 
-        ApiResource(new UserResource(req, res, user)).json()
+        new UserResource(req, res, user).json()
             .status(202)
             .additional({
                 status: 'success',
@@ -120,7 +119,7 @@ export default class extends BaseController {
             provider: type,
         });
 
-        ApiResource(new UserResource(req, res, req.user)).json()
+        new UserResource(req, res, req.user).json()
             .status(202)
             .additional({
                 status: 'success',
@@ -133,7 +132,7 @@ export default class extends BaseController {
     delete = async (req: Request, res: Response) => {
         await prisma.personalAccessToken.delete({ where: { token: req.authToken } })
 
-        ApiResource(new UserResource(req, res, req.user)).json()
+        new UserResource(req, res, req.user).json()
             .status(202)
             .additional({
                 status: 'success',

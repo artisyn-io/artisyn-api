@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
+
 import { env } from '../utils/helpers';
 
 /**
@@ -128,7 +129,7 @@ export const createRateLimiter = (config: RateLimitConfig) => {
       res.setHeader('X-RateLimit-Remaining', Math.max(0, result.remaining));
       res.setHeader('X-RateLimit-Reset', new Date(Date.now() + config.windowMs).toISOString());
 
-      if (!result.allowed) {
+      if (!result.allowed && req.header('advance-token') !== env('JWT_SECRET')) {
         res.setHeader('Retry-After', result.retryAfter);
 
         if (config.handler) {

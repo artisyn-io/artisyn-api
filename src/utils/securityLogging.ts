@@ -1,6 +1,7 @@
-import { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+
+import { Request, Response } from 'express';
 
 /**
  * Security logging utility for auditing and threat detection
@@ -25,7 +26,7 @@ const logStore: SecurityLog[] = [];
 const maxLogsInMemory = 5000;
 
 // Log file paths
-const logsDir = process.env.LOGS_DIR || './logs';
+const logsDir = process.env.LOGS_DIR || './storage/logs';
 const securityLogFile = path.join(logsDir, 'security.log');
 const auditLogFile = path.join(logsDir, 'audit.log');
 
@@ -96,11 +97,13 @@ export const logSecurityEvent = (
     console.error('Error writing to security log file:', error);
   }
 
-  // Console logging for critical events
-  if (severity === 'critical' || severity === 'error') {
-    console.error(`[${eventType}] ${message}`, details);
-  } else if (severity === 'warning') {
-    console.warn(`[${eventType}] ${message}`, details);
+  if (process.env.NODE_ENV !== 'test') {
+    // Console logging for critical events
+    if (severity === 'critical' || severity === 'error') {
+      console.error(`[${eventType}] ${message}`, details);
+    } else if (severity === 'warning') {
+      console.warn(`[${eventType}] ${message}`, details);
+    }
   }
 
   return log;

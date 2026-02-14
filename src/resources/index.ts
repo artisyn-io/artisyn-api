@@ -64,7 +64,7 @@ export class JsonResource<R extends Resource = any> {
         this.response = res;
         this.resource = rsc;
 
-        // Copy all properties from rsc to this, avoiding conflicts
+        /* Copy properties from rsc */
         for (const key of Object.keys(rsc)) {
             if (!(key in this)) {
                 Object.defineProperty(this, key, {
@@ -77,6 +77,34 @@ export class JsonResource<R extends Resource = any> {
                 });
             }
         }
+
+        /* Return proxied instance */
+        return new Proxy(this, {
+            get: (target, prop, receiver) => {
+                const value = Reflect.get(target, prop, receiver);
+
+                if (typeof value === 'function') {
+                    if (prop === 'json' || prop === 'additional') {
+                        return (...args: any[]) => {
+                            const result = (value as any).apply(target, args);
+
+                            setImmediate(() => target['checkSend']());
+
+                            return result;
+                        };
+                    }
+
+                    if (prop === 'send') {
+                        return (...args: any[]) => {
+                            target['shouldSend'] = false;
+                            return (value as any).apply(target, args);
+                        };
+                    }
+                }
+
+                return value;
+            },
+        });
     }
 
     /**
@@ -199,33 +227,8 @@ export class JsonResource<R extends Resource = any> {
     }
 }
 
-export function ApiResource (
-    instance: JsonResource
-) {
-    return new Proxy(instance, {
-        get (target, prop, receiver) {
-            const value = Reflect.get(target, prop, receiver);
-            if (typeof value === 'function') {
-                // Intercept json, additional, and send methods
-                if (prop === 'json' || prop === 'additional') {
-                    return (...args: any[]) => {
-                        const result = value.apply(target, args);
-                        // Schedule checkSend after json or additional
-                        setImmediate(() => target['checkSend']());
-                        return result;
-                    };
-                } else if (prop === 'send') {
-                    return (...args: any[]) => {
-                        // Prevent checkSend from firing
-                        target['shouldSend'] = false;
-
-                        return value.apply(target, args);
-                    };
-                }
-            }
-            return value;
-        },
-    });
+export function ApiResource (instance: JsonResource) {
+    return instance;
 }
 
 export default function BaseResource<R extends Resource> (

@@ -1,11 +1,23 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import request from 'supertest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { blockIP, getBlockedIPs, ipBlockingMiddleware, isIPBlocked, unblockIP } from '../middleware/ipBlocking';
+import { checkRateLimit, cleanupRateLimit, createRateLimiter, rateLimitConfigs } from '../middleware/rateLimiter';
+import { createAPIKey, hashAPIKey, revokeAPIKey, verifyAPIKey } from '../services/apiKeyService';
+import { createAlert, getAlertStatistics, getRecentAlerts, resolveAlert } from '../services/monitoringService';
 import express, { Express } from 'express';
-import { createRateLimiter, rateLimitConfigs, checkRateLimit, cleanupRateLimit } from '../middleware/rateLimiter';
-import { ipBlockingMiddleware, blockIP, isIPBlocked, unblockIP, getBlockedIPs } from '../middleware/ipBlocking';
+
+import request from 'supertest';
 import { securityHeadersMiddleware } from '../middleware/securityHeaders';
-import { createAPIKey, verifyAPIKey, revokeAPIKey, hashAPIKey } from '../services/apiKeyService';
-import { createAlert, getRecentAlerts, resolveAlert, getAlertStatistics } from '../services/monitoringService';
+
+let ogcl = [console.warn, console.log]
+beforeAll(() => {
+  console.warn = vi.fn(() => { })
+  console.log = vi.fn(() => { })
+})
+
+afterAll(() => {
+  console.warn = ogcl[0]
+  console.log = ogcl[1]
+})
 
 describe('Security & Rate Limiting Features', () => {
   let app: Express;
@@ -227,7 +239,7 @@ describe('Security & Rate Limiting Features', () => {
       const key = 'artisyn_test_key';
       const hash1 = hashAPIKey(key);
       const hash2 = hashAPIKey(key);
-      
+
       expect(hash1).toBe(hash2); // Same input = same hash
       expect(hash1).not.toBe(key); // Different from original
     });
@@ -250,7 +262,7 @@ describe('Security & Rate Limiting Features', () => {
     it('should get recent alerts', () => {
       createAlert('rate-limit', 'medium', 'Test alert 1');
       createAlert('blocked-ip', 'high', 'Test alert 2');
-      
+
       const recent = getRecentAlerts(10);
       expect(recent.length).toBeGreaterThanOrEqual(2);
     });
@@ -265,7 +277,7 @@ describe('Security & Rate Limiting Features', () => {
       createAlert('rate-limit', 'high', 'Test 1');
       createAlert('blocked-ip', 'medium', 'Test 2');
       createAlert('rate-limit', 'low', 'Test 3');
-      
+
       const stats = getAlertStatistics();
       expect(stats.total).toBeGreaterThanOrEqual(3);
       expect(stats.byType['rate-limit']).toBeGreaterThanOrEqual(2);
@@ -278,7 +290,7 @@ describe('Security & Rate Limiting Features', () => {
       const response = await request(app)
         .post('/api/test')
         .send({ query: maliciousInput });
-      
+
       // Should either be blocked or safely handled
       expect([200, 400, 403]).toContain(response.status);
     });
@@ -288,7 +300,7 @@ describe('Security & Rate Limiting Features', () => {
       const response = await request(app)
         .post('/api/test')
         .send({ data: xssPayload });
-      
+
       expect(response.headers['content-security-policy']).toBeDefined();
     });
 
@@ -302,7 +314,7 @@ describe('Security & Rate Limiting Features', () => {
       // Multiple identical parameters
       const response = await request(app)
         .get('/health?test=1&test=2&test=3');
-      
+
       expect([200, 400, 403]).toContain(response.status);
     });
 
@@ -327,7 +339,7 @@ describe('Security & Rate Limiting Features', () => {
       const response = await request(app)
         .post('/api/test')
         .send({ data: largePayload });
-      
+
       expect([413, 400, 200]).toContain(response.status);
     });
   });

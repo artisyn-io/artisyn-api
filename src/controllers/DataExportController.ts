@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
+
 import BaseController from "./BaseController";
-import { ApiResource } from 'src/resources/index';
-import { prisma } from 'src/db';
+import DataExportRequestResource from "src/resources/DataExportRequestResource";
 import { RequestError } from 'src/utils/errors';
 import { logAuditEvent } from 'src/utils/auditLogger';
+import { prisma } from 'src/db';
+
 // Removed unused import from '@prisma/client';
 
 /**
@@ -16,15 +18,11 @@ export default class extends BaseController {
      */
     requestDataExport = async (req: Request, res: Response) => {
         try {
-            const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+            const userId = req.user?.id!;
 
-            const { format = 'json' } = req.body;
-            RequestError.abortIf(
-                !['json', 'csv'].includes(format),
-                'Invalid format. Must be json or csv',
-                400
-            );
+            const { format = 'json' } = await this.validateAsync(req, {
+                'format': ['nullable', 'string', 'in:json,csv']
+            })
 
             // Check if user has an active export request within last 24 hours
             const recentRequest = await prisma.dataExportRequest.findFirst({
@@ -64,12 +62,14 @@ export default class extends BaseController {
             // TODO: Trigger async job to generate export file
             // This would typically use a job queue like Bull or Resque
 
-            return res.json({
-                status: 'success',
-                message: 'Data export request submitted. You will receive a download link via email.',
-                code: 201,
-                data: exportRequest,
-            });
+            new DataExportRequestResource(req, res, exportRequest)
+                .json()
+                .status(201)
+                .additional({
+                    status: 'success',
+                    message: 'Data export request submitted. You will receive a download link via email.',
+                    code: 201,
+                });
         } catch (error) {
             throw error;
         }
@@ -83,8 +83,8 @@ export default class extends BaseController {
             const userId = req.user?.id;
             const requestId = req.params.requestId as string;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!requestId, 'Request ID required', 400);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
+            RequestError.assertFound(requestId, 'Request ID required', 400);
 
             const exportRequest = await prisma.dataExportRequest.findFirst({
                 where: {
@@ -93,7 +93,7 @@ export default class extends BaseController {
                 },
             });
 
-            RequestError.abortIf(!exportRequest, 'Export request not found', 404);
+            RequestError.assertFound(exportRequest, 'Export request not found', 404);
 
             return res.json({
                 status: 'success',
@@ -112,7 +112,7 @@ export default class extends BaseController {
     getExportRequests = async (req: Request, res: Response) => {
         try {
             const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
 
             const { take, skip, meta } = this.pagination(req);
 
@@ -147,8 +147,7 @@ export default class extends BaseController {
             const userId = req.user?.id;
             const requestId = req.params.requestId as string;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!requestId, 'Request ID required', 400);
+            RequestError.assertFound(requestId, 'Request ID required', 400);
 
             const exportRequest = await prisma.dataExportRequest.findFirst({
                 where: {
@@ -157,7 +156,7 @@ export default class extends BaseController {
                 },
             });
 
-            RequestError.abortIf(!exportRequest, 'Export request not found', 404);
+            RequestError.assertFound(exportRequest, 'Export request not found', 404);
             RequestError.abortIf(
                 exportRequest.status !== 'ready',
                 'Export is not ready for download',
@@ -198,8 +197,8 @@ export default class extends BaseController {
             const userId = req.user?.id;
             const requestId = req.params.requestId as string;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!requestId, 'Request ID required', 400);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
+            RequestError.assertFound(requestId, 'Request ID required', 400);
 
             const exportRequest = await prisma.dataExportRequest.findFirst({
                 where: {
@@ -208,7 +207,7 @@ export default class extends BaseController {
                 },
             });
 
-            RequestError.abortIf(!exportRequest, 'Export request not found', 404);
+            RequestError.assertFound(exportRequest, 'Export request not found', 404);
             RequestError.abortIf(
                 exportRequest.status === 'ready' || exportRequest.status === 'expired',
                 'Cannot cancel this export request',
@@ -249,15 +248,15 @@ export default class extends BaseController {
             const userId = req.user?.id;
             const { password } = req.body;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!password, 'Password required for account deletion', 400);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
+            RequestError.assertFound(password, 'Password required for account deletion', 400);
 
             // Verify password before proceeding
             const user = await prisma.user.findUnique({
                 where: { id: userId },
             });
 
-            RequestError.abortIf(!user, 'User not found', 404);
+            RequestError.assertFound(user, 'User not found', 404);
 
             // TODO: Verify password using argon2 or similar
 
@@ -293,7 +292,7 @@ export default class extends BaseController {
         try {
             const userId = req.user?.id;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
 
             // TODO: Check if user has pending deletion
             // Cancel the scheduled deletion

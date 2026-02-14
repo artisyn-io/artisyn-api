@@ -1,6 +1,6 @@
-import Resource, { ApiResource } from 'src/resources/index';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import Resource from 'src/resources/index';
 import UserCollection from 'src/resources/UserCollection';
 import UserResource from 'src/resources/UserResource';
 import app from 'src/index'
@@ -23,13 +23,13 @@ describe('Test dynamic routing system', () => {
     });
 
     app.get('/tester/resource', (req, res) => {
-      ApiResource(new UserResource(req, res, {
+      new UserResource(req, res, {
         id: 1,
-      })).json()
+      }).json()
     });
 
     app.get('/tester/resource/collection', (req, res) => {
-      ApiResource(new UserCollection(req, res,
+      new UserCollection(req, res,
         {
           data: [{
             id: 1,
@@ -39,11 +39,11 @@ describe('Test dynamic routing system', () => {
             email: 'as13@e.com',
           }],
         }
-      )).json()
+      ).json()
     });
 
     app.get('/tester/resource/collection/paginated', (req, res) => {
-      ApiResource(new UserCollection(req, res,
+      new UserCollection(req, res,
         {
           data: [{
             id: 2,
@@ -54,7 +54,7 @@ describe('Test dynamic routing system', () => {
             to: 10
           }
         }
-      )).json()
+      ).json()
     });
   });
 

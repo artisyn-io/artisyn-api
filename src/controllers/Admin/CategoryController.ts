@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { ApiResource } from 'src/resources/index';
 
 import BaseController from "../BaseController";
 import CategoryCollection from "src/resources/CategoryCollection";
@@ -43,10 +42,10 @@ export default class extends BaseController {
             prisma.category.count(query)
         ])
 
-        ApiResource(new CategoryCollection(req, res, {
+        new CategoryCollection(req, res, {
             data,
             pagination: meta(total, data.length)
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -68,9 +67,9 @@ export default class extends BaseController {
             { where: { id: String(req.params.id) } }
         )
 
-        ApiResource(new CategoryResource(req, res, {
+        new CategoryResource(req, res, {
             data: category,
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -111,10 +110,10 @@ export default class extends BaseController {
             categoryId: data.id,
             name: data.name,
         });
- 
-        ApiResource(new CategoryResource(req, res, {
+
+        new CategoryResource(req, res, {
             data,
-        }))
+        })
             .json()
             .status(201)
             .additional({
@@ -152,10 +151,10 @@ export default class extends BaseController {
             categoryId: data.id,
             name: data.name,
         });
- 
-        ApiResource(new CategoryResource(req, res, {
+
+        new CategoryResource(req, res, {
             data,
-        }))
+        })
             .json()
             .status(202)
             .additional({
@@ -185,10 +184,10 @@ export default class extends BaseController {
             action: 'category_delete',
             categoryId: String(req.params.id),
         });
- 
-        ApiResource(new CategoryResource(req, res, {
+
+        new CategoryResource(req, res, {
             data: {},
-        }))
+        })
             .json()
             .status(202)
             .additional({

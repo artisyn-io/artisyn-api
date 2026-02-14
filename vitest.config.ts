@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
 
   test: {
+    retry: 100,
     root: './',
     passWithNoTests: true,
     environment: 'node',

@@ -19,7 +19,6 @@ const modelExists = async (
 
     try {
         if (!modelName) {
-            console.log(`The ${rule} validation rule requires a model name`);
             return false
         }
 
@@ -36,11 +35,6 @@ const modelExists = async (
 
         return count >= 1
     } catch (error) {
-        console.log(
-            `Could not load ${rule} rule:`,
-            (error as any).message + ',',
-            `${modelName} is probably not a valid model.`
-        );
         return false;
     }
 }
@@ -75,7 +69,11 @@ const validator = <X extends InitialRules, A extends boolean = false> (
             return ['1', 1, true, 'true'].includes(value) ? true : false;
         }
         if (fieldRules.includes('integer') || fieldRules.includes('numeric')) {
-            return parseInt(value, 10) || 0; // Fallback to 0 if invalid
+            return parseFloat(value) || 0; // Fallback to 0 if invalid
+        }
+        if (fieldRules.includes('nullable') && (!value || value === '')) {
+            // console.log(value, 'valuevaluevalue')
+            return undefined
         }
         if (value === undefined || typeof value === 'object') {
             return value;

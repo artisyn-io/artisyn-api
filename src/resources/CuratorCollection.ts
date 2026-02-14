@@ -1,4 +1,4 @@
-import { JsonResource, ApiResource, Resource } from ".";
+import { JsonResource, Resource } from ".";
 
 import CuratorResource from "./CuratorResource";
 
@@ -13,12 +13,12 @@ export default class extends JsonResource {
      * Transform the collection into an array for the response
      * @returns Array of formatted curator data
      */
-    data() {
+    data () {
         const data = Array.isArray(this.resource) ? this.resource : this.resource.data;
 
         return {
             data: data.map(
-                (e: Resource) => ApiResource(new CuratorResource(this.request, this.response, e)).data()
+                (e: Resource) => new CuratorResource(this.request, this.response, e).data()
             )
         };
     }

@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
+
 import { prisma } from '../db';
 
 /**
@@ -211,9 +212,14 @@ export const persistBlockedIP = async (ip: string, reason: string, durationMs: n
     //     blockedUntil: new Date(Date.now() + durationMs),
     //   },
     // });
-    console.log(`[IP Blocking] IP ${ip} blocked: ${reason}`);
+    if (process.env.NODE_ENV !== 'test') {
+      console.log(`[IP Blocking] IP ${ip} blocked: ${reason}`);
+    }
   } catch (error) {
-    console.error('Error persisting blocked IP:', error);
+
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error persisting blocked IP:', error);
+    }
   }
 };
 
@@ -236,8 +242,12 @@ export const loadBlockedIPsFromDB = async () => {
     //     reason: block.reason,
     //   });
     // });
-    console.log('[IP Blocking] Loaded blocked IPs from database');
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('[IP Blocking] Loaded blocked IPs from database');
+    }
   } catch (error) {
-    console.error('Error loading blocked IPs:', error);
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error loading blocked IPs:', error);
+    }
   }
 };

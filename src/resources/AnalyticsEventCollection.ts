@@ -1,4 +1,4 @@
-import { ApiResource, JsonResource, Resource } from ".";
+import { JsonResource, Resource } from ".";
 
 import AnalyticsEventResource from "./AnalyticsEventResource";
 
@@ -16,7 +16,7 @@ export default class extends JsonResource {
 
         return {
             data: data.map(
-                (e: Resource) => ApiResource(new AnalyticsEventResource(this.request, this.response, e)).data()
+                (e: Resource) => new AnalyticsEventResource(this.request, this.response, e).data()
             )
         }
     }

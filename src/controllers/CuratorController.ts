@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { ApiResource } from "../resources/index";
+
+import BaseController from "./BaseController";
 import CuratorCollection from "../resources/CuratorCollection";
 import CuratorResource from "../resources/CuratorResource";
-import BaseController from "./BaseController";
 import { RequestError } from "../utils/errors";
 import { prisma } from "../db";
 
@@ -83,10 +83,10 @@ export default class CuratorController extends BaseController {
                 prisma.curator.count({ where })
             ]);
 
-            ApiResource(new CuratorCollection(req, res, {
+            new CuratorCollection(req, res, {
                 data,
                 pagination: meta(count, data.length)
-            }))
+            })
                 .json()
                 .status(200)
                 .additional({
@@ -128,7 +128,7 @@ export default class CuratorController extends BaseController {
                 throw new RequestError("Curator not found", 404);
             }
 
-            ApiResource(new CuratorResource(req, res, curator))
+            new CuratorResource(req, res, curator)
                 .json()
                 .status(200)
                 .additional({

@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
+
 import BaseController from "./BaseController";
-import { ApiResource } from 'src/resources/index';
-import PrivacySettingsResource from "src/resources/PrivacySettingsResource";
 import PrivacySettingsCollection from "src/resources/PrivacySettingsCollection";
-import { prisma } from 'src/db';
+import PrivacySettingsResource from "src/resources/PrivacySettingsResource";
 import { RequestError } from 'src/utils/errors';
 import { logAuditEvent } from 'src/utils/auditLogger';
+import { prisma } from 'src/db';
 import { privacySettingsValidationRules } from 'src/utils/profileValidators';
 
 /**
@@ -16,32 +16,28 @@ export default class extends BaseController {
      * Get user privacy settings
      */
     getPrivacySettings = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+        const userId = req.user?.id!;
+        RequestError.assertFound(userId, 'Unauthorized', 401);
 
-            let privacySettings = await prisma.privacySettings.findFirst({
-                where: { userId },
+        let privacySettings = await prisma.privacySettings.findFirst({
+            where: { userId },
+        });
+
+        // Create default privacy settings if doesn't exist
+        if (!privacySettings) {
+            privacySettings = await prisma.privacySettings.create({
+                data: { userId },
             });
-
-            // Create default privacy settings if doesn't exist
-            if (!privacySettings) {
-                privacySettings = await prisma.privacySettings.create({
-                    data: { userId },
-                });
-            }
-
-            ApiResource(new PrivacySettingsResource(req, res, { data: privacySettings }))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'Privacy settings retrieved',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
         }
+
+        new PrivacySettingsResource(req, res, { data: privacySettings })
+            .json()
+            .status(200)
+            .additional({
+                status: 'success',
+                message: 'Privacy settings retrieved',
+                code: 200,
+            });
     };
 
     /**
@@ -50,7 +46,7 @@ export default class extends BaseController {
     updatePrivacySettings = async (req: Request, res: Response) => {
         try {
             const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
 
             // Validate input
             const errors = await this.validateAsync(req, privacySettingsValidationRules);
@@ -87,7 +83,7 @@ export default class extends BaseController {
                 statusCode: 200,
             });
 
-            ApiResource(new PrivacySettingsResource(req, res, { data: privacySettings }))
+            new PrivacySettingsResource(req, res, { data: privacySettings })
                 .json()
                 .status(200)
                 .additional({
@@ -105,10 +101,10 @@ export default class extends BaseController {
      */
     updateProfileVisibility = async (req: Request, res: Response) => {
         try {
-            const userId = req.user?.id;
+            const userId = req.user?.id!;
             const { profileVisibility } = req.body;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
             RequestError.abortIf(
                 !['PUBLIC', 'PRIVATE', 'FRIENDS_ONLY', 'CUSTOM'].includes(profileVisibility),
                 'Invalid visibility level',
@@ -138,7 +134,7 @@ export default class extends BaseController {
                 metadata: { changeType: 'profile_visibility' },
             });
 
-            ApiResource(new PrivacySettingsResource(req, res, { data: privacySettings }))
+            new PrivacySettingsResource(req, res, { data: privacySettings })
                 .json()
                 .status(200)
                 .additional({
@@ -155,58 +151,54 @@ export default class extends BaseController {
      * Block a user
      */
     blockUser = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            const { blockedUserId } = req.body;
+        const userId = req.user?.id!;
+        const { blockedUserId } = req.body;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!blockedUserId, 'Blocked user ID required', 400);
-            RequestError.abortIf(userId === blockedUserId, 'Cannot block yourself', 400);
+        RequestError.assertFound(userId, 'Unauthorized', 401);
+        RequestError.assertFound(blockedUserId, 'Blocked user ID required', 400);
+        RequestError.abortIf(userId === blockedUserId, 'Cannot block yourself', 400);
 
-            // Verify blocked user exists
-            const blockedUser = await prisma.user.findUnique({
-                where: { id: blockedUserId },
-            });
-            RequestError.abortIf(!blockedUser, 'User not found', 404);
+        // Verify blocked user exists
+        const blockedUser = await prisma.user.findUnique({
+            where: { id: blockedUserId },
+        });
+        RequestError.assertFound(blockedUser, 'User not found', 404);
 
-            const privacySettings = await prisma.privacySettings.findFirst({
-                where: { userId },
-            });
+        const privacySettings = await prisma.privacySettings.findFirst({
+            where: { userId },
+        });
 
-            const blockList = privacySettings?.blockList || [];
-            if (!blockList.includes(blockedUserId)) {
-                blockList.push(blockedUserId);
-            }
-
-            const updated = await prisma.privacySettings.upsert({
-                where: { userId },
-                update: { blockList },
-                create: {
-                    userId,
-                    blockList,
-                },
-            });
-
-            // Log block action
-            await logAuditEvent(userId, 'PRIVACY_CHANGE', {
-                req,
-                entityType: 'PrivacySettings',
-                entityId: updated.id,
-                statusCode: 200,
-                metadata: { action: 'block_user', blockedUserId },
-            });
-
-            ApiResource(new PrivacySettingsResource(req, res, { data: updated }))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'User blocked successfully',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
+        const blockList = privacySettings?.blockList || [];
+        if (!blockList.includes(blockedUserId)) {
+            blockList.push(blockedUserId);
         }
+
+        const updated = await prisma.privacySettings.upsert({
+            where: { userId },
+            update: { blockList },
+            create: {
+                userId,
+                blockList,
+            },
+        });
+
+        // Log block action
+        await logAuditEvent(userId, 'PRIVACY_CHANGE', {
+            req,
+            entityType: 'PrivacySettings',
+            entityId: updated.id,
+            statusCode: 200,
+            metadata: { action: 'block_user', blockedUserId },
+        });
+
+        new PrivacySettingsResource(req, res, { data: updated })
+            .json()
+            .status(200)
+            .additional({
+                status: 'success',
+                message: 'User blocked successfully',
+                code: 200,
+            });
     };
 
     /**
@@ -217,8 +209,8 @@ export default class extends BaseController {
             const userId = req.user?.id;
             const { blockedUserId } = req.body;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!blockedUserId, 'Blocked user ID required', 400);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
+            RequestError.assertFound(blockedUserId, 'Blocked user ID required', 400);
 
             const privacySettings = await prisma.privacySettings.findFirst({
                 where: { userId },
@@ -241,7 +233,7 @@ export default class extends BaseController {
                 metadata: { action: 'unblock_user', blockedUserId },
             });
 
-            ApiResource(new PrivacySettingsResource(req, res, { data: updated }))
+            new PrivacySettingsResource(req, res, { data: updated })
                 .json()
                 .status(200)
                 .additional({
@@ -258,84 +250,76 @@ export default class extends BaseController {
      * Get block list
      */
     getBlockList = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+        const userId = req.user?.id!;
+        RequestError.assertFound(userId, 'Unauthorized', 401);
 
-            const privacySettings = await prisma.privacySettings.findFirst({
-                where: { userId },
+        const privacySettings = await prisma.privacySettings.findFirst({
+            where: { userId },
+        });
+
+        const blockList = privacySettings?.blockList || [];
+
+        // Fetch blocked users' basic info
+        const blockedUsers = await prisma.user.findMany({
+            where: { id: { in: blockList } },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+            },
+        });
+
+        new PrivacySettingsCollection(req, res, { data: blockedUsers })
+            .json()
+            .status(200)
+            .additional({
+                status: 'success',
+                message: 'Block list retrieved',
+                code: 200,
             });
-
-            const blockList = privacySettings?.blockList || [];
-
-            // Fetch blocked users' basic info
-            const blockedUsers = await prisma.user.findMany({
-                where: { id: { in: blockList } },
-                select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    avatar: true,
-                },
-            });
-
-            ApiResource(new PrivacySettingsCollection(req, res, { data: blockedUsers }))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'Block list retrieved',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
-        }
     };
 
     /**
      * Update data retention policy
      */
     updateDataRetention = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            const { dataRetentionMonths } = req.body;
+        const userId = req.user?.id!;
+        const { dataRetentionMonths } = req.body;
 
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
-            RequestError.abortIf(!dataRetentionMonths, 'Data retention months required', 400);
-            RequestError.abortIf(
-                dataRetentionMonths < 1 || dataRetentionMonths > 240,
-                'Data retention months must be between 1 and 240',
-                400
-            );
+        RequestError.assertFound(userId, 'Unauthorized', 401);
+        RequestError.assertFound(dataRetentionMonths, 'Data retention months required', 400);
+        RequestError.abortIf(
+            dataRetentionMonths < 1 || dataRetentionMonths > 240,
+            'Data retention months must be between 1 and 240',
+            400
+        );
 
-            const privacySettings = await prisma.privacySettings.upsert({
-                where: { userId },
-                update: { dataRetentionMonths },
-                create: {
-                    userId,
-                    dataRetentionMonths,
-                },
+        const privacySettings = await prisma.privacySettings.upsert({
+            where: { userId },
+            update: { dataRetentionMonths },
+            create: {
+                userId,
+                dataRetentionMonths,
+            },
+        });
+
+        // Log retention policy change
+        await logAuditEvent(userId, 'PRIVACY_CHANGE', {
+            req,
+            entityType: 'PrivacySettings',
+            entityId: privacySettings.id,
+            statusCode: 200,
+            metadata: { action: 'update_retention_policy', dataRetentionMonths },
+        });
+
+        new PrivacySettingsResource(req, res, { data: privacySettings })
+            .json()
+            .status(200)
+            .additional({
+                status: 'success',
+                message: 'Data retention policy updated',
+                code: 200,
             });
-
-            // Log retention policy change
-            await logAuditEvent(userId, 'PRIVACY_CHANGE', {
-                req,
-                entityType: 'PrivacySettings',
-                entityId: privacySettings.id,
-                statusCode: 200,
-                metadata: { action: 'update_retention_policy', dataRetentionMonths },
-            });
-
-            ApiResource(new PrivacySettingsResource(req, res, { data: privacySettings }))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'Data retention policy updated',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
-        }
     };
 }

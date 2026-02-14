@@ -1,29 +1,38 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Request, Response } from 'express';
-import { prisma } from 'src/db';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import DataExportController from 'src/controllers/DataExportController';
+import app from '../..';
 import argon2 from 'argon2';
-import {
-  requestDataExport,
-  getDataExportStatus,
-  downloadDataExport,
-} from 'src/controllers/DataExportController';
+import { env } from '../helpers';
+import { prisma } from 'src/db';
+import request from 'supertest';
 
 describe('Data Export Controller', () => {
   let testUserId: string;
   let testUser: any;
+  let userToken: string;
 
   beforeEach(async () => {
     // Create a test user before each test
-    testUserId = `test-user-${Date.now()}`;
     testUser = await prisma.user.create({
       data: {
-        id: testUserId,
-        email: `${testUserId}@test.com`,
-        password: await argon2.hash('test-password'),
+        email: `test-user-${Date.now()}@test.com`,
+        password: await argon2.hash('password'),
         firstName: 'Test',
         lastName: 'User',
-      },
+      }
     });
+    testUserId = testUser.id
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({
+        email: testUser.email,
+        password: 'password'
+      });
+
+    userToken = res.body.token;
   });
 
   afterEach(async () => {
@@ -38,76 +47,50 @@ describe('Data Export Controller', () => {
 
   describe('requestDataExport', () => {
     it('should create a data export request in CSV format', async () => {
-      const req = {
-        user: { id: testUserId },
-        body: {
-          format: 'csv',
-        },
-      } as unknown as Request;
 
-      const res = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
-      } as unknown as Response;
+      const res = await request(app)
+        .post('/api/data-export/request')
+        .set({ 'Authorization': `Bearer ${userToken}`, 'Advance-Token': env('JWT_SECRET') })
+        .expect(201)
+        .send({ format: 'csv' });
 
-      await requestDataExport(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(
+      expect(res.body).toMatchObject(
         expect.objectContaining({
           status: 'success',
           data: expect.objectContaining({
             format: 'csv',
-            userId: testUserId,
+            userId: testUser.id,
           }),
         })
       );
     });
 
     it('should create a data export request in JSON format', async () => {
-      const req = {
-        user: { id: testUserId },
-        body: {
-          format: 'json',
-        },
-      } as unknown as Request;
+      const res = await request(app)
+        .post('/api/data-export/request')
+        .set({ 'Authorization': `Bearer ${userToken}`, 'Advance-Token': env('JWT_SECRET') })
+        .expect(201)//
+        .send({ format: 'json' });
 
-      const res = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
-      } as unknown as Response;
-
-      await requestDataExport(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(
+      expect(res.body).toMatchObject(
         expect.objectContaining({
           status: 'success',
           data: expect.objectContaining({
             format: 'json',
-            userId: testUserId,
+            userId: testUser.id,
           }),
         })
       );
     });
 
     it('should reject invalid format', async () => {
-      const req = {
-        user: { id: testUserId },
-        body: {
-          format: 'xml',
-        },
-      } as unknown as Request;
+      const res = await request(app)
+        .post('/api/data-export/request')
+        .set({ 'Authorization': `Bearer ${userToken}`, 'Advance-Token': env('JWT_SECRET') })
+        .expect(422)
+        .send({ format: 'xml' });
 
-      const res = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
-      } as unknown as Response;
-
-      await requestDataExport(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(422);
-      expect(res.json).toHaveBeenCalledWith(
+      expect(res.body).toMatchObject(
         expect.objectContaining({
           status: 'error',
         })
@@ -121,48 +104,33 @@ describe('Data Export Controller', () => {
         data: {
           userId: testUserId,
           format: 'csv',
-          status: 'PENDING',
+          status: 'pending',
         },
       });
 
-      const req = {
-        user: { id: testUserId },
-        params: { id: exportRequest.id },
-      } as unknown as Request;
+      const res = await request(app)
+        .get(`/api/data-export/${exportRequest.id}/status`)
+        .set({ 'Authorization': `Bearer ${userToken}`, 'Advance-Token': env('JWT_SECRET') })
+        .expect(200)
+        .send();
 
-      const res = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
-      } as unknown as Response;
-
-      await getDataExportStatus(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(
+      expect(res.body).toMatchObject(
         expect.objectContaining({
           status: 'success',
           data: expect.objectContaining({
             id: exportRequest.id,
-            status: 'PENDING',
+            status: 'pending',
           }),
         })
       );
     });
 
     it('should return 404 for non-existent export request', async () => {
-      const req = {
-        user: { id: testUserId },
-        params: { id: 'non-existent-id' },
-      } as unknown as Request;
-
-      const res = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
-      } as unknown as Response;
-
-      await getDataExportStatus(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(404);
+      await request(app)
+        .get(`/api/data-export/non-existent-id/status`)
+        .set({ 'Authorization': `Bearer ${userToken}`, 'Advance-Token': env('JWT_SECRET') })
+        .expect(404)
+        .send();
     });
   });
 
@@ -172,24 +140,18 @@ describe('Data Export Controller', () => {
         data: {
           userId: testUserId,
           format: 'csv',
-          status: 'COMPLETED',
+          status: 'ready',
+          downloadUrl: 'https://example.com/x.zip'
         },
       });
 
-      const req = {
-        user: { id: testUserId },
-        params: { id: exportRequest.id },
-      } as unknown as Request;
+      const res = await request(app)
+        .get(`/api/data-export/${exportRequest.id}/download`)
+        .set({ 'Authorization': `Bearer ${userToken}`, 'Advance-Token': env('JWT_SECRET') })
+        .expect(302)
+        .send();
 
-      const res = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
-        download: vi.fn(),
-      } as unknown as Response;
-
-      await downloadDataExport(req, res);
-
-      expect(res.download).toHaveBeenCalled();
+      expect(res.headers.location).toBe(exportRequest.downloadUrl)
     });
 
     it('should fail for pending export', async () => {
@@ -197,24 +159,17 @@ describe('Data Export Controller', () => {
         data: {
           userId: testUserId,
           format: 'csv',
-          status: 'PENDING',
+          status: 'pending',
         },
       });
 
-      const req = {
-        user: { id: testUserId },
-        params: { id: exportRequest.id },
-      } as unknown as Request;
+      const res = await request(app)
+        .get(`/api/data-export/${exportRequest.id}/download`)
+        .set({ 'Authorization': `Bearer ${userToken}`, 'Advance-Token': env('JWT_SECRET') })
+        .expect(400)
+        .send();
 
-      const res = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
-      } as unknown as Response;
-
-      await downloadDataExport(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
+      expect(res.body).toMatchObject(
         expect.objectContaining({
           status: 'error',
           message: expect.stringContaining('not ready'),

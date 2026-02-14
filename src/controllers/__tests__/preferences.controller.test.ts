@@ -1,23 +1,47 @@
-import { beforeAll, describe, expect, it, afterEach } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+import app from '../../index'
+import argon2 from 'argon2';
 import { prisma } from 'src/db';
-import PreferencesController from '../PreferencesController';
+import request from 'supertest';
 
-describe('PreferencesController', () => {
-    let testUserId: string;
+let userToken: string;
+let testUserId: string;
 
-    beforeAll(async () => {
-        // Create test user
-        const user = await prisma.user.create({
-            data: {
-                email: `test-prefs-${Date.now()}@example.com`,
-                password: 'hashed_password',
-                firstName: 'Test',
-                lastName: 'User',
-            },
-        });
-        testUserId = user.id;
+beforeAll(async () => {
+
+    const user = await prisma.user.create({
+        data: {
+            email: `test-prefs-${Date.now()}@example.com`,
+            password: await argon2.hash('password'),
+            firstName: 'Test',
+            lastName: 'User',
+        },
     });
 
+    const receiverResponse = await request(app)
+        .post("/api/auth/login")
+        .send({
+            email: user.email,
+            password: "password",
+        });
+
+    userToken = receiverResponse.body.token;
+    testUserId = receiverResponse.body.data.id;
+});
+
+
+afterAll(async () => {
+    // Clean up test data
+    await prisma.userPreferences.deleteMany({
+        where: { userId: testUserId },
+    });
+    await prisma.user.deleteMany({
+        where: { id: testUserId },
+    });
+});
+
+describe('Preferences', () => {
     afterEach(async () => {
         await prisma.userPreferences.deleteMany({
             where: { userId: testUserId },
@@ -64,13 +88,13 @@ describe('PreferencesController', () => {
         for (const freq of frequencies) {
             const prefs = await prisma.userPreferences.create({
                 data: {
-                    userId: `test-${freq}-${Date.now()}`,
+                    userId: testUserId,
                     digestFrequency: freq,
                 },
             });
 
             expect(prefs.digestFrequency).toBe(freq);
-            
+
             await prisma.userPreferences.delete({ where: { id: prefs.id } });
         }
     });
@@ -81,13 +105,13 @@ describe('PreferencesController', () => {
         for (const theme of themes) {
             const prefs = await prisma.userPreferences.create({
                 data: {
-                    userId: `test-theme-${theme}-${Date.now()}`,
+                    userId: testUserId,
                     theme,
                 },
             });
 
             expect(prefs.theme).toBe(theme);
-            
+
             await prisma.userPreferences.delete({ where: { id: prefs.id } });
         }
     });
@@ -116,11 +140,207 @@ describe('PreferencesController', () => {
 
         const prefs = await prisma.userPreferences.create({
             data: {
-                userId: `test-custom-${Date.now()}`,
+                userId: testUserId,
                 customPreferences: customPrefs,
             },
         });
 
         expect(prefs.customPreferences).toEqual(customPrefs);
+    });
+});
+
+
+describe('Preferences Controller', () => {
+
+    describe('getPreferences', () => {
+        it('should return user preferences', async () => {
+            // Create preferences for the user
+            await prisma.userPreferences.create({
+                data: {
+                    userId: testUserId,
+                    emailNotifications: true,
+                    pushNotifications: false,
+                    theme: 'dark',
+                    language: 'en',
+                },
+            });
+
+            const res = await request(app)
+                .get('/api/preferences')
+                .set('Authorization', `Bearer ${userToken}`)
+                .expect(200)
+                .send({
+                    emailNotifications: false,
+                    theme: 'dark',
+                });
+
+            expect(res.body).toEqual(
+                expect.objectContaining({
+                    status: 'success',
+                    data: expect.objectContaining({
+                        userId: testUserId,
+                        emailNotifications: true,
+                        pushNotifications: false,
+                        theme: 'dark',
+                        language: 'en',
+                    }),
+                })
+            );
+
+        });
+
+        it('should return default preferences if none exist', async () => {
+            await prisma.userPreferences.deleteMany({
+                where: { userId: testUserId },
+            });
+
+            const res = await request(app)
+                .get('/api/preferences')
+                .set('Authorization', `Bearer ${userToken}`)
+                .expect(200)
+                .send({
+                    emailNotifications: false,
+                    theme: 'dark',
+                });
+
+            expect(res.body).toEqual(
+                expect.objectContaining({
+                    status: 'success',
+                    data: expect.objectContaining({
+                        userId: testUserId,
+                        emailNotifications: true,
+                        pushNotifications: true,
+                        theme: 'light',
+                        language: 'en',
+                    }),
+                })
+            );
+        });
+    });
+
+    describe('updatePreferences', () => {
+        it('should update user preferences successfully', async () => {
+            const res = await request(app)
+                .post('/api/preferences')
+                .set('Authorization', `Bearer ${userToken}`)
+                .expect(202)
+                .send({
+                    emailNotifications: false,
+                    theme: 'dark',
+                });
+
+            expect(res.body).toEqual(
+                expect.objectContaining({
+                    status: 'success',
+                    data: expect.objectContaining({
+                        userId: testUserId,
+                        emailNotifications: false,
+                        theme: 'dark',
+                    }),
+                })
+            );
+        });
+
+        it('should toggle two-factor authentication', async () => {
+            const res = await request(app)
+                .post('/api/preferences/two-factor/toggle')
+                .set('Authorization', `Bearer ${userToken}`)
+                .expect(202)
+                .send({
+                    emailNotifications: false,
+                    theme: 'dark',
+                });
+
+            expect(res.body).toEqual(
+                expect.objectContaining({
+                    status: 'success',
+                    data: expect.objectContaining({
+                        twoFactorEnabled: true,
+                    }),
+                })
+            );
+
+            const res1 = await request(app)
+                .post('/api/preferences/two-factor/toggle')
+                .set('Authorization', `Bearer ${userToken}`)
+                .expect(202)
+                .send({
+                    emailNotifications: false,
+                    theme: 'dark',
+                });
+
+            expect(res1.body).toEqual(
+                expect.objectContaining({
+                    status: 'success',
+                    data: expect.objectContaining({
+                        twoFactorEnabled: false,
+                    }),
+                })
+            );
+        });
+
+        it('should validate preference values', async () => {
+            const res = await request(app)
+                .post('/api/preferences')
+                .set('Authorization', `Bearer ${userToken}`)
+                .expect(422)
+                .send({
+                    theme: 'invalid-theme',
+                    language: 'invalid-lang',
+                });
+
+            expect(res.body).toEqual(
+                expect.objectContaining({
+                    message: 'The theme must be one of the following light, dark, system. And 1 other error(s).',
+                    errors:
+                        expect.objectContaining({
+                            language: [
+                                'The language must be one of the following en, es, fr, de, it, pt, ja, zh, ar.',
+                            ],
+                            theme: [
+                                'The theme must be one of the following light, dark, system.',
+                            ],
+                        }),
+                })
+            );
+
+        });
+    });
+
+    it('should reset preferences to defaults', async () => {
+        // Create custom preferences
+        await prisma.userPreferences.upsert({
+            where: { userId: testUserId },
+            update: {
+                userId: testUserId,
+                emailNotifications: false,
+                theme: 'dark',
+                pushNotifications: false,
+            },
+            create: {
+                userId: testUserId,
+                emailNotifications: false,
+                theme: 'dark',
+                pushNotifications: false,
+            },
+        });
+
+        const res = await request(app)
+            .post('/api/preferences/reset')
+            .set('Authorization', `Bearer ${userToken}`)
+            .expect(202)
+            .send();
+
+        expect(res.body).toEqual(
+            expect.objectContaining({
+                status: 'success',
+                data: expect.objectContaining({
+                    userId: testUserId,
+                    emailNotifications: true,
+                    theme: 'light',
+                    pushNotifications: true,
+                }),
+            })
+        );
     });
 });

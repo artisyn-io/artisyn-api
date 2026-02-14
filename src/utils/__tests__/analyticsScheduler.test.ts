@@ -1,4 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+    startAnalyticsScheduler,
+    stopAnalyticsScheduler,
+    triggerAggregation,
+} from '../analyticsScheduler';
+
+import AnalyticsService from 'src/resources/AnalyticsService';
 
 // Mock AnalyticsService
 vi.mock('src/resources/AnalyticsService', () => ({
@@ -17,14 +24,19 @@ vi.mock('../helpers', () => ({
     }),
 }));
 
-import AnalyticsService from 'src/resources/AnalyticsService';
-import {
-    startAnalyticsScheduler,
-    stopAnalyticsScheduler,
-    triggerAggregation,
-} from '../analyticsScheduler';
+let ogcl = [console.log, console.error]
+beforeAll(() => {
+    console.log = vi.fn(() => { })
+    console.error = vi.fn(() => { })
+})
+
+afterAll(() => {
+    console.log = ogcl[0]
+    console.log = ogcl[1]
+})
 
 describe('Analytics Scheduler', () => {
+
     beforeEach(() => {
         vi.clearAllMocks();
         vi.useFakeTimers();
@@ -39,10 +51,10 @@ describe('Analytics Scheduler', () => {
     describe('startAnalyticsScheduler', () => {
         it('should not start scheduler in test environment', () => {
             startAnalyticsScheduler();
-            
+
             // Fast-forward 1 hour
             vi.advanceTimersByTime(60 * 60 * 1000);
-            
+
             // Should not have called generateAggregation since we're in test env
             expect(AnalyticsService.generateAggregation).not.toHaveBeenCalled();
         });
@@ -56,10 +68,10 @@ describe('Analytics Scheduler', () => {
         it('should clear all intervals when called', () => {
             startAnalyticsScheduler();
             stopAnalyticsScheduler();
-            
+
             // Fast-forward well past any interval
             vi.advanceTimersByTime(48 * 60 * 60 * 1000);
-            
+
             // Nothing should be called
             expect(AnalyticsService.generateAggregation).not.toHaveBeenCalled();
         });
@@ -68,32 +80,32 @@ describe('Analytics Scheduler', () => {
     describe('triggerAggregation', () => {
         it('should trigger hourly aggregation', async () => {
             await triggerAggregation('hourly');
-            
+
             expect(AnalyticsService.generateAggregation).toHaveBeenCalledWith('hourly');
         });
 
         it('should trigger daily aggregation', async () => {
             await triggerAggregation('daily');
-            
+
             expect(AnalyticsService.generateAggregation).toHaveBeenCalledWith('daily');
         });
 
         it('should trigger weekly aggregation', async () => {
             await triggerAggregation('weekly');
-            
+
             expect(AnalyticsService.generateAggregation).toHaveBeenCalledWith('weekly');
         });
 
         it('should trigger monthly aggregation', async () => {
             await triggerAggregation('monthly');
-            
+
             expect(AnalyticsService.generateAggregation).toHaveBeenCalledWith('monthly');
         });
 
         it('should handle errors gracefully', async () => {
             (AnalyticsService.generateAggregation as ReturnType<typeof vi.fn>)
                 .mockRejectedValueOnce(new Error('Database error'));
-            
+
             // Should not throw
             await expect(triggerAggregation('daily')).resolves.not.toThrow();
         });

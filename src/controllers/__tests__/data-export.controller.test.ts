@@ -1,4 +1,5 @@
-import { beforeAll, describe, expect, it, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+
 import { prisma } from 'src/db';
 
 describe('DataExportController', () => {
@@ -46,7 +47,7 @@ describe('DataExportController', () => {
 
         const csvRequest = await prisma.dataExportRequest.create({
             data: {
-                userId: `test-csv-${Date.now()}`,
+                userId: testUserId,
                 format: 'csv',
             },
         });
@@ -94,7 +95,7 @@ describe('DataExportController', () => {
         });
 
         expect(request.expiresAt).toBeDefined();
-        expect(request.expiresAt.getTime()).toBeGreaterThan(Date.now());
+        expect(request.expiresAt!.getTime()).toBeGreaterThan(Date.now());
         expect(request.fileSize).toBe(1024000);
     });
 
@@ -113,7 +114,7 @@ describe('DataExportController', () => {
 
     it('should track multiple export requests per user', async () => {
         const req1 = await prisma.dataExportRequest.create({
-            data: { userId: testUserId, format: 'json', status: 'completed' },
+            data: { userId: testUserId, format: 'json', status: 'ready' },
         });
 
         const req2 = await prisma.dataExportRequest.create({
@@ -137,7 +138,7 @@ describe('DataExportController', () => {
             },
         });
 
-        const statuses = ['pending', 'processing', 'ready', 'expired'];
+        const statuses = ['pending', 'processing', 'ready', 'expired'] as const;
 
         for (const status of statuses) {
             const updated = await prisma.dataExportRequest.update({

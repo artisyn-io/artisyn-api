@@ -1,13 +1,11 @@
+import { EventType, TipStatus } from "@prisma/client";
 import { Request, Response } from "express";
 
 import BaseController from "src/controllers/BaseController";
-import { EventType, TipStatus } from "@prisma/client";
-import { ApiResource } from "src/resources/index";
-import TipResource from "src/resources/TipResource";
-import { trackBusinessEvent } from "src/utils/analyticsMiddleware";
 import { RequestError } from "src/utils/errors";
-
+import TipResource from "src/resources/TipResource";
 import { prisma } from "src/db";
+import { trackBusinessEvent } from "src/utils/analyticsMiddleware";
 
 /**
  * CuratorTipController
@@ -47,7 +45,7 @@ export default class extends BaseController {
             },
         });
 
-        RequestError.abortIf(!curator, "Curator not found", 404);
+        RequestError.assertFound(curator, "Curator not found", 404);
 
         const receiverId = curator!.userId;
 
@@ -120,7 +118,7 @@ export default class extends BaseController {
             artisanId: tip.artisanId,
         });
 
-        ApiResource(new TipResource(req, res, tip))
+        new TipResource(req, res, tip)
             .json()
             .status(201)
             .additional({

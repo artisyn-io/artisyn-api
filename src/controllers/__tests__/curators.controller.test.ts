@@ -1,15 +1,11 @@
+import { UserRole, VerificationStatus } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { IUser } from "src/models/interfaces";
-import CuratorController from "src/controllers/CuratorController";
-import RegisterController from "src/controllers/auth/RegisterController";
-import LoginController from "src/controllers/auth/LoginController";
 import app from "../../index";
 import { faker } from "@faker-js/faker";
-import multer from "multer";
 import { prisma } from "src/db";
 import request from "supertest";
-import { VerificationStatus, UserRole } from "@prisma/client";
 
 describe("Curators Controller", () => {
     let curator1: IUser;
@@ -24,28 +20,9 @@ describe("Curators Controller", () => {
     const curator3Email = faker.internet.email();
 
     beforeAll(async () => {
-        const upload = multer();
-
-        // Register routes
-        app.post(
-            "/test/auth/signup",
-            upload.none(),
-            new RegisterController().create
-        );
-        app.post(
-            "/test/auth/login",
-            upload.none(),
-            new LoginController().create
-        );
-
-        // Curator routes
-        const curatorController = new CuratorController();
-        app.get("/test/curators", curatorController.index);
-        app.get("/test/curators/:id", curatorController.show);
-
         // Create first curator user
         const curator1Response = await request(app)
-            .post("/test/auth/signup")
+            .post("/api/auth/signup")
             .send({
                 email: curator1Email,
                 lastName: faker.person.lastName(),
@@ -76,7 +53,7 @@ describe("Curators Controller", () => {
 
         // Create second curator user
         const curator2Response = await request(app)
-            .post("/test/auth/signup")
+            .post("/api/auth/signup")
             .send({
                 email: curator2Email,
                 lastName: faker.person.lastName(),
@@ -105,7 +82,7 @@ describe("Curators Controller", () => {
 
         // Create third curator user
         const curator3Response = await request(app)
-            .post("/test/auth/signup")
+            .post("/api/auth/signup")
             .send({
                 email: curator3Email,
                 lastName: faker.person.lastName(),
@@ -158,10 +135,10 @@ describe("Curators Controller", () => {
         }
     });
 
-    describe("GET /test/curators", () => {
+    describe("GET /api/curators", () => {
         it("should return a list of verified curators with pagination", async () => {
             const response = await request(app)
-                .get("/test/curators")
+                .get("/api/curators")
                 .expect(200);
 
             expect(response.body).toHaveProperty("status", "success");
@@ -169,7 +146,7 @@ describe("Curators Controller", () => {
             expect(response.body).toHaveProperty("code", 200);
             expect(response.body).toHaveProperty("data");
             expect(Array.isArray(response.body.data)).toBe(true);
-            expect(response.body).toHaveProperty("meta");
+            expect(response.body).toHaveProperty("meta");//
             expect(response.body.meta).toHaveProperty("pagination");
             expect(response.body.meta.pagination).toHaveProperty("total");
             expect(response.body.meta.pagination).toHaveProperty("perPage");
@@ -185,7 +162,7 @@ describe("Curators Controller", () => {
 
         it("should support pagination with page and limit", async () => {
             const response = await request(app)
-                .get("/test/curators?page=1&limit=1")
+                .get("/api/curators?page=1&limit=1")
                 .expect(200);
 
             expect(response.body.data.length).toBeLessThanOrEqual(1);
@@ -194,7 +171,7 @@ describe("Curators Controller", () => {
 
         it("should support search by name", async () => {
             const response = await request(app)
-                .get(`/test/curators?search=${curator1.firstName}`)
+                .get(`/api/curators?search=${curator1.firstName}`)
                 .expect(200);
 
             expect(response.body.data.length).toBeGreaterThan(0);
@@ -207,7 +184,7 @@ describe("Curators Controller", () => {
 
         it("should support search by specialty", async () => {
             const response = await request(app)
-                .get("/test/curators?search=Art")
+                .get("/api/curators?search=Art")
                 .expect(200);
 
             expect(response.body.data.length).toBeGreaterThan(0);
@@ -220,7 +197,7 @@ describe("Curators Controller", () => {
 
         it("should filter by verification status", async () => {
             const response = await request(app)
-                .get("/test/curators?verificationStatus=PENDING")
+                .get("/api/curators?verificationStatus=PENDING")
                 .expect(200);
 
             // Should find pending curators
@@ -232,7 +209,7 @@ describe("Curators Controller", () => {
 
         it("should filter by specialty", async () => {
             const response = await request(app)
-                .get("/test/curators?specialty=Design")
+                .get("/api/curators?specialty=Design")
                 .expect(200);
 
             // Should find curators with Design specialty
@@ -244,7 +221,7 @@ describe("Curators Controller", () => {
 
         it("should filter by minimum experience", async () => {
             const response = await request(app)
-                .get("/test/curators?minExperience=5")
+                .get("/api/curators?minExperience=5")
                 .expect(200);
 
             // All returned curators should have experience >= 5
@@ -255,7 +232,7 @@ describe("Curators Controller", () => {
 
         it("should return all curators when verified=false", async () => {
             const response = await request(app)
-                .get("/test/curators?verified=false")
+                .get("/api/curators?verified=false")
                 .expect(200);
 
             // Should include both verified and unverified
@@ -263,10 +240,10 @@ describe("Curators Controller", () => {
         });
     });
 
-    describe("GET /test/curators/:id", () => {
+    describe("GET /api/curators/:id", () => {
         it("should return a single curator by ID", async () => {
             const response = await request(app)
-                .get(`/test/curators/${curator1Profile.id}`)
+                .get(`/api/curators/${curator1Profile.id}`)
                 .expect(200);
 
             expect(response.body).toHaveProperty("status", "success");
@@ -288,7 +265,7 @@ describe("Curators Controller", () => {
         it("should return 404 for non-existent curator", async () => {
             const fakeId = faker.string.uuid();
             const response = await request(app)
-                .get(`/test/curators/${fakeId}`)
+                .get(`/api/curators/${fakeId}`)
                 .expect(404);
 
             expect(response.body).toHaveProperty("status", "error");
@@ -298,7 +275,7 @@ describe("Curators Controller", () => {
 
         it("should include all curator profile fields", async () => {
             const response = await request(app)
-                .get(`/test/curators/${curator1Profile.id}`)
+                .get(`/api/curators/${curator1Profile.id}`)
                 .expect(200);
 
             const curator = response.body.data;

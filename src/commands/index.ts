@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 /// <reference path="../express.d.ts" />
 
-import '../utils/prototypes'
+import 'src/utils/prototypes'
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path, { dirname, join } from 'path';

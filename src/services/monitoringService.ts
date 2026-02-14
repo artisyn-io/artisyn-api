@@ -192,7 +192,9 @@ const logAlert = (alert: SecurityAlert) => {
   const timestamp = alert.timestamp.toISOString();
   const prefix = `[${alert.type.toUpperCase()}] [${alert.severity.toUpperCase()}]`;
 
-  console.log(`${prefix} ${timestamp} - ${alert.message}`, alert.data);
+  if (process.env.NODE_ENV !== 'test') {
+    console.log(`${prefix} ${timestamp} - ${alert.message}`, alert.data);
+  }
 };
 
 /**
@@ -203,7 +205,7 @@ const notifyAdmins = (alert: SecurityAlert) => {
   // For now, we'll just log it
   console.warn(`[ADMIN ALERT] High severity security event: ${alert.message}`, alert.data);
 
-  // You could implement:
+  // TODO: We should implement:
   // - Email notifications
   // - SMS alerts
   // - Slack/Discord webhooks

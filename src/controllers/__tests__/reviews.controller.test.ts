@@ -1,16 +1,15 @@
+import { ReviewStatus, UserRole } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { IUser } from "src/models/interfaces";
-import ReviewController from "src/controllers/ReviewController";
 import RegisterController from "src/controllers/auth/RegisterController";
-import LoginController from "src/controllers/auth/LoginController";
+import ReviewController from "src/controllers/ReviewController";
 import app from "../../index";
+import { authenticateToken } from "src/utils/helpers";
 import { faker } from "@faker-js/faker";
 import multer from "multer";
 import { prisma } from "src/db";
 import request from "supertest";
-import { authenticateToken } from "src/utils/helpers";
-import { ReviewStatus, UserRole } from "@prisma/client";
 
 describe("Reviews Controller", () => {
   let author: IUser;
@@ -27,14 +26,6 @@ describe("Reviews Controller", () => {
 
   beforeAll(async () => {
     const upload = multer();
-
-    // Register routes
-    app.post(
-      "/test/auth/signup",
-      upload.none(),
-      new RegisterController().create,
-    );
-    app.post("/test/auth/login", upload.none(), new LoginController().create);
 
     // Review routes (some support optional authentication)
     const reviewController = new ReviewController();
@@ -105,7 +96,7 @@ describe("Reviews Controller", () => {
     );
 
     // Create author user (regular user)
-    const authorResponse = await request(app).post("/test/auth/signup").send({
+    const authorResponse = await request(app).post("/api/auth/signup").send({
       email: authorEmail,
       lastName: faker.person.lastName(),
       firstName: faker.person.firstName(),
@@ -117,7 +108,7 @@ describe("Reviews Controller", () => {
     authorToken = authorResponse.body.token;
 
     // Create curator user
-    const curatorResponse = await request(app).post("/test/auth/signup").send({
+    const curatorResponse = await request(app).post("/api/auth/signup").send({
       email: curatorEmail,
       lastName: faker.person.lastName(),
       firstName: faker.person.firstName(),
@@ -144,7 +135,7 @@ describe("Reviews Controller", () => {
     });
 
     // Create admin user
-    const adminResponse = await request(app).post("/test/auth/signup").send({
+    const adminResponse = await request(app).post("/api/auth/signup").send({
       email: adminEmail,
       lastName: faker.person.lastName(),
       firstName: faker.person.firstName(),

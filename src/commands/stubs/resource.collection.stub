@@ -1,4 +1,4 @@
-import { ApiResource, JsonResource, Resource } from ".";
+import { JsonResource, Resource } from ".";
 
 import {{CollectionResourceName}} from "./{{CollectionResourceName}}";
 
@@ -15,7 +15,7 @@ export default class extends JsonResource {
 
         return {
             data: data.map(
-                (e: Resource) => ApiResource(new {{CollectionResourceName}}(this.request, this.response, e)).data()
+                (e: Resource) => new {{CollectionResourceName}}(this.request, this.response, e).data()
             )
         }
     }

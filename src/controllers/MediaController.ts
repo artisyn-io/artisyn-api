@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
+
 import BaseController from './BaseController';
-import { prisma } from 'src/db';
-import StorageService from 'src/utils/StorageService';
-import { RequestError } from 'src/utils/errors';
-import { ApiResource } from 'src/resources/index';
+import { EventType } from '@prisma/client';
 import MediaCollection from 'src/resources/MediaCollection';
 import MediaResource from 'src/resources/MediaResource';
+import { RequestError } from 'src/utils/errors';
+import StorageService from 'src/utils/StorageService';
+import { prisma } from 'src/db';
 import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
-import { EventType } from '@prisma/client';
 
 export default class MediaController extends BaseController {
     /**
@@ -37,10 +37,10 @@ export default class MediaController extends BaseController {
             }),
         ]);
 
-        ApiResource(new MediaCollection(req, res, {
+        new MediaCollection(req, res, {
             data,
             pagination: meta(total, data.length)
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -103,10 +103,10 @@ export default class MediaController extends BaseController {
             mediaId: media.id,
             tags: media.tags,
         });
- 
-        ApiResource(new MediaResource(req, res, {
+
+        new MediaResource(req, res, {
             data: media,
-        }))
+        })
             .json()
             .status(201)
             .additional({
@@ -172,8 +172,8 @@ export default class MediaController extends BaseController {
             action: 'media_upload_bulk',
             count: results.length,
         });
- 
-        ApiResource(new MediaCollection(req, res, results))
+
+        new MediaCollection(req, res, results)
             .json()
             .status(201)
             .additional({
@@ -201,9 +201,9 @@ export default class MediaController extends BaseController {
             throw new RequestError('Unauthorized access to media', 403);
         }
 
-        ApiResource(new MediaResource(req, res, {
+        new MediaResource(req, res, {
             data: media,
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -250,10 +250,10 @@ export default class MediaController extends BaseController {
             action: 'media_update',
             mediaId: updatedMedia.id,
         });
- 
-        ApiResource(new MediaResource(req, res, {
+
+        new MediaResource(req, res, {
             data: updatedMedia,
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -299,7 +299,7 @@ export default class MediaController extends BaseController {
             action: 'media_delete',
             mediaId: id,
         });
- 
+
         return res.json({
             status: 'success',
             message: 'Media deleted successfully',

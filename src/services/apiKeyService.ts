@@ -1,7 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
+
 import crypto from 'crypto';
-import { prisma } from '../db';
 import { env } from '../utils/helpers';
+import { prisma } from '../db';
 
 /**
  * API Key interface
@@ -10,6 +11,7 @@ export interface APIKey {
   id: string;
   key: string;
   name: string;
+  secret?: string;
   description?: string;
   userId?: string;
   status: 'active' | 'revoked' | 'expired';
@@ -62,6 +64,7 @@ export const createAPIKey = async (
     id,
     key: hashedKey,
     name,
+    secret,
     description,
     userId,
     status: 'active',

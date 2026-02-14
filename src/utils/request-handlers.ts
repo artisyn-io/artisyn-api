@@ -1,12 +1,17 @@
 import { NextFunction, Request, Response } from "express"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 import { BaseError } from "./errors";
 import { Prisma } from "@prisma/client";
 import { env } from "./helpers";
+import { mk } from "@faker-js/faker";
+import path from "node:path";
 
 export const ErrorHandler = (err: BaseError | string, req: Request, res: Response, next?: NextFunction) => {
 
+    const logsDir = path.join(process.cwd(), 'storage/logs');
     const message = 'Something went wrong';
+    let logContent = '';
 
     const error: Record<string, any> = {
         status: 'error',
@@ -26,6 +31,13 @@ export const ErrorHandler = (err: BaseError | string, req: Request, res: Respons
     if (typeof err !== 'string' && env('NODE_ENV') === 'development' && env<boolean>('HIDE_ERROR_STACK') !== true) {
         error.stack = err.stack
     }
+
+    try {
+        logContent = readFileSync(path.join(logsDir, 'error.log'), 'utf-8');
+    } catch { /** */ }
+
+    const newLogEntry = `[${new Date().toISOString()}] ${typeof err === 'string' ? err : err.stack || err.message}\n\n`;
+    writeFileSync(path.join(logsDir, 'error.log'), logContent + newLogEntry);
 
     res.status(error.code).json(error)
 }

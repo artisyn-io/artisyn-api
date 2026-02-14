@@ -14,7 +14,7 @@
     "migrate:reset": "prisma migrate reset",
     "prisma:generate": "prisma generate",
     "seed": "tsx src/database/seed.ts",
-    "command": "ts-node src/commands/index.ts",
+    "command": "tsx src/commands/index.ts",
     "initialize": "prisma generate && prisma migrate dev && prisma db seed",
     "postinstall": "pnpm initialize"
   },

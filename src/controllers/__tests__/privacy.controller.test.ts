@@ -1,6 +1,6 @@
-import { beforeAll, describe, expect, it, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+
 import { prisma } from 'src/db';
-import PrivacySettingsController from '../PrivacySettingsController';
 
 describe('PrivacySettingsController', () => {
     let testUserId: string;
@@ -48,18 +48,18 @@ describe('PrivacySettingsController', () => {
     });
 
     it('should support all privacy levels', async () => {
-        const levels = ['PUBLIC', 'PRIVATE', 'FRIENDS_ONLY', 'CUSTOM'];
+        const levels = ['PUBLIC', 'PRIVATE', 'FRIENDS_ONLY', 'CUSTOM'] as const;
 
         for (const level of levels) {
             const settings = await prisma.privacySettings.create({
                 data: {
-                    userId: `test-level-${level}-${Date.now()}`,
+                    userId: testUserId,
                     profileVisibility: level,
                 },
             });
 
             expect(settings.profileVisibility).toBe(level);
-            
+
             await prisma.privacySettings.delete({ where: { id: settings.id } });
         }
     });

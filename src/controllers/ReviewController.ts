@@ -1,14 +1,12 @@
+import { EventType, Prisma, ReportStatus, ReviewStatus } from "@prisma/client";
 import { Request, Response } from "express";
 
 import BaseController from "src/controllers/BaseController";
-import { EventType, ReviewStatus, ReportStatus, Prisma } from "@prisma/client";
-import { ApiResource } from "src/resources/index";
-import ReviewResource from "src/resources/ReviewResource";
-import ReviewCollection from "src/resources/ReviewCollection";
-import { trackBusinessEvent } from "src/utils/analyticsMiddleware";
 import { RequestError } from "src/utils/errors";
-
+import ReviewCollection from "src/resources/ReviewCollection";
+import ReviewResource from "src/resources/ReviewResource";
 import { prisma } from "src/db";
+import { trackBusinessEvent } from "src/utils/analyticsMiddleware";
 
 /**
  * ReviewController
@@ -116,12 +114,11 @@ export default class extends BaseController {
       prisma.review.count({ where: filters }),
     ]);
 
-    ApiResource(
-      new ReviewCollection(req, res, {
-        data,
-        pagination: meta(total, data.length),
-      }),
-    )
+
+    new ReviewCollection(req, res, {
+      data,
+      pagination: meta(total, data.length),
+    })
       .json()
       .status(200)
       .additional({
@@ -171,7 +168,7 @@ export default class extends BaseController {
       },
     });
 
-    RequestError.abortIf(!review, "Review not found", 404);
+    RequestError.assertFound(review, "Review not found", 404);
 
     // Access control: approved reviews are public, pending/rejected only visible to author or admin
     const canAccess =
@@ -179,9 +176,9 @@ export default class extends BaseController {
       review!.authorId === userId ||
       review!.targetId === userId ||
       isAdmin;
-    RequestError.abortIf(!canAccess, "Access denied", 403);
+    RequestError.assertFound(canAccess, "Access denied", 403);
 
-    ApiResource(new ReviewResource(req, res, review!))
+    new ReviewResource(req, res, review!)
       .json()
       .status(200)
       .additional({
@@ -236,7 +233,7 @@ export default class extends BaseController {
     RequestError.abortIf(
       !!existingReview,
       "You have already reviewed this curator" +
-        (data.artisan_id ? " for this artisan" : ""),
+      (data.artisan_id ? " for this artisan" : ""),
       422,
     );
 
@@ -256,7 +253,7 @@ export default class extends BaseController {
       const artisan = await prisma.artisan.findUnique({
         where: { id: data.artisan_id },
       });
-      RequestError.abortIf(!artisan, "Artisan not found", 404);
+      RequestError.assertFound(artisan, "Artisan not found", 404);
       RequestError.abortIf(
         artisan!.curatorId !== data.target_id,
         "Artisan does not belong to this curator",
@@ -309,7 +306,7 @@ export default class extends BaseController {
       artisanId: review.artisanId,
     });
 
-    ApiResource(new ReviewResource(req, res, review))
+    new ReviewResource(req, res, review)
       .json()
       .status(201)
       .additional({
@@ -332,7 +329,7 @@ export default class extends BaseController {
       where: { id: reviewId },
     });
 
-    RequestError.abortIf(!existingReview, "Review not found", 404);
+    RequestError.assertFound(existingReview, "Review not found", 404);
     RequestError.abortIf(
       existingReview!.authorId !== userId,
       "Access denied",
@@ -389,7 +386,7 @@ export default class extends BaseController {
       rating: review.rating,
     });
 
-    ApiResource(new ReviewResource(req, res, review))
+    new ReviewResource(req, res, review)
       .json()
       .status(200)
       .additional({
@@ -413,10 +410,10 @@ export default class extends BaseController {
       where: { id: reviewId },
     });
 
-    RequestError.abortIf(!existingReview, "Review not found", 404);
+    RequestError.assertFound(existingReview, "Review not found", 404);
 
     const canDelete = isAdmin || existingReview!.authorId === userId;
-    RequestError.abortIf(!canDelete, "Access denied", 403);
+    RequestError.assertFound(canDelete, "Access denied", 403);
 
     await prisma.review.delete({ where: { id: reviewId } });
 
@@ -434,13 +431,13 @@ export default class extends BaseController {
     const adminId = req.user?.id;
     const isAdmin = req.user?.role === "ADMIN";
 
-    RequestError.abortIf(!isAdmin, "Admin access required", 403);
+    RequestError.assertFound(isAdmin, "Admin access required", 403);
 
     const existingReview = await prisma.review.findUnique({
       where: { id: reviewId },
     });
 
-    RequestError.abortIf(!existingReview, "Review not found", 404);
+    RequestError.assertFound(existingReview, "Review not found", 404);
 
     const data = await this.validateAsync(req, {
       status: "required|string|in:APPROVED,REJECTED",
@@ -492,7 +489,7 @@ export default class extends BaseController {
       targetId: review.targetId,
     });
 
-    ApiResource(new ReviewResource(req, res, review))
+    new ReviewResource(req, res, review)
       .json()
       .status(200)
       .additional({
@@ -510,7 +507,7 @@ export default class extends BaseController {
   moderationQueue = async (req: Request, res: Response) => {
     const isAdmin = req.user?.role === "ADMIN";
 
-    RequestError.abortIf(!isAdmin, "Admin access required", 403);
+    RequestError.assertFound(isAdmin, "Admin access required", 403);
 
     const { take, skip, meta } = this.pagination(req);
 
@@ -553,12 +550,11 @@ export default class extends BaseController {
       prisma.review.count({ where: { status: ReviewStatus.PENDING } }),
     ]);
 
-    ApiResource(
-      new ReviewCollection(req, res, {
-        data,
-        pagination: meta(total, data.length),
-      }),
-    )
+
+    new ReviewCollection(req, res, {
+      data,
+      pagination: meta(total, data.length),
+    })
       .json()
       .status(200)
       .additional({
@@ -583,7 +579,7 @@ export default class extends BaseController {
       include: { response: true },
     });
 
-    RequestError.abortIf(!review, "Review not found", 404);
+    RequestError.assertFound(review, "Review not found", 404);
     RequestError.abortIf(
       review!.targetId !== userId,
       "Only the reviewed curator can respond",
@@ -646,7 +642,7 @@ export default class extends BaseController {
       responseId: response.id,
     });
 
-    ApiResource(new ReviewResource(req, res, updatedReview!))
+    new ReviewResource(req, res, updatedReview!)
       .json()
       .status(201)
       .additional({
@@ -670,13 +666,13 @@ export default class extends BaseController {
       include: { response: true },
     });
 
-    RequestError.abortIf(!review, "Review not found", 404);
+    RequestError.assertFound(review, "Review not found", 404);
     RequestError.abortIf(
       review!.targetId !== userId,
       "Only the reviewed curator can update the response",
       403,
     );
-    RequestError.abortIf(!review!.response, "No response to update", 404);
+    RequestError.assertFound(review!.response, "No response to update", 404);
 
     const data = await this.validateAsync(req, {
       content: "required|string|min:1|max:500",
@@ -717,7 +713,7 @@ export default class extends BaseController {
       },
     });
 
-    ApiResource(new ReviewResource(req, res, updatedReview!))
+    new ReviewResource(req, res, updatedReview!)
       .json()
       .status(200)
       .additional({
@@ -742,11 +738,11 @@ export default class extends BaseController {
       include: { response: true },
     });
 
-    RequestError.abortIf(!review, "Review not found", 404);
-    RequestError.abortIf(!review!.response, "No response to delete", 404);
+    RequestError.assertFound(review, "Review not found", 404);
+    RequestError.assertFound(review!.response, "No response to delete", 404);
 
     const canDelete = isAdmin || review!.targetId === userId;
-    RequestError.abortIf(!canDelete, "Access denied", 403);
+    RequestError.assertFound(canDelete, "Access denied", 403);
 
     await prisma.reviewResponse.delete({
       where: { id: review!.response!.id },
@@ -768,7 +764,7 @@ export default class extends BaseController {
       where: { id: reviewId },
     });
 
-    RequestError.abortIf(!review, "Review not found", 404);
+    RequestError.assertFound(review, "Review not found", 404);
 
     // Check if user already reported this review
     const existingReport = await prisma.reviewReport.findFirst({
@@ -826,7 +822,7 @@ export default class extends BaseController {
   getReports = async (req: Request, res: Response) => {
     const isAdmin = req.user?.role === "ADMIN";
 
-    RequestError.abortIf(!isAdmin, "Admin access required", 403);
+    RequestError.assertFound(isAdmin, "Admin access required", 403);
 
     const { take, skip, meta } = this.pagination(req);
 
@@ -892,13 +888,13 @@ export default class extends BaseController {
     const adminId = req.user?.id;
     const isAdmin = req.user?.role === "ADMIN";
 
-    RequestError.abortIf(!isAdmin, "Admin access required", 403);
+    RequestError.assertFound(isAdmin, "Admin access required", 403);
 
     const existingReport = await prisma.reviewReport.findUnique({
       where: { id: reportId },
     });
 
-    RequestError.abortIf(!existingReport, "Report not found", 404);
+    RequestError.assertFound(existingReport, "Report not found", 404);
     RequestError.abortIf(
       existingReport!.status !== ReportStatus.PENDING,
       "Report already resolved",
@@ -956,7 +952,7 @@ export default class extends BaseController {
     const target = await prisma.user.findUnique({
       where: { id: targetId },
     });
-    RequestError.abortIf(!target, "User not found", 404);
+    RequestError.assertFound(target, "User not found", 404);
 
     // Get all approved reviews for this target
     const reviews = await prisma.review.findMany({
@@ -1005,7 +1001,7 @@ export default class extends BaseController {
     const artisan = await prisma.artisan.findUnique({
       where: { id: artisanId },
     });
-    RequestError.abortIf(!artisan, "Artisan not found", 404);
+    RequestError.assertFound(artisan, "Artisan not found", 404);
 
     const { take, skip, meta } = this.pagination(req);
 
@@ -1052,12 +1048,11 @@ export default class extends BaseController {
         ? allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
         : 0;
 
-    ApiResource(
-      new ReviewCollection(req, res, {
-        data,
-        pagination: meta(total, data.length),
-      }),
-    )
+
+    new ReviewCollection(req, res, {
+      data,
+      pagination: meta(total, data.length),
+    })
       .json()
       .status(200)
       .additional({
@@ -1083,7 +1078,7 @@ export default class extends BaseController {
       where: { id: curatorId },
       include: { curator: true },
     });
-    RequestError.abortIf(!curator, "Curator not found", 404);
+    RequestError.assertFound(curator, "Curator not found", 404);
     RequestError.abortIf(
       curator!.role !== "CURATOR",
       "User is not a curator",
@@ -1142,12 +1137,11 @@ export default class extends BaseController {
         ? allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
         : 0;
 
-    ApiResource(
-      new ReviewCollection(req, res, {
-        data,
-        pagination: meta(total, data.length),
-      }),
-    )
+
+    new ReviewCollection(req, res, {
+      data,
+      pagination: meta(total, data.length),
+    })
       .json()
       .status(200)
       .additional({

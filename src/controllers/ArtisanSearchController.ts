@@ -1,11 +1,12 @@
+import { ArtisanType, EventType, Prisma, PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
+
 import BaseController from "src/controllers/BaseController";
-import { PrismaClient, Prisma, EventType, ArtisanType } from "@prisma/client";
 import Resource from "src/resources/index";
-import { validate } from "src/utils/validator";
-import { trackBusinessEvent } from "src/utils/analyticsMiddleware";
-import { prisma } from "src/db";
 import SearchCacheService from "src/services/SearchCacheService";
+import { prisma } from "src/db";
+import { trackBusinessEvent } from "src/utils/analyticsMiddleware";
+import { validate } from "src/utils/validator";
 
 interface SearchFilters {
   search?: string;
@@ -23,12 +24,12 @@ interface SearchFilters {
   longitude?: number;
   radius?: number;
   sortBy?:
-    | "relevance"
-    | "rating"
-    | "price_low"
-    | "price_high"
-    | "created_at"
-    | "name";
+  | "relevance"
+  | "rating"
+  | "price_low"
+  | "price_high"
+  | "created_at"
+  | "name";
   page?: number;
   limit?: number;
 }
@@ -83,9 +84,9 @@ export default class ArtisanSearchController extends BaseController {
       averageRating:
         artisan.reviews.length > 0
           ? artisan.reviews.reduce(
-              (sum: number, review: any) => sum + review.rating,
-              0,
-            ) / artisan.reviews.length
+            (sum: number, review: any) => sum + review.rating,
+            0,
+          ) / artisan.reviews.length
           : null,
       reviewCount: artisan.reviews.length,
     }));
@@ -115,7 +116,7 @@ export default class ArtisanSearchController extends BaseController {
    * Get search suggestions based on partial input
    */
   suggestions = async (req: Request, res: Response) => {
-    const { query } = this.validate(req.query, {
+    const { query } = this.validate(req, {
       query: "required|string|min:2",
     });
 
@@ -196,7 +197,7 @@ export default class ArtisanSearchController extends BaseController {
       });
   };
 
-  private validateFilters(query: any): SearchFilters {
+  private validateFilters (query: any): SearchFilters {
     const validated = validate(query, {
       search: "nullable|string|min:2",
       category: "nullable|string",
@@ -219,22 +220,14 @@ export default class ArtisanSearchController extends BaseController {
     });
 
     return {
-      search: validated.search || undefined,
-      category: validated.category || undefined,
-      subcategory: validated.subcategory || undefined,
-      country: validated.country || undefined,
-      state: validated.state || undefined,
-      city: validated.city || undefined,
-      type: validated.type || undefined,
+      ...validated,
       isVerified:
         validated.isVerified !== undefined ? validated.isVerified : true,
       isActive: validated.isActive !== undefined ? validated.isActive : true,
       minPrice: validated.minPrice ? parseFloat(validated.minPrice) : undefined,
       maxPrice: validated.maxPrice ? parseFloat(validated.maxPrice) : undefined,
       latitude: validated.latitude ? parseFloat(validated.latitude) : undefined,
-      longitude: validated.longitude
-        ? parseFloat(validated.longitude)
-        : undefined,
+      longitude: validated.longitude ? parseFloat(validated.longitude) : undefined,
       radius: validated.radius ? parseFloat(validated.radius) : undefined,
       sortBy: validated.sortBy || "relevance",
       page: validated.page ? parseInt(validated.page) : 1,
@@ -242,7 +235,7 @@ export default class ArtisanSearchController extends BaseController {
     };
   }
 
-  private buildWhereClause(filters: SearchFilters): Prisma.ArtisanWhereInput {
+  private buildWhereClause (filters: SearchFilters): Prisma.ArtisanWhereInput {
     const where: Prisma.ArtisanWhereInput = {
       isActive: filters.isActive,
       isVerified: filters.isVerified,
@@ -294,21 +287,21 @@ export default class ArtisanSearchController extends BaseController {
     if (filters.country) {
       where.location = {
         ...where.location,
-        country: { equals: filters.country, mode: "insensitive" },
+        country: { equals: filters.country, mode: "insensitive" } as never,
       };
     }
 
     if (filters.state) {
       where.location = {
         ...where.location,
-        state: { equals: filters.state, mode: "insensitive" },
+        state: { equals: filters.state, mode: "insensitive" } as never,
       };
     }
 
     if (filters.city) {
       where.location = {
         ...where.location,
-        city: { equals: filters.city, mode: "insensitive" },
+        city: { equals: filters.city, mode: "insensitive" } as never,
       };
     }
 
@@ -325,11 +318,11 @@ export default class ArtisanSearchController extends BaseController {
           priceRange: {
             path: [],
             array_contains:
-              filters.minPrice !== undefined && filters.maxPrice !== undefined
+              (filters.minPrice !== undefined && filters.maxPrice !== undefined
                 ? [filters.minPrice, filters.maxPrice]
                 : filters.minPrice !== undefined
                   ? [filters.minPrice]
-                  : [filters.maxPrice],
+                  : [filters.maxPrice]) as never,
           },
         },
       ];
@@ -338,7 +331,7 @@ export default class ArtisanSearchController extends BaseController {
     return where;
   }
 
-  private buildOrderBy(
+  private buildOrderBy (
     filters: SearchFilters,
   ): Prisma.ArtisanOrderByWithRelationInput[] {
     switch (filters.sortBy) {
@@ -374,7 +367,7 @@ export default class ArtisanSearchController extends BaseController {
     }
   }
 
-  private async addGeospatialFilter(
+  private async addGeospatialFilter (
     where: Prisma.ArtisanWhereInput,
     filters: SearchFilters,
   ): Promise<void> {
@@ -404,11 +397,11 @@ export default class ArtisanSearchController extends BaseController {
       latitude: {
         gte: filters.latitude! - latDelta,
         lte: filters.latitude! + latDelta,
-      },
+      } as never,
       longitude: {
         gte: filters.longitude! - lonDelta,
         lte: filters.longitude! + lonDelta,
-      },
+      } as never,
     };
   }
 }

@@ -1,13 +1,14 @@
-import { prisma } from 'src/db';
+import { AuditAction } from '@prisma/client';
 import type { Request } from 'express';
+import { prisma } from 'src/db';
 
 /**
  * Log audit events for sensitive operations
  * Supports GDPR compliance tracking
  */
-export async function logAuditEvent(
+export async function logAuditEvent (
     userId: string | undefined | null,
-    action: string,
+    action: AuditAction,
     options: {
         entityType?: string;
         entityId?: string;
@@ -41,14 +42,14 @@ export async function logAuditEvent(
         });
     } catch (error) {
         // Log error but don't throw - audit logging shouldn't break operations
-        console.error('Failed to log audit event:', error);
+        // console.error('Failed to log audit event:', error);
     }
 }
 
 /**
  * Get audit logs for a specific user with pagination
  */
-export async function getUserAuditLogs(
+export async function getUserAuditLogs (
     userId: string,
     options: {
         action?: string;

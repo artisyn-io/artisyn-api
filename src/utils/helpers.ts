@@ -31,7 +31,7 @@ export const flattenObject = (
  * @param currentKey
  * @returns
  */
-export const doter = <T extends Record<string, unknown>>(
+export const doter = <T extends Record<string, unknown>> (
   obj: T,
   currentKey?: string,
 ): Flatten<T> => {
@@ -77,14 +77,14 @@ export const authenticateToken = (
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
-  RequestError.abortIf(!token, "Unauthenticated", 401, req, res);
+  RequestError.assertFound(token, "Unauthenticated", 401, req, res);
 
   try {
     jwt.verify(
       token!,
       env("JWT_SECRET", ""),
       async (err: any, jwtPayload: any) => {
-        RequestError.abortIf(!!err, "Unauthenticated", 401);
+        RequestError.assertFound(!err, "Unauthenticated", 401);
 
         const accessToken = await prisma.personalAccessToken.findFirst({
           where: { token },
@@ -105,12 +105,12 @@ export const authenticateToken = (
           !user ||
           (!accessToken && process.env.NODE_ENV !== "test") ||
           (accessToken &&
-            isPast(constructFrom(accessToken.expiresAt, new Date())))
+            isPast(constructFrom(accessToken.expiresAt!, new Date())))
         ) {
           return RequestError.abortIf(true, "Unauthenticated", 401, req, res);
         }
 
-        req.user = user;
+        req.user = user as never;
         req.authToken = accessToken?.token;
 
         next();
@@ -128,9 +128,9 @@ export const authenticateToken = (
  * @param def
  * @returns
  */
-export const env = <X = string, Y = undefined>(
+export const env = <X = string, Y = undefined> (
   env: string,
-  def?: Y,
+  defaultValue?: Y,
 ): Y extends undefined ? X : Y => {
   let val: string | number | boolean | undefined | null =
     process.env[env] ?? "";
@@ -151,7 +151,7 @@ export const env = <X = string, Y = undefined>(
     val = null;
   }
 
-  val ??= def as typeof val;
+  val ??= defaultValue as typeof val;
 
   return val as Y extends undefined ? X : Y;
 };

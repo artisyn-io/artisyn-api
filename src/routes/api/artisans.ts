@@ -1,6 +1,5 @@
-import { Router } from "express";
 import ArtisanSearchController from "src/controllers/ArtisanSearchController";
-import { authenticateToken } from "src/utils/helpers";
+import { Router } from "express";
 
 const router = Router();
 const artisanSearchController = new ArtisanSearchController();

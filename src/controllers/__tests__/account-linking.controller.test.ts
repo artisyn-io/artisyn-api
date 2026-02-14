@@ -1,5 +1,7 @@
-import { beforeAll, describe, expect, it, afterEach } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+
 import { prisma } from 'src/db';
+
 // AccountLinkProvider type removed as it's not exported from @prisma/client yet
 
 describe('AccountLinkingController', () => {
@@ -38,7 +40,7 @@ describe('AccountLinkingController', () => {
         const link = await prisma.accountLink.create({
             data: {
                 userId: testUserId,
-                provider: 'GOOGLE' as string,
+                provider: 'GOOGLE' as const,
                 providerUserId: 'google-123',
                 accessToken: 'access-token-123',
                 isVerified: true,
@@ -51,12 +53,12 @@ describe('AccountLinkingController', () => {
     });
 
     it('should support all provider types', async () => {
-        const providers: string[] = ['GOOGLE', 'FACEBOOK', 'GITHUB', 'APPLE', 'TWITTER', 'LINKEDIN'];
+        const providers = ['GOOGLE', 'FACEBOOK', 'GITHUB', 'APPLE', 'TWITTER', 'LINKEDIN'] as const;
 
         for (const provider of providers) {
             const link = await prisma.accountLink.create({
                 data: {
-                    userId: `test-provider-${provider}-${Date.now()}`,
+                    userId: testUserId,
                     provider,
                     providerUserId: `${provider}-user-id`,
                     accessToken: 'token',
@@ -64,7 +66,7 @@ describe('AccountLinkingController', () => {
             });
 
             expect(link.provider).toBe(provider);
-            
+
             await prisma.accountLink.delete({ where: { id: link.id } });
         }
     });
@@ -73,7 +75,7 @@ describe('AccountLinkingController', () => {
         await prisma.accountLink.create({
             data: {
                 userId: testUserId,
-                provider: 'GOOGLE' as string,
+                provider: 'GOOGLE' as const,
                 providerUserId: 'google-123',
                 accessToken: 'token1',
             },
@@ -84,7 +86,7 @@ describe('AccountLinkingController', () => {
             await prisma.accountLink.create({
                 data: {
                     userId: testUserId,
-                    provider: 'GOOGLE' as string,
+                    provider: 'GOOGLE' as const,
                     providerUserId: 'google-456',
                     accessToken: 'token2',
                 },
@@ -99,7 +101,7 @@ describe('AccountLinkingController', () => {
         const link1 = await prisma.accountLink.create({
             data: {
                 userId: testUserId,
-                provider: 'GOOGLE' as string,
+                provider: 'GOOGLE' as const,
                 providerUserId: 'google-123',
                 accessToken: 'token1',
             },
@@ -108,7 +110,7 @@ describe('AccountLinkingController', () => {
         const link2 = await prisma.accountLink.create({
             data: {
                 userId: testUserId2,
-                provider: 'GOOGLE' as string,
+                provider: 'GOOGLE' as const,
                 providerUserId: 'google-456',
                 accessToken: 'token2',
             },
@@ -121,7 +123,7 @@ describe('AccountLinkingController', () => {
         const link = await prisma.accountLink.create({
             data: {
                 userId: testUserId,
-                provider: 'GOOGLE' as string,
+                provider: 'GOOGLE' as const,
                 providerUserId: 'google-123',
                 accessToken: 'access-token-long-string',
                 refreshToken: 'refresh-token-long-string',
@@ -138,7 +140,7 @@ describe('AccountLinkingController', () => {
         const link = await prisma.accountLink.create({
             data: {
                 userId: testUserId,
-                provider: 'FACEBOOK' as string,
+                provider: 'FACEBOOK' as const,
                 providerUserId: 'fb-123',
                 accessToken: 'token',
                 isVerified: false,
@@ -159,7 +161,7 @@ describe('AccountLinkingController', () => {
         const link = await prisma.accountLink.create({
             data: {
                 userId: testUserId,
-                provider: 'TWITTER' as string,
+                provider: 'TWITTER' as const,
                 providerUserId: 'twitter-123',
                 accessToken: 'token',
             },
@@ -184,7 +186,7 @@ describe('AccountLinkingController', () => {
         const link = await prisma.accountLink.create({
             data: {
                 userId: testUserId,
-                provider: 'TWITTER' as string,
+                provider: 'TWITTER' as const,
                 providerUserId: 'twitter-123',
                 accessToken: 'token',
                 metadata,

@@ -17,6 +17,15 @@ enum UserRole {
   ADMIN
 }
 
+// Enum for curator DataExportRequest status
+enum DataExportRequestStatus {
+  pending
+  processing
+  ready
+  expired
+  failed
+}
+
 // Enum for curator verification status
 enum VerificationStatus {
   PENDING
@@ -85,12 +94,12 @@ model Media {
   provider     String   @default("local") // local, s3, cloudinary, etc.
   userId       String?
   tags         String[]
-  metadata     Json?    // width, height, etc.
+  metadata     Json? // width, height, etc.
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   // Relations
-  user                        User?                           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                        User?                         @relation(fields: [userId], references: [id], onDelete: SetNull)
   verificationApplicationDocs CuratorVerificationDocument[]
 
   @@index([userId])
@@ -144,7 +153,7 @@ model Curator {
   updatedAt          DateTime           @updatedAt
 
   // Relations
-  user                     User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                     User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
   verificationApplications CuratorVerificationApplication[]
   verificationHistory      CuratorVerificationHistory[]
 
@@ -247,17 +256,17 @@ model Location {
 
 // Review model
 model Review {
-  id         String       @id @default(uuid())
-  rating     Int // 1-5 star rating
-  comment    String?
-  authorId   String // User who wrote the review
-  targetId   String // User who received the review (curator)
-  artisanId  String? // Optional artisan reference
-  status     ReviewStatus @default(PENDING)
+  id          String       @id @default(uuid())
+  rating      Int // 1-5 star rating
+  comment     String?
+  authorId    String // User who wrote the review
+  targetId    String // User who received the review (curator)
+  artisanId   String? // Optional artisan reference
+  status      ReviewStatus @default(PENDING)
   moderatedBy String? // Admin who moderated the review
   moderatedAt DateTime?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   // Relations
   author   User            @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -406,18 +415,18 @@ enum EventType {
 
 // Analytics Event model for tracking user interactions and API usage
 model AnalyticsEvent {
-  id             String    @id @default(uuid())
-  eventType      EventType
-  anonymizedUserId String?  // Hashed/anonymized user identifier for GDPR compliance
-  endpoint       String?   // API endpoint that was called
-  method         String?   // HTTP method (GET, POST, etc.)
-  statusCode     Int?      // HTTP response status code
-  responseTime   Int?      // Response time in milliseconds
-  userAgent      String?   // Anonymized user agent info
-  ipHash         String?   // Hashed IP address for privacy
-  referrer       String?   // Referring URL (anonymized)
-  metadata       Json?     // Additional event-specific data
-  createdAt      DateTime  @default(now())
+  id               String    @id @default(uuid())
+  eventType        EventType
+  anonymizedUserId String? // Hashed/anonymized user identifier for GDPR compliance
+  endpoint         String? // API endpoint that was called
+  method           String? // HTTP method (GET, POST, etc.)
+  statusCode       Int? // HTTP response status code
+  responseTime     Int? // Response time in milliseconds
+  userAgent        String? // Anonymized user agent info
+  ipHash           String? // Hashed IP address for privacy
+  referrer         String? // Referring URL (anonymized)
+  metadata         Json? // Additional event-specific data
+  createdAt        DateTime  @default(now())
 
   @@index([eventType])
   @@index([createdAt])
@@ -431,17 +440,17 @@ model AnalyticsEvent {
 
 // Analytics Aggregation model for periodic reports
 model AnalyticsAggregation {
-  id             String   @id @default(uuid())
-  periodType     String   // 'hourly', 'daily', 'weekly', 'monthly'
-  periodStart    DateTime
-  periodEnd      DateTime
-  eventType      EventType
-  eventCount     Int      @default(0)
-  avgResponseTime Float?  // Average response time for API calls
-  uniqueUsers    Int      @default(0)
-  metadata       Json?    // Additional aggregated metrics
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String    @id @default(uuid())
+  periodType      String // 'hourly', 'daily', 'weekly', 'monthly'
+  periodStart     DateTime
+  periodEnd       DateTime
+  eventType       EventType
+  eventCount      Int       @default(0)
+  avgResponseTime Float? // Average response time for API calls
+  uniqueUsers     Int       @default(0)
+  metadata        Json? // Additional aggregated metrics
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([periodType, periodStart, eventType])
   @@index([periodType])
@@ -464,7 +473,7 @@ model CuratorVerificationApplication {
   updatedAt       DateTime           @updatedAt
 
   // Relations
-  curator   Curator                           @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+  curator   Curator                       @relation(fields: [curatorId], references: [id], onDelete: Cascade)
   documents CuratorVerificationDocument[]
   history   CuratorVerificationHistory[]
 
@@ -495,7 +504,7 @@ model CuratorVerificationDocument {
 
 // Curator Verification History for audit trail
 model CuratorVerificationHistory {
-  id            String             @id @default(uuid())
+  id            String              @id @default(uuid())
   curatorId     String
   applicationId String?
   action        String // 'SUBMITTED', 'APPROVED', 'REJECTED', 'DOCUMENT_UPLOADED', 'VIEWED'
@@ -503,7 +512,7 @@ model CuratorVerificationHistory {
   performedBy   String? // User ID who performed the action (admin for approve/reject)
   notes         String? // Additional notes or rejection reason
   metadata      Json? // Additional context about the action
-  createdAt     DateTime           @default(now())
+  createdAt     DateTime            @default(now())
 
   // Relations
   curator     Curator                         @relation(fields: [curatorId], references: [id], onDelete: Cascade)
@@ -553,26 +562,26 @@ enum AuditAction {
 
 // User Profile model - extends user with additional profile information
 model UserProfile {
-  id                    String    @id @default(uuid())
-  userId                String    @unique
-  bio                   String?   @db.Text
-  dateOfBirth           DateTime?
-  gender                String?   // MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
-  profilePictureUrl     String?
-  coverPhotoUrl         String?
-  website               String?
-  socialLinks           Json?     // {twitter, linkedin, instagram, etc.}
-  occupation            String?
-  companyName           String?
-  location              String?
-  timezone              String?   @default("UTC")
-  language              String?   @default("en")
-  profileCompletionPercentage Int @default(0)
-  isPublic              Boolean   @default(true)
-  isProfessional        Boolean   @default(false)
-  verifiedBadge         Boolean   @default(false)
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                          String    @id @default(uuid())
+  userId                      String    @unique
+  bio                         String?   @db.Text
+  dateOfBirth                 DateTime?
+  gender                      String? // MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
+  profilePictureUrl           String?
+  coverPhotoUrl               String?
+  website                     String?
+  socialLinks                 Json? // {twitter, linkedin, instagram, etc.}
+  occupation                  String?
+  companyName                 String?
+  location                    String?
+  timezone                    String?   @default("UTC")
+  language                    String?   @default("en")
+  profileCompletionPercentage Int       @default(0)
+  isPublic                    Boolean   @default(true)
+  isProfessional              Boolean   @default(false)
+  verifiedBadge               Boolean   @default(false)
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -585,23 +594,23 @@ model UserProfile {
 
 // User Preferences model - manages user settings and preferences
 model UserPreferences {
-  id                        String    @id @default(uuid())
-  userId                    String    @unique
-  emailNotifications        Boolean   @default(true)
-  pushNotifications         Boolean   @default(true)
-  smsNotifications          Boolean   @default(false)
-  marketingEmails           Boolean   @default(true)
-  activityEmails            Boolean   @default(true)
-  digestFrequency           String    @default("weekly") // daily, weekly, monthly, never
-  theme                     String    @default("light") // light, dark, system
-  language                  String    @default("en")
-  currencyPreference        String    @default("USD")
-  twoFactorEnabled          Boolean   @default(false)
-  dataCollectionConsent     Boolean   @default(false)
-  analyticsTracking         Boolean   @default(true)
-  customPreferences         Json?     // Additional custom preferences
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  emailNotifications    Boolean  @default(true)
+  pushNotifications     Boolean  @default(true)
+  smsNotifications      Boolean  @default(false)
+  marketingEmails       Boolean  @default(true)
+  activityEmails        Boolean  @default(true)
+  digestFrequency       String   @default("weekly") // daily, weekly, monthly, never
+  theme                 String   @default("light") // light, dark, system
+  language              String   @default("en")
+  currencyPreference    String   @default("USD")
+  twoFactorEnabled      Boolean  @default(false)
+  dataCollectionConsent Boolean  @default(false)
+  analyticsTracking     Boolean  @default(true)
+  customPreferences     Json? // Additional custom preferences
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -612,23 +621,23 @@ model UserPreferences {
 
 // Privacy Settings model - manages fine-grained privacy controls
 model PrivacySettings {
-  id                        String    @id @default(uuid())
-  userId                    String    @unique
-  profileVisibility         PrivacyLevel @default(PUBLIC)
-  showEmail                 Boolean   @default(false)
-  showPhone                 Boolean   @default(false)
-  showLocation              Boolean   @default(false)
-  showOnlineStatus          Boolean   @default(true)
-  allowDirectMessages       Boolean   @default(true)
-  allowProfileComments      Boolean   @default(true)
-  blockList                 String[]  @default([]) // Array of blocked user IDs
-  restrictedList            String[]  @default([]) // Array of restricted user IDs
-  searchEngineIndexing      Boolean   @default(true)
-  dataRetentionMonths       Int       @default(24) // Months to retain data
-  customPrivacyRules        Json?     // Additional custom privacy rules
-  lastPrivacyReviewDate     DateTime?
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
+  id                    String       @id @default(uuid())
+  userId                String       @unique
+  profileVisibility     PrivacyLevel @default(PUBLIC)
+  showEmail             Boolean      @default(false)
+  showPhone             Boolean      @default(false)
+  showLocation          Boolean      @default(false)
+  showOnlineStatus      Boolean      @default(true)
+  allowDirectMessages   Boolean      @default(true)
+  allowProfileComments  Boolean      @default(true)
+  blockList             String[]     @default([]) // Array of blocked user IDs
+  restrictedList        String[]     @default([]) // Array of restricted user IDs
+  searchEngineIndexing  Boolean      @default(true)
+  dataRetentionMonths   Int          @default(24) // Months to retain data
+  customPrivacyRules    Json? // Additional custom privacy rules
+  lastPrivacyReviewDate DateTime?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -639,21 +648,21 @@ model PrivacySettings {
 
 // Account Link model - for linking social and external accounts
 model AccountLink {
-  id                  String                @id @default(uuid())
-  userId              String
-  provider            AccountLinkProvider
-  providerUserId      String
-  providerEmail       String?
-  providerName        String?
-  accessToken         String?               @db.Text
-  refreshToken        String?               @db.Text
-  expiresAt           DateTime?
-  metadata            Json?
-  isVerified          Boolean               @default(true)
-  linkedAt            DateTime              @default(now())
-  unlinkedAt          DateTime?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  id             String              @id @default(uuid())
+  userId         String
+  provider       AccountLinkProvider
+  providerUserId String
+  providerEmail  String?
+  providerName   String?
+  accessToken    String?             @db.Text
+  refreshToken   String?             @db.Text
+  expiresAt      DateTime?
+  metadata       Json?
+  isVerified     Boolean             @default(true)
+  linkedAt       DateTime            @default(now())
+  unlinkedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   // Relations
   user User @relation("LinkedAccounts", fields: [userId], references: [id], onDelete: Cascade)
@@ -666,19 +675,19 @@ model AccountLink {
 
 // Audit Log model - for tracking all sensitive operations and GDPR compliance
 model AuditLog {
-  id                  String        @id @default(uuid())
-  userId              String?       // Nullable for deleted users or system actions
-  action              AuditAction
-  entityType          String?       // Type of entity being audited (User, Profile, etc)
-  entityId            String?       // ID of entity being audited
-  oldValues           Json?         // Previous values before change
-  newValues           Json?         // New values after change
-  ipAddress           String?       // IP address of requester
-  userAgent           String?       // User agent string
-  statusCode          Int?          // HTTP status code if applicable
-  errorMessage        String?       // Error message if action failed
-  metadata            Json?         // Additional metadata
-  createdAt           DateTime      @default(now())
+  id           String      @id @default(uuid())
+  userId       String? // Nullable for deleted users or system actions
+  action       AuditAction
+  entityType   String? // Type of entity being audited (User, Profile, etc)
+  entityId     String? // ID of entity being audited
+  oldValues    Json? // Previous values before change
+  newValues    Json? // New values after change
+  ipAddress    String? // IP address of requester
+  userAgent    String? // User agent string
+  statusCode   Int? // HTTP status code if applicable
+  errorMessage String? // Error message if action failed
+  metadata     Json? // Additional metadata
+  createdAt    DateTime    @default(now())
 
   // Relations
   user User? @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
@@ -692,16 +701,16 @@ model AuditLog {
 
 // Data Export Request model - for GDPR data export functionality
 model DataExportRequest {
-  id                  String    @id @default(uuid())
-  userId              String
-  status              String    @default("pending") // pending, processing, ready, expired, failed
-  format              String    @default("json") // json, csv, etc
-  downloadUrl         String?   // Presigned URL for download
-  expiresAt           DateTime?
-  fileSize            Int?
-  errorMessage        String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id           String                  @id @default(uuid())
+  userId       String
+  status       DataExportRequestStatus @default(pending)
+  format       String                  @default("json") // json, csv, etc
+  downloadUrl  String? // Presigned URL for download
+  expiresAt    DateTime?
+  fileSize     Int?
+  errorMessage String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
 
   // Relations
   user User @relation("DataExportRequests", fields: [userId], references: [id], onDelete: Cascade)

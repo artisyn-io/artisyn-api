@@ -1,14 +1,12 @@
+import { EventType, Prisma, TipStatus } from "@prisma/client";
 import { Request, Response } from "express";
 
 import BaseController from "src/controllers/BaseController";
-import { EventType, TipStatus, Prisma } from "@prisma/client";
-import { ApiResource } from "src/resources/index";
-import TipResource from "src/resources/TipResource";
-import TipCollection from "src/resources/TipCollection";
-import { trackBusinessEvent } from "src/utils/analyticsMiddleware";
 import { RequestError } from "src/utils/errors";
-
+import TipCollection from "src/resources/TipCollection";
+import TipResource from "src/resources/TipResource";
 import { prisma } from "src/db";
+import { trackBusinessEvent } from "src/utils/analyticsMiddleware";
 
 /**
  * TipController
@@ -105,12 +103,11 @@ export default class extends BaseController {
             prisma.tip.count({ where: whereCondition }),
         ]);
 
-        ApiResource(
-            new TipCollection(req, res, {
-                data,
-                pagination: meta(total, data.length),
-            })
-        )
+
+        new TipCollection(req, res, {
+            data,
+            pagination: meta(total, data.length),
+        })
             .json()
             .status(200)
             .additional({
@@ -163,14 +160,14 @@ export default class extends BaseController {
             },
         });
 
-        RequestError.abortIf(!tip, "Tip not found", 404);
+        RequestError.assertFound(tip, "Tip not found", 404);
 
         // Access control: only sender, recipient, or admin can view
         const canAccess =
             isAdmin || tip!.senderId === userId || tip!.receiverId === userId;
-        RequestError.abortIf(!canAccess, "Access denied", 403);
+        RequestError.assertFound(canAccess, "Access denied", 403);
 
-        ApiResource(new TipResource(req, res, tip!))
+        new TipResource(req, res, tip!)
             .json()
             .status(200)
             .additional({
@@ -211,14 +208,14 @@ export default class extends BaseController {
         const receiver = await prisma.user.findUnique({
             where: { id: data.receiver_id },
         });
-        RequestError.abortIf(!receiver, "Recipient not found", 404);
+        RequestError.assertFound(receiver, "Recipient not found", 404);
 
         // If artisan_id provided, validate it exists
         if (data.artisan_id) {
             const artisan = await prisma.artisan.findUnique({
                 where: { id: data.artisan_id },
             });
-            RequestError.abortIf(!artisan, "Artisan not found", 404);
+            RequestError.assertFound(artisan, "Artisan not found", 404);
         }
 
         const tip = await prisma.tip.create({
@@ -268,7 +265,7 @@ export default class extends BaseController {
             artisanId: tip.artisanId,
         });
 
-        ApiResource(new TipResource(req, res, tip))
+        new TipResource(req, res, tip)
             .json()
             .status(201)
             .additional({
@@ -296,11 +293,11 @@ export default class extends BaseController {
             where: { id: tipId },
         });
 
-        RequestError.abortIf(!existingTip, "Tip not found", 404);
+        RequestError.assertFound(existingTip, "Tip not found", 404);
 
         // Only sender or admin can update
         const canUpdate = isAdmin || existingTip!.senderId === userId;
-        RequestError.abortIf(!canUpdate, "Access denied", 403);
+        RequestError.assertFound(canUpdate, "Access denied", 403);
 
         // Only PENDING tips can be updated to COMPLETED or CANCELLED
         RequestError.abortIf(
@@ -318,8 +315,8 @@ export default class extends BaseController {
         const newStatus = data.tx_hash
             ? TipStatus.COMPLETED
             : data.status
-              ? (data.status as TipStatus)
-              : existingTip!.status;
+                ? (data.status as TipStatus)
+                : existingTip!.status;
 
         const tip = await prisma.tip.update({
             where: { id: tipId },
@@ -354,7 +351,7 @@ export default class extends BaseController {
             },
         });
 
-        ApiResource(new TipResource(req, res, tip))
+        new TipResource(req, res, tip)
             .json()
             .status(202)
             .additional({

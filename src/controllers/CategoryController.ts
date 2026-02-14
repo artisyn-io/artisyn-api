@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { ApiResource } from 'src/resources/index';
 
 import CategoryCollection from "src/resources/CategoryCollection";
 import CategoryResource from "src/resources/CategoryResource";
@@ -41,10 +40,10 @@ export default class extends BaseController {
             prisma.category.count(query)
         ])
 
-        ApiResource(new CategoryCollection(req, res, {
+        new CategoryCollection(req, res, {
             data,
             pagination: meta(total, data.length)
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -72,9 +71,9 @@ export default class extends BaseController {
             categoryName: category.name,
         });
 
-        ApiResource(new CategoryResource(req, res, {
+        new CategoryResource(req, res, {
             data: category,
-        }))
+        })
             .json()
             .status(200)
             .additional({

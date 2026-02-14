@@ -1,4 +1,5 @@
-import { ApiResource, JsonResource, Resource } from ".";
+import { JsonResource, Resource } from ".";
+
 import MediaResource from "./MediaResource";
 
 /**
@@ -9,12 +10,12 @@ export default class extends JsonResource {
      * Build the response object
      * @returns this
      */
-    data() {
+    data () {
         const data = Array.isArray(this.resource) ? this.resource : this.resource.data
 
         return {
             data: data.map(
-                (e: Resource) => ApiResource(new MediaResource(this.request, this.response, e)).data()
+                (e: Resource) => new MediaResource(this.request, this.response, e).data()
             )
         }
     }

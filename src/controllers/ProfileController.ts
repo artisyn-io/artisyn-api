@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
+
+import { AuditAction } from "@prisma/client";
 import BaseController from "./BaseController";
-import { ApiResource } from 'src/resources/index';
-import UserProfileResource from "src/resources/UserProfileResource";
-import UserProfileCollection from "src/resources/UserProfileCollection";
-import { prisma } from 'src/db';
 import { RequestError } from 'src/utils/errors';
+import UserProfileCollection from "src/resources/UserProfileCollection";
+import UserProfileResource from "src/resources/UserProfileResource";
 import { logAuditEvent } from 'src/utils/auditLogger';
+import { prisma } from 'src/db';
 import { profileValidationRules } from 'src/utils/profileValidators';
 
 /**
@@ -19,7 +20,7 @@ export default class extends BaseController {
     getProfile = async (req: Request, res: Response) => {
         try {
             const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
 
             const profile = await prisma.userProfile.findFirst({
                 where: { userId },
@@ -34,7 +35,7 @@ export default class extends BaseController {
                     },
                 });
 
-                ApiResource(new UserProfileResource(req, res, newProfile))
+                new UserProfileResource(req, res, newProfile)
                     .json()
                     .status(200)
                     .additional({
@@ -52,7 +53,7 @@ export default class extends BaseController {
                 entityId: profile.id,
             });
 
-            ApiResource(new UserProfileResource(req, res, profile))
+            new UserProfileResource(req, res, profile)
                 .json()
                 .status(200)
                 .additional({
@@ -71,11 +72,11 @@ export default class extends BaseController {
     updateProfile = async (req: Request, res: Response) => {
         try {
             const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
 
             // Validate input
             const errors = await this.validateAsync(req, profileValidationRules);
-            RequestError.abortIf(Object.keys(errors).length > 0, 'Validation failed', 422, errors);
+            RequestError.abortIf(Object.keys(errors).length > 0, 'Validation failed', 422);
 
             // Get existing profile
             const existingProfile = await prisma.userProfile.findFirst({
@@ -124,7 +125,7 @@ export default class extends BaseController {
                 statusCode: 200,
             });
 
-            ApiResource(new UserProfileResource(req, res, profile))
+            new UserProfileResource(req, res, profile)
                 .json()
                 .status(200)
                 .additional({
@@ -143,7 +144,7 @@ export default class extends BaseController {
     getProfileCompletion = async (req: Request, res: Response) => {
         try {
             const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+            RequestError.assertFound(userId, 'Unauthorized', 401);
 
             const profile = await prisma.userProfile.findFirst({
                 where: { userId },
@@ -164,7 +165,7 @@ export default class extends BaseController {
                 profileCompletionPercentage: 0,
             };
 
-            ApiResource(new UserProfileResource(req, res, data))
+            new UserProfileResource(req, res, data)
                 .json()
                 .status(200)
                 .additional({
@@ -183,10 +184,10 @@ export default class extends BaseController {
     getPublicProfile = async (req: Request, res: Response) => {
         try {
             const targetUserId = req.params.userId;
-            RequestError.abortIf(!targetUserId, 'User ID required', 400);
+            RequestError.assertFound(targetUserId, 'User ID required', 400);
 
             const profile = await prisma.userProfile.findFirst({
-                where: { userId: targetUserId },
+                where: { userId: String(targetUserId) },
                 select: {
                     id: true,
                     userId: true,
@@ -203,8 +204,8 @@ export default class extends BaseController {
                 },
             });
 
-            RequestError.abortIf(!profile, 'Profile not found', 404);
-            RequestError.abortIf(!profile.isPublic, 'Profile is private', 403);
+            RequestError.assertFound(profile, 'Profile not found', 404);
+            RequestError.assertFound(profile.isPublic, 'Profile is private', 403);
 
             // Log public profile view
             await logAuditEvent(req.user?.id, 'PROFILE_VIEW', {
@@ -217,7 +218,7 @@ export default class extends BaseController {
                 },
             });
 
-            ApiResource(new UserProfileResource(req, res, profile))
+            new UserProfileResource(req, res, profile)
                 .json()
                 .status(200)
                 .additional({
@@ -234,39 +235,35 @@ export default class extends BaseController {
      * Delete user profile
      */
     deleteProfile = async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            RequestError.abortIf(!userId, 'Unauthorized', 401);
+        const userId = req.user?.id;
+        RequestError.assertFound(userId, 'Unauthorized', 401);
 
-            const profile = await prisma.userProfile.findFirst({
-                where: { userId },
+        const profile = await prisma.userProfile.findFirst({
+            where: { userId },
+        });
+
+        RequestError.assertFound(profile, 'Profile not found', 404);
+
+        await prisma.userProfile.delete({
+            where: { id: profile.id },
+        });
+
+        // Log deletion
+        await logAuditEvent(userId, AuditAction.PROFILE_UPDATE, {
+            req,
+            entityType: 'UserProfile',
+            entityId: profile.id,
+            statusCode: 200,
+            metadata: { action: 'DELETE' },
+        });
+
+        new UserProfileResource(req, res, {})
+            .json()
+            .status(200)
+            .additional({
+                status: 'success',
+                message: 'User profile deleted successfully',
+                code: 200,
             });
-
-            RequestError.abortIf(!profile, 'Profile not found', 404);
-
-            await prisma.userProfile.delete({
-                where: { id: profile.id },
-            });
-
-            // Log deletion
-            await logAuditEvent(userId, AuditAction.PROFILE_UPDATE, {
-                req,
-                entityType: 'UserProfile',
-                entityId: profile.id,
-                statusCode: 200,
-                metadata: { action: 'DELETE' },
-            });
-
-            ApiResource(new UserProfileResource(req, res, {}))
-                .json()
-                .status(200)
-                .additional({
-                    status: 'success',
-                    message: 'User profile deleted successfully',
-                    code: 200,
-                });
-        } catch (error) {
-            throw error;
-        }
     };
 }

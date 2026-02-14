@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
 
-import { ApiResource } from 'src/resources/index';
 import AnalyticsEventCollection from 'src/resources/AnalyticsEventCollection';
-import AnalyticsSummaryResource from 'src/resources/AnalyticsSummaryResource';
 import AnalyticsService from 'src/resources/AnalyticsService';
+import AnalyticsSummaryResource from 'src/resources/AnalyticsSummaryResource';
 import BaseController from './BaseController';
 import { EventType } from '@prisma/client';
 
@@ -41,10 +40,10 @@ export default class extends BaseController {
             skip,
         });
 
-        ApiResource(new AnalyticsEventCollection(req, res, {
+        new AnalyticsEventCollection(req, res, {
             data: events,
             pagination: meta(total, events.length)
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -71,9 +70,9 @@ export default class extends BaseController {
 
         const summaryData = await AnalyticsService.getSummary({ startDate, endDate });
 
-        ApiResource(new AnalyticsSummaryResource(req, res, {
+        return new AnalyticsSummaryResource(req, res, {
             data: summaryData,
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -107,9 +106,9 @@ export default class extends BaseController {
             endDate,
         });
 
-        ApiResource(new AnalyticsEventCollection(req, res, {
+        new AnalyticsEventCollection(req, res, {
             data: aggregations,
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -135,9 +134,9 @@ export default class extends BaseController {
 
         const result = await AnalyticsService.generateAggregation(periodType);
 
-        ApiResource(new AnalyticsSummaryResource(req, res, {
+        new AnalyticsSummaryResource(req, res, {
             data: result,
-        }))
+        })
             .json()
             .status(201)
             .additional({
@@ -159,9 +158,9 @@ export default class extends BaseController {
 
         const result = await AnalyticsService.cleanupOldData(retentionDays);
 
-        ApiResource(new AnalyticsSummaryResource(req, res, {
+        new AnalyticsSummaryResource(req, res, {
             data: result,
-        }))
+        })
             .json()
             .status(202)
             .additional({
@@ -171,17 +170,17 @@ export default class extends BaseController {
             });
     };
 
-/**
-     * Get available event types for filtering
-     * GET /api/admin/analytics/event-types
-     * 
-     * @param req 
-     * @param res 
-     */
+    /**
+         * Get available event types for filtering
+         * GET /api/admin/analytics/event-types
+         * 
+         * @param req 
+         * @param res 
+         */
     eventTypes = async (req: Request, res: Response) => {
-        ApiResource(new AnalyticsSummaryResource(req, res, {
+        new AnalyticsSummaryResource(req, res, {
             data: Object.values(EventType),
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -261,9 +260,9 @@ export default class extends BaseController {
             return;
         }
 
-        ApiResource(new AnalyticsEventCollection(req, res, {
+        new AnalyticsEventCollection(req, res, {
             data: events,
-        }))
+        })
             .json()
             .status(200)
             .additional({
@@ -284,9 +283,9 @@ export default class extends BaseController {
 
         const result = await AnalyticsService.detectAnomalies({ windowMinutes });
 
-        ApiResource(new AnalyticsSummaryResource(req, res, {
+        new AnalyticsSummaryResource(req, res, {
             data: result,
-        }))
+        })
             .json()
             .status(200)
             .additional({

@@ -1,12 +1,12 @@
+import { UserRole, VerificationStatus } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
 import app from "../../index";
-import { faker } from "@faker-js/faker";
+import fs from "fs";
+import { generateAccessToken } from "src/utils/helpers";
+import path from "path";
 import { prisma } from "src/db";
 import request from "supertest";
-import { generateAccessToken } from "src/utils/helpers";
-import { UserRole, VerificationStatus } from "@prisma/client";
-import path from "path";
-import fs from "fs";
 
 vi.mock("src/utils/StorageService", () => ({
     default: {
@@ -90,33 +90,33 @@ describe("Curator Verification System", () => {
         adminId = adminUser.id;
 
         // Generate tokens
-        const curatorAuth = generateAccessToken({ 
-            username: curatorUser.email, 
-            id: curatorUser.id, 
-            index: 1 
+        const curatorAuth = generateAccessToken({
+            username: curatorUser.email,
+            id: curatorUser.id,
+            index: 1
         });
         curatorToken = curatorAuth.token;
         await prisma.personalAccessToken.create({
-            data: { 
-                token: curatorAuth.token, 
-                name: 'Test Curator Token', 
-                userId: curatorUser.id, 
-                expiresAt: new Date(curatorAuth.jwt.exp! * 1000) 
+            data: {
+                token: curatorAuth.token,
+                name: 'Test Curator Token',
+                userId: curatorUser.id,
+                expiresAt: new Date(curatorAuth.jwt.exp! * 1000)
             }
         });
 
-        const adminAuth = generateAccessToken({ 
-            username: adminUser.email, 
-            id: adminUser.id, 
-            index: 2 
+        const adminAuth = generateAccessToken({
+            username: adminUser.email,
+            id: adminUser.id,
+            index: 2
         });
         adminToken = adminAuth.token;
         await prisma.personalAccessToken.create({
-            data: { 
-                token: adminAuth.token, 
-                name: 'Test Admin Token', 
-                userId: adminUser.id, 
-                expiresAt: new Date(adminAuth.jwt.exp! * 1000) 
+            data: {
+                token: adminAuth.token,
+                name: 'Test Admin Token',
+                userId: adminUser.id,
+                expiresAt: new Date(adminAuth.jwt.exp! * 1000)
             }
         });
 
@@ -141,12 +141,12 @@ describe("Curator Verification System", () => {
         });
         await prisma.user.deleteMany({
             where: {
-                email: { 
+                email: {
                     in: [
-                        'curator-verification-test@test.com', 
+                        'curator-verification-test@test.com',
                         'admin-verification-test@test.com',
                         'curator-reject-test@test.com'
-                    ] 
+                    ]
                 }
             }
         });
@@ -312,18 +312,18 @@ describe("Curator Verification System", () => {
             });
 
             // Generate token
-            const curatorAuth = generateAccessToken({ 
-                username: newCuratorUser.email, 
-                id: newCuratorUser.id, 
-                index: 3 
+            const curatorAuth = generateAccessToken({
+                username: newCuratorUser.email,
+                id: newCuratorUser.id,
+                index: 3
             });
             newCuratorToken = curatorAuth.token;
             await prisma.personalAccessToken.create({
-                data: { 
-                    token: curatorAuth.token, 
-                    name: 'Test New Curator Token', 
-                    userId: newCuratorUser.id, 
-                    expiresAt: new Date(curatorAuth.jwt.exp! * 1000) 
+                data: {
+                    token: curatorAuth.token,
+                    name: 'Test New Curator Token',
+                    userId: newCuratorUser.id,
+                    expiresAt: new Date(curatorAuth.jwt.exp! * 1000)
                 }
             });
 
@@ -379,7 +379,7 @@ describe("Curator Verification System", () => {
             });
 
             expect(history.length).toBeGreaterThanOrEqual(2);
-            
+
             const submittedAction = history.find(h => h.action === 'SUBMITTED');
             expect(submittedAction).toBeDefined();
             expect(submittedAction?.status).toBe(VerificationStatus.PENDING);

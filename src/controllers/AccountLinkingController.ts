@@ -1,16 +1,20 @@
 import { Request, Response } from 'express';
+
+import { AccountLinkProvider } from '@prisma/client';
+import BaseController from './BaseController';
+import { RequestError } from 'src/utils/errors';
+import Resource from '../resources/index';
+import { accountLinkValidationRules } from 'src/utils/profileValidators';
+import { logAuditEvent } from 'src/utils/auditLogger';
 import { prisma } from 'src/db';
 import { validateAsync } from 'src/utils/validator';
-import { accountLinkValidationRules } from 'src/utils/profileValidators';
-import { RequestError } from 'src/utils/errors';
-import { logAuditEvent } from 'src/utils/auditLogger';
-import { AccountLinkProvider } from '@prisma/client';
 
-/**
- * Link a new account (Google, Facebook, etc.) to the user's profile
- */
-export const linkAccount = async (req: Request, res: Response) => {
-  try {
+export default class AccountLinkingController extends BaseController {
+
+  /**
+   * Link a new account (Google, Facebook, etc.) to the user's profile
+   */
+  async linkAccount (req: Request, res: Response) {
     const userId = req.user?.id;
     if (!userId) {
       throw new RequestError('User not authenticated', 401);
@@ -44,7 +48,7 @@ export const linkAccount = async (req: Request, res: Response) => {
     });
 
     // Log audit event
-    await logAuditEvent(userId, 'ACCOUNT_LINKED', {
+    await logAuditEvent(userId, 'ACCOUNT_LINK', {
       entityType: 'AccountLink',
       entityId: accountLink.id,
       req,
@@ -53,31 +57,26 @@ export const linkAccount = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(200).json({
-      status: 'success',
-      message: 'Account linked successfully',
+    Resource(req, res, {
       data: {
         id: accountLink.id,
         provider: accountLink.provider,
         linkedAt: accountLink.createdAt,
-      },
-    });
-  } catch (error) {
-    if (error instanceof RequestError) {
-      return res.status(error.statusCode).json({
-        status: 'error',
-        message: error.message,
+      }
+    })
+      .json()
+      .status(202)
+      .additional({
+        status: 'success',
+        message: 'Account linked successfully',
+        code: 202,
       });
-    }
-    throw error;
-  }
-};
+  };
 
-/**
- * Unlink an account from the user's profile
- */
-export const unlinkAccount = async (req: Request, res: Response) => {
-  try {
+  /**
+   * Unlink an account from the user's profile
+   */
+  async unlinkAccount (req: Request, res: Response) {
     const userId = req.user?.id;
     if (!userId) {
       throw new RequestError('User not authenticated', 401);
@@ -108,7 +107,7 @@ export const unlinkAccount = async (req: Request, res: Response) => {
     });
 
     // Log audit event
-    await logAuditEvent(userId, 'ACCOUNT_UNLINKED', {
+    await logAuditEvent(userId, 'ACCOUNT_UNLINK', {
       entityType: 'AccountLink',
       entityId: accountId,
       req,
@@ -117,26 +116,26 @@ export const unlinkAccount = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(200).json({
-      status: 'success',
-      message: 'Account unlinked successfully',
-    });
-  } catch (error) {
-    if (error instanceof RequestError) {
-      return res.status(error.statusCode).json({
-        status: 'error',
-        message: error.message,
+    Resource(req, res, {
+      data: {
+        id: accountLink.id,
+        provider: accountLink.provider,
+        unlinkedAt: accountLink.updatedAt,
+      }
+    })
+      .json()
+      .status(202)
+      .additional({
+        status: 'success',
+        message: 'Account unlinked successfully',
+        code: 202,
       });
-    }
-    throw error;
-  }
-};
+  };
 
-/**
- * Get all linked accounts for the user
- */
-export const getLinkedAccounts = async (req: Request, res: Response) => {
-  try {
+  /**
+   * Get all linked accounts for the user
+   */
+  async getLinkedAccounts (req: Request, res: Response) {
     const userId = req.user?.id;
     if (!userId) {
       throw new RequestError('User not authenticated', 401);
@@ -152,126 +151,124 @@ export const getLinkedAccounts = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(200).json({
-      status: 'success',
-      data: linkedAccounts,
-    });
-  } catch (error) {
-    if (error instanceof RequestError) {
-      return res.status(error.statusCode).json({
-        status: 'error',
-        message: error.message,
+    Resource(req, res, {
+      data: linkedAccounts
+    })
+      .json()
+      .status(200)
+      .additional({
+        status: 'success',
+        message: 'OK',
+        code: 200,
       });
-    }
-    throw error;
-  }
-};
+  };
 
-/**
- * Update access token for a linked account (for token refresh)
- */
-export const updateAccountToken = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new RequestError('User not authenticated', 401);
-    }
+  /**
+   * Update access token for a linked account (for token refresh)
+   */
+  async updateAccountToken (req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new RequestError('User not authenticated', 401);
+      }
 
-    const { id } = req.params;
-    const accountId = Array.isArray(id) ? id[0] : id;
+      const { id } = req.params;
+      const accountId = Array.isArray(id) ? id[0] : id;
 
-    if (!accountId) {
-      throw new RequestError('Invalid account link ID', 400);
-    }
+      if (!accountId) {
+        throw new RequestError('Invalid account link ID', 400);
+      }
 
-    const { accessToken } = req.body;
+      const { accessToken } = req.body;
 
-    if (!accessToken) {
-      throw new RequestError('Access token is required', 400);
-    }
+      if (!accessToken) {
+        throw new RequestError('Access token is required', 400);
+      }
 
-    // Find and verify ownership
-    const accountLink = await prisma.accountLink.findFirst({
-      where: {
-        id: accountId,
-        userId,
-      },
-    });
-
-    if (!accountLink) {
-      throw new RequestError('Account link not found', 404);
-    }
-
-    // Update the token
-    const updated = await prisma.accountLink.update({
-      where: { id: accountId },
-      data: { accessToken },
-    });
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Access token updated successfully',
-      data: {
-        id: updated.id,
-        provider: updated.provider,
-      },
-    });
-  } catch (error) {
-    if (error instanceof RequestError) {
-      return res.status(error.statusCode).json({
-        status: 'error',
-        message: error.message,
+      // Find and verify ownership
+      const accountLink = await prisma.accountLink.findFirst({
+        where: {
+          id: accountId,
+          userId,
+        },
       });
-    }
-    throw error;
-  }
-};
 
-/**
- * Check if a specific provider is linked
- */
-export const checkProviderLinked = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new RequestError('User not authenticated', 401);
-    }
+      if (!accountLink) {
+        throw new RequestError('Account link not found', 404);
+      }
 
-    const { provider } = req.params;
-    const providerValue = Array.isArray(provider) ? provider[0] : provider;
-
-    if (!providerValue) {
-      throw new RequestError('Invalid provider', 400);
-    }
-
-    // Validate provider is a valid AccountLinkProvider
-    const validProviders = Object.values(AccountLinkProvider);
-    if (!validProviders.includes(providerValue as AccountLinkProvider)) {
-      throw new RequestError('Invalid provider', 400);
-    }
-
-    const accountLink = await prisma.accountLink.findFirst({
-      where: {
-        userId,
-        provider: providerValue as AccountLinkProvider,
-      },
-    });
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        provider: providerValue,
-        isLinked: !!accountLink,
-        linkedAt: accountLink?.createdAt || null,
-      },
-    });
-  } catch (error) {
-    if (error instanceof RequestError) {
-      return res.status(error.statusCode).json({
-        status: 'error',
-        message: error.message,
+      // Update the token
+      const updated = await prisma.accountLink.update({
+        where: { id: accountId },
+        data: { accessToken },
       });
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Access token updated successfully',
+        data: {
+          id: updated.id,
+          provider: updated.provider,
+        },
+      });
+    } catch (error) {
+      if (error instanceof RequestError) {
+        return res.status(error.statusCode).json({
+          status: 'error',
+          message: error.message,
+        });
+      }
+      throw error;
     }
-    throw error;
-  }
-};
+  };
+
+  /**
+   * Check if a specific provider is linked
+   */
+  async checkProviderLinked (req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new RequestError('User not authenticated', 401);
+      }
+
+      const { provider } = req.params;
+      const providerValue = Array.isArray(provider) ? provider[0] : provider;
+
+      if (!providerValue) {
+        throw new RequestError('Invalid provider', 400);
+      }
+
+      // Validate provider is a valid AccountLinkProvider
+      const validProviders = Object.values(AccountLinkProvider);
+      if (!validProviders.includes(providerValue as AccountLinkProvider)) {
+        throw new RequestError('Invalid provider', 400);
+      }
+
+      const accountLink = await prisma.accountLink.findFirst({
+        where: {
+          userId,
+          provider: providerValue as AccountLinkProvider,
+        },
+      });
+
+      res.status(200).json({
+        status: 'success',
+        data: {
+          provider: providerValue,
+          isLinked: !!accountLink,
+          linkedAt: accountLink?.createdAt || null,
+        },
+      });
+    } catch (error) {
+      if (error instanceof RequestError) {
+        return res.status(error.statusCode).json({
+          status: 'error',
+          message: error.message,
+        });
+      }
+      throw error;
+    }
+  };
+}

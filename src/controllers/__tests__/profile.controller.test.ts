@@ -1,9 +1,10 @@
-import { beforeAll, describe, expect, it, afterEach } from 'vitest';
-import request from 'supertest';
-import app from '../../index';
-import { prisma } from 'src/db';
-import multer from 'multer';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+
 import ProfileController from '../ProfileController';
+import app from '../../index';
+import multer from 'multer';
+import { prisma } from 'src/db';
+import request from 'supertest';
 
 describe('ProfileController', () => {
     const upload = multer({ dest: 'public/media' });
