@@ -54,13 +54,6 @@ export enum ApplicationStatus {
   WITHDRAWN = 'WITHDRAWN'
 }
 
-export enum ApplicationStatus {
-  PENDING = 'PENDING',
-  ACCEPTED = 'ACCEPTED',
-  REJECTED = 'REJECTED',
-  WITHDRAWN = 'WITHDRAWN'
-}
-
 // Interfaces
 export interface IUser {
   id: string;

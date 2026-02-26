@@ -30,7 +30,7 @@ router.get(
 router.put(
   '/applications/:id/status',
   authMiddleware,
-  applicationValidation.statusUpdate,
+  applicationValidation.updateStatus,
   handleValidation,
   controller.updateStatus
 );
