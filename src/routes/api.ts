@@ -39,6 +39,9 @@ router.get("/search/suggestions", searchController.suggestions);
 // Artisan search and listing endpoints
 router.use("/artisans", (await import("./api/artisans")).default);
 
+// Listing applications management
+router.use("/", (await import("./api/applications")).default);
+
 // Get reviews for a specific curator
 router.get("/curators/:id/reviews", reviewController.curatorReviews);
 

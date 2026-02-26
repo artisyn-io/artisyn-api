@@ -47,6 +47,20 @@ export enum ReportReason {
   OTHER = 'OTHER'
 }
 
+export enum ApplicationStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN'
+}
+
+export enum ApplicationStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN'
+}
+
 // Interfaces
 export interface IUser {
   id: string;
@@ -130,6 +144,16 @@ export interface IArtisan {
   locationId: string;
   isActive: boolean;
   isVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IApplication {
+  id: string;
+  listingId: string;
+  applicantId: string;
+  status: ApplicationStatus;
+  message?: string;
   createdAt: Date;
   updatedAt: Date;
 }

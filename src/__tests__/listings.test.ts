@@ -186,4 +186,77 @@ describe('Listings API Integration Tests', () => {
         const check = await prisma.artisan.findUnique({ where: { id: tempListing.id } });
         expect(check).toBeNull();
     });
+
+    // =========================================================================
+    // Application Management Tests
+    // =========================================================================
+
+    let applicationId: string;
+
+    it('Setup: create application record directly', async () => {
+        const user = await prisma.user.findFirst({ where: { role: UserRole.USER } });
+        const appRecord = await prisma.application.create({
+            data: {
+                listingId,
+                applicantId: user!.id,
+                status: 'PENDING',
+                message: 'Please consider me.'
+            }
+        });
+        applicationId = appRecord.id;
+        expect(applicationId).toBeDefined();
+    });
+
+    it('GET /api/listings/:id/applications should forbid non-owner', async () => {
+        const res = await request(app)
+            .get(`/api/listings/${listingId}/applications`)
+            .set('Authorization', `Bearer ${userToken}`)
+            .expect(403);
+        expect(res.body.message).toMatch(/Unauthorized/);
+    });
+
+    it('GET /api/listings/:id/applications should allow owner and return entry', async () => {
+        const res = await request(app)
+            .get(`/api/listings/${listingId}/applications`)
+            .set('Authorization', `Bearer ${curatorToken}`)
+            .expect(200);
+        expect(Array.isArray(res.body.data)).toBe(true);
+        expect(res.body.data[0].id).toBe(applicationId);
+    });
+
+    it('PUT /api/applications/:id/status should allow owner to accept', async () => {
+        const res = await request(app)
+            .put(`/api/applications/${applicationId}/status`)
+            .set('Authorization', `Bearer ${curatorToken}`)
+            .send({ status: 'ACCEPTED' })
+            .expect(200);
+        expect(res.body.data.status).toBe('ACCEPTED');
+    });
+
+    it('PUT /api/applications/:id/status should prevent invalid transition', async () => {
+        const res = await request(app)
+            .put(`/api/applications/${applicationId}/status`)
+            .set('Authorization', `Bearer ${curatorToken}`)
+            .send({ status: 'REJECTED' });
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/Cannot transition/);
+    });
+
+    it('Applicant should be able to withdraw own application only when pending', async () => {
+        // create a new pending app to withdraw
+        const newApp = await prisma.application.create({
+            data: {
+                listingId,
+                applicantId: userToken ? userToken : '',
+                status: 'PENDING'
+            }
+        });
+        const withdrawRes = await request(app)
+            .put(`/api/applications/${newApp.id}/status`)
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({ status: 'WITHDRAWN' })
+            .expect(200);
+        expect(withdrawRes.body.data.status).toBe('WITHDRAWN');
+    });
+
 });

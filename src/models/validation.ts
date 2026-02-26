@@ -1,4 +1,4 @@
-import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason } from './interfaces';
+import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason, ApplicationStatus } from './interfaces';
 import { body, param, query } from 'express-validator';
 
 // User validation
@@ -278,6 +278,18 @@ export const tipValidation = {
   ],
 };
 
+// Application validation
+export const applicationValidation = {
+  listByListing: [
+    param('listingId').isUUID().withMessage('Valid listing ID is required'),
+    query('status').optional().isIn(Object.values(ApplicationStatus)).withMessage('Invalid application status')
+  ],
+  statusUpdate: [
+    param('id').isUUID().withMessage('Valid application ID is required'),
+    body('status').isIn(Object.values(ApplicationStatus)).withMessage('Invalid application status')
+  ]
+};
+
 // Authentication validation
 export const authValidation = {
   login: [
@@ -345,5 +357,27 @@ export const mediaValidation = {
   ],
   delete: [
     param('id').isUUID().withMessage('Valid media ID is required'),
+  ],
+};
+// Application validation
+export const applicationValidation = {
+  create: [
+    body('listingId').isUUID().withMessage('Valid listing ID is required'),
+    body('message').optional().isString().isLength({ max: 1000 }).withMessage('Message must be a string with max 1000 characters'),
+  ],
+  updateStatus: [
+    param('id').isUUID().withMessage('Valid application ID is required'),
+    body('status').isIn(['PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN']).withMessage('Invalid status. Must be one of: PENDING, ACCEPTED, REJECTED, WITHDRAWN'),
+  ],
+  getAll: [
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('perPage').optional().isInt({ min: 1, max: 100 }).withMessage('Per page must be between 1 and 100'),
+    query('status').optional().isIn(['PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN']).withMessage('Invalid status'),
+  ],
+  getOne: [
+    param('id').isUUID().withMessage('Valid application ID is required'),
+  ],
+  delete: [
+    param('id').isUUID().withMessage('Valid application ID is required'),
   ],
 };
