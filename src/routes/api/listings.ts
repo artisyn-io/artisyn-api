@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import ListingController from '../../controllers/ListingController';
+import ApplicationController from '../../controllers/ApplicationController';
 import { authMiddleware } from '../../middleware/auth';
 import { handleValidation } from '../../middleware/validate';
 import { isCurator } from '../../middleware/role';
-import { artisanValidation } from '../../models/validation';
+import { artisanValidation, applicationValidation } from '../../models/validation';
 
 const router = Router();
 const controller = new ListingController();
+const applicationController = new ApplicationController();
 
 // =============================================================================
 // Public Routes
@@ -66,6 +68,45 @@ router.delete(
     authMiddleware,
     isCurator,
     controller.delete
+);
+
+// =============================================================================
+// Application Routes (Owner Only)
+// =============================================================================
+
+/**
+ * GET /api/listings/:listingId/applications
+ * List all applications for a specific listing.
+ * Requires: Authentication + Listing ownership
+ */
+router.get(
+    '/:listingId/applications',
+    authMiddleware,
+    applicationController.index
+);
+
+/**
+ * GET /api/applications/:id
+ * Get a specific application.
+ * Requires: Authentication + Owner or Applicant
+ */
+router.get(
+    '/applications/:id',
+    authMiddleware,
+    applicationController.show
+);
+
+/**
+ * PUT /api/applications/:id/status
+ * Update application status.
+ * Requires: Authentication + Owner (to accept/reject) or Applicant (to withdraw)
+ */
+router.put(
+    '/applications/:id/status',
+    authMiddleware,
+    applicationValidation.updateStatus,
+    handleValidation,
+    applicationController.updateStatus
 );
 
 export default router;

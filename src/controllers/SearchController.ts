@@ -39,13 +39,14 @@ export default class SearchController extends BaseController {
                          : undefined,
                };
 
+               // Curator itself doesn't have name fields; those live on the associated user.
                const whereCurator = {
                     isActive: true,
                     OR: query
                          ? [
-                              { firstName: searchFilter },
-                              { lastName: searchFilter },
-                              { bio: searchFilter },
+                              { user: { firstName: searchFilter } },
+                              { user: { lastName: searchFilter } },
+                              { user: { bio: searchFilter } },
                          ]
                          : undefined,
                };
@@ -61,6 +62,7 @@ export default class SearchController extends BaseController {
                          where: whereCurator,
                          take,
                          skip,
+                         include: { user: true },
                     }),
                     prisma.artisan.count({ where: whereArtisan }),
                     prisma.curator.count({ where: whereCurator }),
@@ -72,6 +74,7 @@ export default class SearchController extends BaseController {
                          resultType: SearchResultType.ARTISAN as const,
                     })),
                     ...curators.map(c => ({
+                         // include the nested user data so consumers can display name/bio
                          ...c,
                          resultType: SearchResultType.CURATOR as const,
                     })),
@@ -118,11 +121,11 @@ export default class SearchController extends BaseController {
                          where: {
                               isActive: true,
                               OR: [
-                                   { firstName: { contains: query, mode: "insensitive" as const } },
-                                   { lastName: { contains: query, mode: "insensitive" as const } },
+                                   { user: { firstName: { contains: query, mode: "insensitive" as const } } },
+                                   { user: { lastName: { contains: query, mode: "insensitive" as const } } },
                               ],
                          },
-                         select: { firstName: true, lastName: true },
+                         select: { user: { select: { firstName: true, lastName: true } } },
                          take: 5,
                     }),
                ]);
@@ -133,7 +136,7 @@ export default class SearchController extends BaseController {
                          type: SearchResultType.ARTISAN as const,
                     })),
                     ...curatorSuggestions.map(c => ({
-                         label: `${c.firstName} ${c.lastName}`,
+                         label: `${c.user.firstName} ${c.user.lastName}`,
                          type: SearchResultType.CURATOR as const,
                     })),
                ];

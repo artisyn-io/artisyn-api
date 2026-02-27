@@ -75,6 +75,7 @@ model User {
   linkedAccounts       AccountLink[]         @relation("LinkedAccounts")
   auditLogs            AuditLog[]            @relation("UserAuditLogs")
   dataExportRequests   DataExportRequest[]   @relation("DataExportRequests")
+  applications         Application[]         @relation("Applications")
   locationId           String?
 
   @@index([email])
@@ -223,6 +224,7 @@ model Artisan {
   location    Location     @relation(fields: [locationId], references: [id])
   reviews     Review[]
   tips        Tip[]
+  applications Application[]
 
   @@index([curatorId])
   @@index([categoryId])
@@ -355,6 +357,27 @@ model Tip {
   @@index([txHash])
 }
 
+// Application model for listing applications
+model Application {
+  id          String            @id @default(uuid())
+  listingId   String            // Artisan ID that was applied to
+  applicantId String            // User who applied
+  status      ApplicationStatus @default(PENDING)
+  message     String?           @db.Text // Optional message from applicant
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  listing   Artisan @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  applicant User    @relation("Applications", fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([applicantId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("applications")
+}
+
 // Enum for review moderation status
 enum ReviewStatus {
   PENDING
@@ -378,6 +401,14 @@ enum ReportReason {
   HARASSMENT
   OFF_TOPIC
   OTHER
+}
+
+// Enum for application status
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
 }
 
 // Enum for analytics event types
