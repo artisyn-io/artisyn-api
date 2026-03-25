@@ -305,6 +305,26 @@ export const applicationValidation = {
   ],
 };
 
+// Job validation
+export const jobValidation = {
+  getAll: [
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+    query('status').optional().isIn(['active', 'in_progress', 'completed', 'cancelled', 'disputed']).withMessage('Invalid job status'),
+  ],
+  getOne: [
+    param('id').isUUID().withMessage('Valid job ID is required'),
+  ],
+  update: [
+    param('id').isUUID().withMessage('Valid job ID is required'),
+    body('status').optional().isIn(['active', 'in_progress', 'completed', 'cancelled', 'disputed']).withMessage('Invalid job status'),
+    body('notes').optional().isString().isLength({ max: 2000 }).withMessage('Notes must be a string with max 2000 characters'),
+  ],
+  delete: [
+    param('id').isUUID().withMessage('Valid job ID is required'),
+  ],
+};
+
 // Authentication validation
 export const authValidation = {
   login: [

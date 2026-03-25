@@ -86,17 +86,6 @@ router.get(
 );
 
 /**
- * GET /api/applications/:id
- * Get a specific application.
- * Requires: Authentication + Owner or Applicant
- */
-router.get(
-    '/applications/:id',
-    authMiddleware,
-    applicationController.show
-);
-
-/**
  * PUT /api/applications/:id/status
  * Update application status.
  * Requires: Authentication + Owner (to accept/reject) or Applicant (to withdraw)

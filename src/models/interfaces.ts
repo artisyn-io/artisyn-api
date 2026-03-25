@@ -54,6 +54,14 @@ export enum ApplicationStatus {
   WITHDRAWN = 'WITHDRAWN'
 }
 
+export enum JobStatus {
+  active = 'active',
+  in_progress = 'in_progress',
+  completed = 'completed',
+  cancelled = 'cancelled',
+  disputed = 'disputed',
+}
+
 // Interfaces
 export interface IUser {
   id: string;
@@ -147,6 +155,18 @@ export interface IApplication {
   applicantId: string;
   status: ApplicationStatus;
   message?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IJob {
+  id: string;
+  applicationId: string;
+  listingId: string;
+  clientId: string;
+  curatorId: string;
+  status: JobStatus;
+  notes?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

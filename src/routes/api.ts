@@ -42,6 +42,9 @@ router.use("/artisans", (await import("./api/artisans")).default);
 // Listing applications management
 router.use("/", (await import("./api/applications")).default);
 
+// Job lifecycle management
+router.use("/", (await import("./api/jobs")).default);
+
 // Get reviews for a specific curator
 router.get("/curators/:id/reviews", reviewController.curatorReviews);
 

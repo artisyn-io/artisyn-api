@@ -76,6 +76,8 @@ model User {
   auditLogs            AuditLog[]            @relation("UserAuditLogs")
   dataExportRequests   DataExportRequest[]   @relation("DataExportRequests")
   applications         Application[]         @relation("Applications")
+  jobsAsClient         Job[]                 @relation("JobClient")
+  jobsAsCurator        Job[]                 @relation("JobCurator")
   locationId           String?
 
   @@index([email])
@@ -225,6 +227,7 @@ model Artisan {
   reviews     Review[]
   tips        Tip[]
   applications Application[]
+  jobs        Job[]
 
   @@index([curatorId])
   @@index([categoryId])
@@ -370,12 +373,39 @@ model Application {
   // Relations
   listing   Artisan @relation(fields: [listingId], references: [id], onDelete: Cascade)
   applicant User    @relation("Applications", fields: [applicantId], references: [id], onDelete: Cascade)
+  job       Job?
 
   @@index([listingId])
   @@index([applicantId])
   @@index([status])
   @@index([createdAt])
   @@map("applications")
+}
+
+// Job model – created when an application is accepted
+model Job {
+  id            String    @id @default(uuid())
+  applicationId String    @unique
+  listingId     String
+  clientId      String    // User who applied (applicant)
+  curatorId     String    // Listing owner
+  status        JobStatus @default(active)
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  listing     Artisan     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  client      User        @relation("JobClient", fields: [clientId], references: [id], onDelete: Cascade)
+  curator     User        @relation("JobCurator", fields: [curatorId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([clientId])
+  @@index([curatorId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("jobs")
 }
 
 // Enum for review moderation status
@@ -409,6 +439,15 @@ enum ApplicationStatus {
   ACCEPTED
   REJECTED
   WITHDRAWN
+}
+
+// Enum for job status
+enum JobStatus {
+  active
+  in_progress
+  completed
+  cancelled
+  disputed
 }
 
 // Enum for analytics event types

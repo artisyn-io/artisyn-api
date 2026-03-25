@@ -111,6 +111,70 @@ For detailed API documentation, see [USER_PROFILE_PREFERENCES_API.md](./USER_PRO
 
 ---
 
+### 📋 Applications API
+
+```
+GET    /api/listings/:listingId/applications → Get all applications for a listing (owner only)
+POST   /api/applications                     → Submit an application for a listing
+GET    /api/applications/:id                 → Get application details (owner or applicant)
+PUT    /api/applications/:id/status          → Update application status (owner or applicant)
+DELETE /api/applications/:id                 → Withdraw application (applicant only, pending only)
+```
+
+**Application Statuses:**
+- `PENDING` - Application submitted, awaiting review
+- `ACCEPTED` - Application accepted (automatically creates a Job)
+- `REJECTED` - Application rejected by listing owner
+- `WITHDRAWN` - Application withdrawn by applicant
+
+---
+
+### 💼 Jobs API
+
+```
+GET    /api/jobs               → List jobs (role-based filtering)
+GET    /api/jobs/:id           → Get job details (involved parties only)
+PUT    /api/jobs/:id           → Update job status/notes (involved parties only)
+DELETE /api/jobs/:id           → Delete job (admin only, cancelled/disputed only)
+```
+
+**Job Lifecycle:**
+```
+active → in_progress → completed (terminal)
+       ↘ cancelled (terminal)
+
+in_progress → completed (terminal)
+            ↘ cancelled (terminal)
+            ↘ disputed
+
+disputed → completed (terminal)
+         ↘ cancelled (terminal)
+```
+
+**Job Statuses:**
+- `active` - Job created and ready to start
+- `in_progress` - Work has begun
+- `completed` - Job successfully completed (terminal)
+- `cancelled` - Job cancelled by either party (terminal)
+- `disputed` - Dispute needs resolution
+
+**Query Parameters for GET /api/jobs:**
+- `page` - Page number (default: 1)
+- `limit` - Items per page (default: 10, max: 100)
+- `status` - Filter by status
+- `listingId` - Filter by listing (curators/admins only)
+
+**Authorization:**
+- **ADMIN**: Can see all jobs
+- **CURATOR**: Can see jobs for their listings
+- **USER**: Can see jobs where they are the client
+
+**Note:** Jobs are automatically created when an application is accepted.
+
+For detailed documentation, see [JOBS_API.md](./JOBS_API.md)
+
+---
+
 ### 🔍 Search API
 
 ```

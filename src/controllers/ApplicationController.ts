@@ -5,6 +5,7 @@ import BaseController from "./BaseController";
 import { RequestError } from "../utils/errors";
 import ApplicationCollection from "../resources/ApplicationCollection";
 import ApplicationResource from "../resources/ApplicationResource";
+import JobController from "./JobController";
 import { prisma } from "../db";
 
 /**
@@ -90,6 +91,79 @@ export default class ApplicationController extends BaseController {
   };
 
   /**
+   * POST /api/applications
+   * Allow authenticated users to submit an application for a listing
+   */
+  create = async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new RequestError('Unauthenticated', 401);
+    }
+
+    const { listingId, message } = req.body;
+
+    const listing = await prisma.artisan.findUnique({
+      where: { id: listingId },
+      select: { id: true }
+    });
+
+    if (!listing) {
+      throw new RequestError('Listing not found', 404);
+    }
+
+    const activeStatuses = [ApplicationStatus.PENDING, ApplicationStatus.ACCEPTED];
+    const existingApplication = await prisma.application.findFirst({
+      where: {
+        listingId,
+        applicantId: userId,
+        status: { in: activeStatuses }
+      }
+    });
+
+    if (existingApplication) {
+      throw new RequestError('You already have an active application for this listing', 400);
+    }
+
+    const application = await prisma.application.create({
+      data: {
+        listingId,
+        applicantId: userId,
+        message
+      },
+      include: {
+        listing: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            curatorId: true
+          }
+        },
+        applicant: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            avatar: true,
+            phone: true
+          }
+        }
+      }
+    });
+
+    new ApplicationResource(req, res, application)
+      .json()
+      .additional({
+        status: 'success',
+        message: 'Application submitted successfully',
+        code: 201
+      })
+      .status(201);
+  };
+
+  /**
    * GET /api/applications/:id
    * Get a specific application (owner or applicant only)
    */
@@ -149,6 +223,8 @@ export default class ApplicationController extends BaseController {
    * - PENDING -> ACCEPTED
    * - PENDING -> REJECTED
    * - Any status -> WITHDRAWN (applicant only)
+   * 
+   * Side effect: When application is ACCEPTED, a Job is automatically created
    */
   updateStatus = async (req: Request, res: Response) => {
     const applicationId = String(req.params.id);
@@ -208,40 +284,96 @@ export default class ApplicationController extends BaseController {
     // Validate state transitions
     this.validateStateTransition(application.status, status as ApplicationStatus);
 
-    // Update application status
-    const updated = await prisma.application.update({
-      where: { id: applicationId },
-      data: { status: status as ApplicationStatus },
-      include: {
-        listing: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            curatorId: true
-          }
-        },
-        applicant: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            avatar: true,
-            phone: true
+    // Use a transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Update application status
+      const updated = await tx.application.update({
+        where: { id: applicationId },
+        data: { status: status as ApplicationStatus },
+        include: {
+          listing: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              curatorId: true
+            }
+          },
+          applicant: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              avatar: true,
+              phone: true
+            }
           }
         }
+      });
+
+      // If application is accepted, create a Job
+      let job = null;
+      if (status === 'ACCEPTED') {
+        const jobController = new JobController();
+        job = await jobController.createFromApplication(
+          application.id,
+          application.listingId,
+          application.applicantId,
+          application.listing.curatorId
+        );
       }
+
+      return { application: updated, job };
     });
 
-    new ApplicationResource(req, res, updated)
+    new ApplicationResource(req, res, result.application)
       .json()
       .additional({
         status: 'success',
-        message: `Application status updated to ${status}`,
-        code: 200
+        message: `Application status updated to ${status}${result.job ? '. Job created.' : ''}`,
+        code: 200,
+        job: result.job ? { id: result.job.id } : undefined
       })
       .status(200);
+  };
+
+  /**
+   * DELETE /api/applications/:id
+   * Allow applicants to withdraw pending applications
+   */
+  destroy = async (req: Request, res: Response) => {
+    const applicationId = String(req.params.id);
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new RequestError('Unauthenticated', 401);
+    }
+
+    const application = await prisma.application.findUnique({ where: { id: applicationId } });
+
+    if (!application) {
+      throw new RequestError('Application not found', 404);
+    }
+
+    if (application.applicantId !== userId) {
+      throw new RequestError('Only the applicant can withdraw their application', 403);
+    }
+
+    if (application.status !== ApplicationStatus.PENDING) {
+      throw new RequestError('Only pending applications can be withdrawn', 400);
+    }
+
+    await prisma.application.delete({ where: { id: applicationId } });
+
+    res.status(202).json({
+      data: {
+        id: applicationId
+      },
+      status: 'success',
+      message: 'Application withdrawn successfully',
+      code: 202
+    });
   };
 
   /**

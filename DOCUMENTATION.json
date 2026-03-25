@@ -3426,6 +3426,332 @@
                                 "inheritPostProcessors": {},
                                 "inheritPreProcessors": {}
                             }
+                        },
+                        {
+                            "name": "Applications",
+                            "id": 5120001,
+                            "auth": {},
+                            "securityScheme": {},
+                            "parentId": 3766903,
+                            "serverId": "",
+                            "description": "",
+                            "identityPattern": {
+                                "httpApi": {
+                                    "type": "inherit",
+                                    "bodyType": "",
+                                    "fields": []
+                                }
+                            },
+                            "shareSettings": {},
+                            "visibility": "INHERITED",
+                            "preProcessors": [
+                                {
+                                    "id": "inheritProcessors",
+                                    "type": "inheritProcessors",
+                                    "data": {}
+                                }
+                            ],
+                            "postProcessors": [
+                                {
+                                    "id": "inheritProcessors",
+                                    "type": "inheritProcessors",
+                                    "data": {}
+                                }
+                            ],
+                            "inheritPostProcessors": {},
+                            "inheritPreProcessors": {},
+                            "items": [
+                                {
+                                    "name": "Apply to Listing",
+                                    "api": {
+                                        "id": 9120001,
+                                        "method": "post",
+                                        "path": "/applications",
+                                        "parameters": {
+                                            "query": [],
+                                            "path": [],
+                                            "cookie": [],
+                                            "header": []
+                                        },
+                                        "auth": {},
+                                        "securityScheme": {},
+                                        "commonParameters": {
+                                            "query": [],
+                                            "body": [],
+                                            "cookie": [],
+                                            "header": []
+                                        },
+                                        "responses": [
+                                            {
+                                                "id": 9120002,
+                                                "code": 201,
+                                                "name": "Created",
+                                                "headers": [],
+                                                "jsonSchema": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "data": {
+                                                            "type": "object"
+                                                        },
+                                                        "status": {
+                                                            "type": "string"
+                                                        },
+                                                        "message": {
+                                                            "type": "string"
+                                                        },
+                                                        "code": {
+                                                            "type": "integer"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "data",
+                                                        "status",
+                                                        "message",
+                                                        "code"
+                                                    ]
+                                                },
+                                                "description": "",
+                                                "contentType": "json",
+                                                "mediaType": "",
+                                                "oasExtensions": ""
+                                            }
+                                        ],
+                                        "requestBody": {
+                                            "type": "json",
+                                            "parameters": [
+                                                {
+                                                    "name": "listingId",
+                                                    "required": true,
+                                                    "description": "Listing UUID",
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "name": "message",
+                                                    "required": false,
+                                                    "description": "Optional message for the owner",
+                                                    "type": "string"
+                                                }
+                                            ],
+                                            "mediaType": "application/json",
+                                            "examples": [],
+                                            "oasExtensions": ""
+                                        },
+                                        "description": "",
+                                        "tags": [],
+                                        "status": "developing",
+                                        "serverId": "",
+                                        "operationId": "",
+                                        "sourceUrl": "",
+                                        "ordering": 0,
+                                        "cases": [],
+                                        "mocks": [],
+                                        "customApiFields": "{}",
+                                        "advancedSettings": {
+                                            "disabledSystemHeaders": {}
+                                        },
+                                        "mockScript": {},
+                                        "codeSamples": [],
+                                        "commonResponseStatus": {},
+                                        "responseChildren": [],
+                                        "visibility": "INHERITED",
+                                        "oasExtensions": "",
+                                        "preProcessors": [],
+                                        "postProcessors": [],
+                                        "inheritPostProcessors": {},
+                                        "inheritPreProcessors": {}
+                                    }
+                                },
+                                {
+                                    "name": "Get Application",
+                                    "api": {
+                                        "id": 9120003,
+                                        "method": "get",
+                                        "path": "/applications/{id}",
+                                        "parameters": {
+                                            "query": [],
+                                            "path": [
+                                                {
+                                                    "name": "id",
+                                                    "required": true,
+                                                    "description": "Application UUID",
+                                                    "type": "string",
+                                                    "enable": true
+                                                }
+                                            ],
+                                            "cookie": [],
+                                            "header": []
+                                        },
+                                        "auth": {},
+                                        "securityScheme": {},
+                                        "commonParameters": {
+                                            "query": [],
+                                            "body": [],
+                                            "cookie": [],
+                                            "header": []
+                                        },
+                                        "responses": [
+                                            {
+                                                "id": 9120004,
+                                                "code": 200,
+                                                "name": "OK",
+                                                "headers": [],
+                                                "jsonSchema": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "data": {
+                                                            "type": "object"
+                                                        },
+                                                        "status": {
+                                                            "type": "string"
+                                                        },
+                                                        "message": {
+                                                            "type": "string"
+                                                        },
+                                                        "code": {
+                                                            "type": "integer"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "data",
+                                                        "status",
+                                                        "message",
+                                                        "code"
+                                                    ]
+                                                },
+                                                "description": "",
+                                                "contentType": "json",
+                                                "mediaType": "",
+                                                "oasExtensions": ""
+                                            }
+                                        ],
+                                        "requestBody": {
+                                            "type": "none",
+                                            "parameters": [],
+                                            "mediaType": "",
+                                            "examples": [],
+                                            "oasExtensions": ""
+                                        },
+                                        "description": "",
+                                        "tags": [],
+                                        "status": "developing",
+                                        "serverId": "",
+                                        "operationId": "",
+                                        "sourceUrl": "",
+                                        "ordering": 0,
+                                        "cases": [],
+                                        "mocks": [],
+                                        "customApiFields": "{}",
+                                        "advancedSettings": {
+                                            "disabledSystemHeaders": {}
+                                        },
+                                        "mockScript": {},
+                                        "codeSamples": [],
+                                        "commonResponseStatus": {},
+                                        "responseChildren": [],
+                                        "visibility": "INHERITED",
+                                        "oasExtensions": "",
+                                        "preProcessors": [],
+                                        "postProcessors": [],
+                                        "inheritPostProcessors": {},
+                                        "inheritPreProcessors": {}
+                                    }
+                                },
+                                {
+                                    "name": "Withdraw Application",
+                                    "api": {
+                                        "id": 9120005,
+                                        "method": "delete",
+                                        "path": "/applications/{id}",
+                                        "parameters": {
+                                            "query": [],
+                                            "path": [
+                                                {
+                                                    "name": "id",
+                                                    "required": true,
+                                                    "description": "Application UUID",
+                                                    "type": "string",
+                                                    "enable": true
+                                                }
+                                            ],
+                                            "cookie": [],
+                                            "header": []
+                                        },
+                                        "auth": {},
+                                        "securityScheme": {},
+                                        "commonParameters": {
+                                            "query": [],
+                                            "body": [],
+                                            "cookie": [],
+                                            "header": []
+                                        },
+                                        "responses": [
+                                            {
+                                                "id": 9120006,
+                                                "code": 202,
+                                                "name": "Accepted",
+                                                "headers": [],
+                                                "jsonSchema": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "data": {
+                                                            "type": "object"
+                                                        },
+                                                        "status": {
+                                                            "type": "string"
+                                                        },
+                                                        "message": {
+                                                            "type": "string"
+                                                        },
+                                                        "code": {
+                                                            "type": "integer"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "data",
+                                                        "status",
+                                                        "message",
+                                                        "code"
+                                                    ]
+                                                },
+                                                "description": "",
+                                                "contentType": "json",
+                                                "mediaType": "",
+                                                "oasExtensions": ""
+                                            }
+                                        ],
+                                        "requestBody": {
+                                            "type": "none",
+                                            "parameters": [],
+                                            "mediaType": "",
+                                            "examples": [],
+                                            "oasExtensions": ""
+                                        },
+                                        "description": "",
+                                        "tags": [],
+                                        "status": "developing",
+                                        "serverId": "",
+                                        "operationId": "",
+                                        "sourceUrl": "",
+                                        "ordering": 0,
+                                        "cases": [],
+                                        "mocks": [],
+                                        "customApiFields": "{}",
+                                        "advancedSettings": {
+                                            "disabledSystemHeaders": {}
+                                        },
+                                        "mockScript": {},
+                                        "codeSamples": [],
+                                        "commonResponseStatus": {},
+                                        "responseChildren": [],
+                                        "visibility": "INHERITED",
+                                        "oasExtensions": "",
+                                        "preProcessors": [],
+                                        "postProcessors": [],
+                                        "inheritPostProcessors": {},
+                                        "inheritPreProcessors": {}
+                                    }
+                                }
+                            ]
                         }
                     ]
                 }
