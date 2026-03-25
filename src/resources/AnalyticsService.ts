@@ -1,6 +1,6 @@
-import { createHash } from 'crypto';
-import { prisma } from 'src/db';
-import { EventType, Prisma } from '@prisma/client';
+import { createHash } from "crypto";
+import { prisma } from "src/db";
+import { EventType, Prisma } from "@prisma/client";
 
 /**
  * Analytics Service
@@ -14,7 +14,7 @@ export class AnalyticsService {
    */
   static anonymizeUserId(userId: string | null | undefined): string | null {
     if (!userId) return null;
-    return createHash('sha256').update(userId).digest('hex').substring(0, 32);
+    return createHash("sha256").update(userId).digest("hex").substring(0, 32);
   }
 
   /**
@@ -23,20 +23,22 @@ export class AnalyticsService {
   static anonymizeIp(ip: string | null | undefined): string | null {
     if (!ip) return null;
     // Hash the IP to maintain privacy
-    return createHash('sha256').update(ip).digest('hex').substring(0, 16);
+    return createHash("sha256").update(ip).digest("hex").substring(0, 16);
   }
 
   /**
    * Extracts and anonymizes user agent info
    */
-  static anonymizeUserAgent(userAgent: string | null | undefined): string | null {
+  static anonymizeUserAgent(
+    userAgent: string | null | undefined,
+  ): string | null {
     if (!userAgent) return null;
     // Keep only browser and OS info, remove personal identifiers
-    const simplified = userAgent.split(' ').slice(0, 3).join(' ');
+    const simplified = userAgent.split(" ").slice(0, 3).join(" ");
     return simplified.substring(0, 100);
   }
 
-/**
+  /**
    * Records an analytics event with proper anonymization
    */
   static async trackEvent(params: {
@@ -68,7 +70,7 @@ export class AnalyticsService {
       });
     } catch (error) {
       // Log error but don't throw - analytics should not break the app
-      console.error('Analytics tracking error:', error);
+      console.error("Analytics tracking error:", error);
       return null;
     }
   }
@@ -129,7 +131,7 @@ export class AnalyticsService {
         where,
         take: params.take || 50,
         skip: params.skip || 0,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       prisma.analyticsEvent.count({ where }),
     ]);
@@ -156,7 +158,7 @@ export class AnalyticsService {
     const events = await prisma.analyticsEvent.findMany({
       where,
       take,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     return events;
@@ -172,7 +174,7 @@ export class AnalyticsService {
 
     const anomalies: Array<{
       type: string;
-      severity: 'low' | 'medium' | 'high';
+      severity: "low" | "medium" | "high";
       description: string;
       context: Record<string, unknown>;
     }> = [];
@@ -180,7 +182,7 @@ export class AnalyticsService {
     // Rule 1: Possible brute-force login attempts (many LOGIN_FAILED from same IP hash)
     try {
       const bruteForceCandidates = await prisma.analyticsEvent.groupBy({
-        by: ['ipHash'],
+        by: ["ipHash"],
         where: {
           eventType: EventType.LOGIN_FAILED,
           createdAt: { gte: windowStart, lte: now },
@@ -189,14 +191,14 @@ export class AnalyticsService {
         _count: { id: true },
         having: {
           ipHash: { not: null },
-          _count: { id: { gt: 5 } },
+          id: { _count: { gt: 5 } },
         },
       });
 
       for (const row of bruteForceCandidates) {
         anomalies.push({
-          type: 'BRUTE_FORCE_LOGIN',
-          severity: 'high',
+          type: "BRUTE_FORCE_LOGIN",
+          severity: "high",
           description: `Multiple failed logins from the same IP hash in the last ${windowMinutes} minutes`,
           context: {
             ipHash: row.ipHash,
@@ -206,12 +208,14 @@ export class AnalyticsService {
         });
       }
     } catch (error) {
-      console.error('Anomaly detection (brute force) error:', error);
+      console.error("Anomaly detection (brute force) error:", error);
     }
 
     // Rule 2: Elevated error rate in recent window compared to previous window
     try {
-      const previousWindowStart = new Date(windowStart.getTime() - windowMinutes * 60 * 1000);
+      const previousWindowStart = new Date(
+        windowStart.getTime() - windowMinutes * 60 * 1000,
+      );
 
       const [currentErrors, previousErrors] = await Promise.all([
         prisma.analyticsEvent.count({
@@ -228,11 +232,15 @@ export class AnalyticsService {
         }),
       ]);
 
-      if (currentErrors >= 10 && previousErrors > 0 && currentErrors > previousErrors * 2) {
+      if (
+        currentErrors >= 10 &&
+        previousErrors > 0 &&
+        currentErrors > previousErrors * 2
+      ) {
         anomalies.push({
-          type: 'ERROR_RATE_SPIKE',
-          severity: 'medium',
-          description: 'Error events spiked compared to the previous window',
+          type: "ERROR_RATE_SPIKE",
+          severity: "medium",
+          description: "Error events spiked compared to the previous window",
           context: {
             windowMinutes,
             currentErrors,
@@ -241,7 +249,7 @@ export class AnalyticsService {
         });
       }
     } catch (error) {
-      console.error('Anomaly detection (error spike) error:', error);
+      console.error("Anomaly detection (error spike) error:", error);
     }
 
     return {
@@ -253,10 +261,7 @@ export class AnalyticsService {
   /**
    * Gets aggregated analytics summary
    */
-  static async getSummary(params: {
-    startDate?: Date;
-    endDate?: Date;
-  }) {
+  static async getSummary(params: { startDate?: Date; endDate?: Date }) {
     const where: Prisma.AnalyticsEventWhereInput = {};
 
     if (params.startDate || params.endDate) {
@@ -267,14 +272,14 @@ export class AnalyticsService {
 
     // Get event counts by type
     const eventsByType = await prisma.analyticsEvent.groupBy({
-      by: ['eventType'],
+      by: ["eventType"],
       where,
       _count: { id: true },
     });
 
     // Get average response time for API calls
     const apiMetrics = await prisma.analyticsEvent.aggregate({
-      where: { ...where, eventType: 'API_CALL', responseTime: { not: null } },
+      where: { ...where, eventType: "API_CALL", responseTime: { not: null } },
       _avg: { responseTime: true },
       _max: { responseTime: true },
       _min: { responseTime: true },
@@ -282,40 +287,43 @@ export class AnalyticsService {
 
     // Get unique users count
     const uniqueUsers = await prisma.analyticsEvent.groupBy({
-      by: ['anonymizedUserId'],
+      by: ["anonymizedUserId"],
       where: { ...where, anonymizedUserId: { not: null } },
     });
 
     // Get top endpoints
     const topEndpoints = await prisma.analyticsEvent.groupBy({
-      by: ['endpoint'],
+      by: ["endpoint"],
       where: { ...where, endpoint: { not: null } },
       _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
+      orderBy: { _count: { id: "desc" } },
       take: 10,
     });
 
     // Get error rate
     const totalRequests = await prisma.analyticsEvent.count({
-      where: { ...where, eventType: 'API_CALL' },
+      where: { ...where, eventType: "API_CALL" },
     });
 
     const errorCount = await prisma.analyticsEvent.count({
-      where: { ...where, eventType: 'ERROR_OCCURRED' },
+      where: { ...where, eventType: "ERROR_OCCURRED" },
     });
 
     return {
-      eventsByType: eventsByType.reduce((acc, item) => {
-        acc[item.eventType] = item._count.id;
-        return acc;
-      }, {} as Record<string, number>),
+      eventsByType: eventsByType.reduce(
+        (acc, item) => {
+          acc[item.eventType] = item._count.id;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
       apiMetrics: {
         avgResponseTime: apiMetrics._avg.responseTime,
         maxResponseTime: apiMetrics._max.responseTime,
         minResponseTime: apiMetrics._min.responseTime,
       },
       uniqueUsersCount: uniqueUsers.length,
-      topEndpoints: topEndpoints.map(e => ({
+      topEndpoints: topEndpoints.map((e) => ({
         endpoint: e.endpoint,
         count: e._count.id,
       })),
@@ -327,26 +335,46 @@ export class AnalyticsService {
   /**
    * Generates and stores aggregated reports
    */
-  static async generateAggregation(periodType: 'hourly' | 'daily' | 'weekly' | 'monthly') {
+  static async generateAggregation(
+    periodType: "hourly" | "daily" | "weekly" | "monthly",
+  ) {
     const now = new Date();
     let periodStart: Date;
     let periodEnd: Date;
 
     switch (periodType) {
-      case 'hourly':
-        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() - 1);
-        periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours());
+      case "hourly":
+        periodStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          now.getHours() - 1,
+        );
+        periodEnd = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          now.getHours(),
+        );
         break;
-      case 'daily':
-        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      case "daily":
+        periodStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() - 1,
+        );
         periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         break;
-      case 'weekly':
+      case "weekly":
         periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         periodEnd = now;
         break;
-      case 'monthly':
-        periodStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      case "monthly":
+        periodStart = new Date(
+          now.getFullYear(),
+          now.getMonth() - 1,
+          now.getDate(),
+        );
         periodEnd = now;
         break;
     }
@@ -363,14 +391,14 @@ export class AnalyticsService {
           },
         }),
         prisma.analyticsEvent.groupBy({
-          by: ['anonymizedUserId'],
+          by: ["anonymizedUserId"],
           where: {
             eventType,
             createdAt: { gte: periodStart, lte: periodEnd },
             anonymizedUserId: { not: null },
           },
         }),
-        eventType === 'API_CALL'
+        eventType === "API_CALL"
           ? prisma.analyticsEvent.aggregate({
               where: {
                 eventType,
@@ -408,7 +436,12 @@ export class AnalyticsService {
       });
     }
 
-    return { periodType, periodStart, periodEnd, processedEventTypes: eventTypes.length };
+    return {
+      periodType,
+      periodStart,
+      periodEnd,
+      processedEventTypes: eventTypes.length,
+    };
   }
 
   /**
@@ -429,7 +462,7 @@ export class AnalyticsService {
 
     return prisma.analyticsAggregation.findMany({
       where,
-      orderBy: { periodStart: 'desc' },
+      orderBy: { periodStart: "desc" },
     });
   }
 

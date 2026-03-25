@@ -39,6 +39,12 @@ enum ArtisanType {
   BUSINESS
 }
 
+// Enum for listing owner type
+enum ListingOwnerType {
+  CURATOR
+  FINDER
+}
+
 // User model for both regular users and curators
 model User {
   id                    String    @id @default(uuid())
@@ -197,24 +203,25 @@ model Subcategory {
 
 // Artisan model
 model Artisan {
-  id            String      @id @default(uuid())
+  id            String           @id @default(uuid())
   name          String
   email         String?
   phone         String?
   avatar        String?
-  type          ArtisanType @default(PERSON)
+  type          ArtisanType      @default(PERSON)
   description   String
   price         Float? // Optional price if fixed
   priceRange    Json? // Min and max price if variable
   images        String[] // URLs to artisan images
-  curatorId     String // User ID of the curator
+  curatorId     String // User ID of the creator (curator or finder)
   categoryId    String
   subcategoryId String?
   locationId    String
-  isActive      Boolean     @default(true)
-  isVerified    Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  isActive      Boolean          @default(true)
+  isVerified    Boolean          @default(false)
+  ownerType     ListingOwnerType @default(CURATOR) // Distinguishes between curator and finder listings
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   archivedAt    DateTime?
 
   // Relations
@@ -231,6 +238,7 @@ model Artisan {
   @@index([subcategoryId])
   @@index([locationId])
   @@index([isActive])
+  @@index([ownerType])
 }
 
 // Location model for geospatial data

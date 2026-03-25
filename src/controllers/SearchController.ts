@@ -5,152 +5,158 @@ import Resource from "src/resources";
 import { validate } from "src/utils/validator";
 
 enum SearchResultType {
-     ARTISAN = "ARTISAN",
-     CURATOR = "CURATOR",
+  ARTISAN = "ARTISAN",
+  CURATOR = "CURATOR",
 }
 
 export default class SearchController extends BaseController {
-     /**
-      * GET /api/search
-     */
-     index = async (req: Request, res: Response) => {
-          try {
-               const { query } = validate(req.query, {
-                    query: "nullable|string|min:2",
-               });
+  /**
+   * GET /api/search
+   */
+  index = async (req: Request, res: Response) => {
+    try {
+      const { query } = validate(req.query, {
+        query: "nullable|string|min:2",
+      });
 
-               const { take, skip, meta } = this.pagination(req);
+      const { take, skip, meta } = this.pagination(req);
 
-               const searchFilter = query
-                    ? {
-                         contains: query,
-                         mode: "insensitive" as const,
-                    }
-                    : undefined;
-
-               const whereArtisan = {
-                    isActive: true,
-                    OR: query
-                         ? [
-                              { name: searchFilter },
-                              { description: searchFilter },
-                              { category: { name: searchFilter } },
-                         ]
-                         : undefined,
-               };
-
-               // Curator itself doesn't have name fields; those live on the associated user.
-               const whereCurator = {
-                    isActive: true,
-                    OR: query
-                         ? [
-                              { user: { firstName: searchFilter } },
-                              { user: { lastName: searchFilter } },
-                              { user: { bio: searchFilter } },
-                         ]
-                         : undefined,
-               };
-
-               const [artisans, curators, artisanCount, curatorCount] = await Promise.all([
-                    prisma.artisan.findMany({
-                         where: whereArtisan,
-                         take,
-                         skip,
-                         include: { category: true },
-                    }),
-                    prisma.curator.findMany({
-                         where: whereCurator,
-                         take,
-                         skip,
-                         include: { user: true },
-                    }),
-                    prisma.artisan.count({ where: whereArtisan }),
-                    prisma.curator.count({ where: whereCurator }),
-               ]);
-
-               const formattedResults = [
-                    ...artisans.map(a => ({
-                         ...a,
-                         resultType: SearchResultType.ARTISAN as const,
-                    })),
-                    ...curators.map(c => ({
-                         // include the nested user data so consumers can display name/bio
-                         ...c,
-                         resultType: SearchResultType.CURATOR as const,
-                    })),
-               ];
-
-               return Resource(req, res, { data: formattedResults })
-                    .json()
-                    .status(200)
-                    .additional({
-                         status: "success",
-                         message: "OK",
-                         code: 200,
-                         pagination: meta(artisanCount + curatorCount, formattedResults.length),
-                         counts: {
-                              artisans: artisanCount,
-                              curators: curatorCount,
-                         },
-                    });
-          } catch (error) {
-               throw error;
+      const searchFilter = query
+        ? {
+            contains: query,
+            mode: "insensitive" as const,
           }
-     };
+        : undefined;
 
-     /**
-      * GET /api/search/suggestions
-      */
-     suggestions = async (req: Request, res: Response) => {
-          try {
-               const { query } = validate(req.query, {
-                    query: "required|string|min:2",
-               });
+      const whereArtisan = {
+        isActive: true,
+        OR: query
+          ? [
+              { name: searchFilter },
+              { description: searchFilter },
+              { category: { name: searchFilter } },
+            ]
+          : undefined,
+      };
 
-               const [artisanSuggestions, curatorSuggestions] = await Promise.all([
-                    prisma.artisan.findMany({
-                         where: {
-                              isActive: true,
-                              name: { contains: query, mode: "insensitive" as const },
-                         },
-                         select: { name: true },
-                         take: 5,
-                    }),
+      // Curator itself doesn't have name fields; those live on the associated user.
+      const whereCurator = {
+        OR: query
+          ? [
+              { user: { firstName: searchFilter } },
+              { user: { lastName: searchFilter } },
+              { user: { bio: searchFilter } },
+            ]
+          : undefined,
+      };
 
-                    prisma.curator.findMany({
-                         where: {
-                              isActive: true,
-                              OR: [
-                                   { user: { firstName: { contains: query, mode: "insensitive" as const } } },
-                                   { user: { lastName: { contains: query, mode: "insensitive" as const } } },
-                              ],
-                         },
-                         select: { user: { select: { firstName: true, lastName: true } } },
-                         take: 5,
-                    }),
-               ]);
+      const [artisans, curators, artisanCount, curatorCount] =
+        await Promise.all([
+          prisma.artisan.findMany({
+            where: whereArtisan,
+            take,
+            skip,
+            include: { category: true },
+          }),
+          prisma.curator.findMany({
+            where: whereCurator,
+            take,
+            skip,
+            include: { user: true },
+          }),
+          prisma.artisan.count({ where: whereArtisan }),
+          prisma.curator.count({ where: whereCurator }),
+        ]);
 
-               const suggestions = [
-                    ...artisanSuggestions.map(a => ({
-                         label: a.name,
-                         type: SearchResultType.ARTISAN as const,
-                    })),
-                    ...curatorSuggestions.map(c => ({
-                         label: `${c.user.firstName} ${c.user.lastName}`,
-                         type: SearchResultType.CURATOR as const,
-                    })),
-               ];
+      const formattedResults = [
+        ...artisans.map((a) => ({
+          ...a,
+          resultType: SearchResultType.ARTISAN as const,
+        })),
+        ...curators.map((c) => ({
+          // include the nested user data so consumers can display name/bio
+          ...c,
+          resultType: SearchResultType.CURATOR as const,
+        })),
+      ];
 
-               return Resource(req, res, { data: suggestions })
-                    .json()
-                    .status(200)
-                    .additional({
-                         status: "success",
-                         message: "OK",
-                         code: 200,
-                    });
-          } catch (error) {
-               throw error;
-          }
-     };
+      return Resource(req, res, { data: formattedResults })
+        .json()
+        .status(200)
+        .additional({
+          status: "success",
+          message: "OK",
+          code: 200,
+          pagination: meta(
+            artisanCount + curatorCount,
+            formattedResults.length,
+          ),
+          counts: {
+            artisans: artisanCount,
+            curators: curatorCount,
+          },
+        });
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  /**
+   * GET /api/search/suggestions
+   */
+  suggestions = async (req: Request, res: Response) => {
+    try {
+      const { query } = validate(req.query, {
+        query: "required|string|min:2",
+      });
+
+      const [artisanSuggestions, curatorSuggestions] = await Promise.all([
+        prisma.artisan.findMany({
+          where: {
+            isActive: true,
+            name: { contains: query, mode: "insensitive" as const },
+          },
+          select: { name: true },
+          take: 5,
+        }),
+
+        prisma.curator.findMany({
+          where: {
+            user: {
+              OR: [
+                {
+                  firstName: { contains: query, mode: "insensitive" as const },
+                },
+                { lastName: { contains: query, mode: "insensitive" as const } },
+              ],
+            },
+          },
+          include: { user: { select: { firstName: true, lastName: true } } },
+          take: 5,
+        }),
+      ]);
+
+      const suggestions = [
+        ...artisanSuggestions.map((a) => ({
+          label: a.name,
+          type: SearchResultType.ARTISAN as const,
+        })),
+        ...curatorSuggestions.map((c) => ({
+          label: `${c.user.firstName} ${c.user.lastName}`,
+          type: SearchResultType.CURATOR as const,
+        })),
+      ];
+
+      return Resource(req, res, { data: suggestions })
+        .json()
+        .status(200)
+        .additional({
+          status: "success",
+          message: "OK",
+          code: 200,
+        });
+    } catch (error) {
+      throw error;
+    }
+  };
 }

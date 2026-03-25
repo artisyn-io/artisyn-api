@@ -5,16 +5,39 @@ import { UserRole } from "@prisma/client";
 
 /**
  * Role Middleware: isCurator
- * 
+ *
  * Ensures the authenticated user has CURATOR or ADMIN privileges.
  */
 export const isCurator = (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user;
+  const user = req.user;
 
-    if (user && (user.role === UserRole.CURATOR || user.role === UserRole.ADMIN)) {
-        next();
-    } else {
-        // Return 403 Access Denied
-        ErrorHandler(new RequestError("Access Denied", 403), req, res);
-    }
+  if (
+    user &&
+    (user.role === UserRole.CURATOR || user.role === UserRole.ADMIN)
+  ) {
+    next();
+  } else {
+    // Return 403 Access Denied
+    ErrorHandler(new RequestError("Access Denied", 403), req, res);
+  }
+};
+
+/**
+ * Role Middleware: isFinder
+ *
+ * Ensures the authenticated user has USER (Finder) or ADMIN privileges.
+ */
+export const isFinder = (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user;
+
+  if (user && (user.role === UserRole.USER || user.role === UserRole.ADMIN)) {
+    next();
+  } else {
+    // Return 403 Access Denied
+    ErrorHandler(
+      new RequestError("Access Denied - Finder role required", 403),
+      req,
+      res
+    );
+  }
 };
