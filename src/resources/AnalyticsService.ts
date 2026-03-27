@@ -187,20 +187,28 @@ export class AnalyticsService {
           ipHash: { not: null },
         },
         _count: { id: true },
-        having: {
-          ipHash: { not: null },
-          _count: { id: { gt: 5 } },
-        },
       });
 
-      for (const row of bruteForceCandidates) {
+      // Filter in memory for type-safety and robust detection
+      const suspiciousIPs = bruteForceCandidates.filter(row => {
+        const count = row._count && typeof row._count === 'object' && 'id' in row._count
+          ? (row._count.id as number)
+          : 0;
+        return count > 5;
+      });
+
+      for (const row of suspiciousIPs) {
+        const count = row._count && typeof row._count === 'object' && 'id' in row._count
+          ? (row._count.id as number)
+          : 0;
+
         anomalies.push({
           type: 'BRUTE_FORCE_LOGIN',
           severity: 'high',
           description: `Multiple failed logins from the same IP hash in the last ${windowMinutes} minutes`,
           context: {
             ipHash: row.ipHash,
-            failedLogins: row._count.id,
+            failedLogins: count,
             windowMinutes,
           },
         });
