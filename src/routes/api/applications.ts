@@ -8,8 +8,44 @@ const router = Router();
 const controller = new ApplicationController();
 
 // ============================================================================
-// Application management routes
+// Application routes
 // ============================================================================
+
+/**
+ * POST /api/applications
+ * Authenticated user applies to a listing
+ */
+router.post(
+  '/applications',
+  authMiddleware,
+  applicationValidation.create,
+  handleValidation,
+  controller.create
+);
+
+/**
+ * GET /api/applications/:id
+ * Applicant or listing owner views a specific application
+ */
+router.get(
+  '/applications/:id',
+  authMiddleware,
+  applicationValidation.getOne,
+  handleValidation,
+  controller.show
+);
+
+/**
+ * DELETE /api/applications/:id
+ * Applicant deletes their own pending application
+ */
+router.delete(
+  '/applications/:id',
+  authMiddleware,
+  applicationValidation.delete,
+  handleValidation,
+  controller.delete
+);
 
 /**
  * GET /api/listings/:listingId/applications

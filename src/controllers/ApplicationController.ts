@@ -10,13 +10,80 @@ import { prisma } from "../db";
 /**
  * ApplicationController
  *
- * Handles listing applications management for Artisan owners.
- * Enables owners to:
- * - View all applications for their listings
- * - Accept/reject applications
- * - Track application status
+ * Handles listing applications management.
+ * - Users can apply to listings, view, and withdraw their applications
+ * - Listing owners can view, accept, or reject applications
  */
 export default class ApplicationController extends BaseController {
+
+  /**
+   * POST /api/applications
+   * Authenticated user applies to a listing
+   */
+  create = async (req: Request, res: Response) => {
+    const applicantId = req.user?.id;
+    if (!applicantId) throw new RequestError("Unauthenticated", 401);
+
+    const { listingId, message } = req.body;
+
+    // Validate listing exists
+    const listing = await prisma.artisan.findUnique({
+      where: { id: listingId },
+      select: { id: true, isActive: true }
+    });
+    if (!listing) throw new RequestError("Listing not found", 404);
+    if (!listing.isActive) throw new RequestError("Listing is not active", 400);
+
+    // Prevent duplicate active applications
+    const existing = await prisma.application.findFirst({
+      where: {
+        listingId,
+        applicantId,
+        status: { in: ['PENDING', 'ACCEPTED'] }
+      }
+    });
+    if (existing) throw new RequestError("You already have an active application for this listing", 409);
+
+    const application = await prisma.application.create({
+      data: { listingId, applicantId, message },
+      include: {
+        listing: { select: { id: true, name: true, description: true, curatorId: true } },
+        applicant: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, phone: true } }
+      }
+    });
+
+    new ApplicationResource(req, res, application)
+      .json()
+      .additional({ status: 'success', message: 'Application submitted successfully', code: 201 })
+      .status(201);
+  };
+
+  /**
+   * DELETE /api/applications/:id
+   * Applicant withdraws/deletes their own pending application
+   */
+  delete = async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) throw new RequestError("Unauthenticated", 401);
+
+    const application = await prisma.application.findUnique({
+      where: { id: String(req.params.id) }
+    });
+
+    if (!application) throw new RequestError("Application not found", 404);
+    if (application.applicantId !== userId) throw new RequestError("Unauthorized", 403);
+    if (application.status !== 'PENDING') {
+      throw new RequestError("Only pending applications can be deleted", 400);
+    }
+
+    await prisma.application.delete({ where: { id: application.id } });
+
+    new ApplicationResource(req, res, {})
+      .json()
+      .additional({ status: 'success', message: 'Application deleted successfully', code: 202 })
+      .status(202);
+  };
+
   /**
    * GET /api/listings/:listingId/applications
    * List all applications for a specific listing (owner only)
@@ -70,6 +137,14 @@ export default class ApplicationController extends BaseController {
               avatar: true,
               phone: true
             }
+          },
+          job: {
+            select: {
+              id: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true
+            }
           }
         }
       }),
@@ -120,6 +195,14 @@ export default class ApplicationController extends BaseController {
             email: true,
             avatar: true,
             phone: true
+          }
+        },
+        job: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true
           }
         }
       }
@@ -208,33 +291,84 @@ export default class ApplicationController extends BaseController {
     // Validate state transitions
     this.validateStateTransition(application.status, status as ApplicationStatus);
 
-    // Update application status
-    const updated = await prisma.application.update({
-      where: { id: applicationId },
-      data: { status: status as ApplicationStatus },
-      include: {
-        listing: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            curatorId: true
-          }
-        },
-        applicant: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            avatar: true,
-            phone: true
+    const finalApplication = await prisma.$transaction(async (tx) => {
+      const updatedApp = await tx.application.update({
+        where: { id: applicationId },
+        data: { status: status as ApplicationStatus },
+        include: {
+          listing: {
+            select: {
+              id: true,
+              curatorId: true,
+              name: true,
+              description: true
+            }
+          },
+          applicant: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              avatar: true,
+              phone: true
+            }
           }
         }
+      });
+
+      if (status === 'ACCEPTED') {
+        const existingJob = await tx.job.findUnique({
+          where: { applicationId }
+        });
+
+        if (!existingJob) {
+          await tx.job.create({
+            data: {
+              listingId: updatedApp.listingId,
+              applicationId: updatedApp.id,
+              applicantId: updatedApp.applicantId
+            }
+          });
+        }
       }
+
+      return tx.application.findUnique({
+        where: { id: applicationId },
+        include: {
+          listing: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              curatorId: true
+            }
+          },
+          applicant: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              avatar: true,
+              phone: true
+            }
+          },
+          job: {
+            select: {
+              id: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true
+            }
+          }
+        }
+      });
     });
 
-    new ApplicationResource(req, res, updated)
+    RequestError.assertFound(finalApplication, "Application not found after update", 404);
+
+    new ApplicationResource(req, res, finalApplication)
       .json()
       .additional({
         status: 'success',

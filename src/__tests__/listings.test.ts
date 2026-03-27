@@ -243,11 +243,11 @@ describe('Listings API Integration Tests', () => {
     });
 
     it('Applicant should be able to withdraw own application only when pending', async () => {
-        // create a new pending app to withdraw
+        const user = await prisma.user.findFirst({ where: { role: UserRole.USER } });
         const newApp = await prisma.application.create({
             data: {
                 listingId,
-                applicantId: userToken ? userToken : '',
+                applicantId: user!.id,
                 status: 'PENDING'
             }
         });

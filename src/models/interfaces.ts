@@ -149,6 +149,7 @@ export interface IApplication {
   message?: string;
   createdAt: Date;
   updatedAt: Date;
+  job?: IJob;
 }
 
 export interface ILocation {
@@ -225,6 +226,23 @@ export interface ITip {
   receiverId: string;
   artisanId?: string;
   txHash?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+export enum JobStatus {
+  ACTIVE = 'ACTIVE',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  DISPUTED = 'DISPUTED',
+}
+
+export interface IJob {
+  id: string;
+  listingId: string;
+  applicationId: string;
+  applicantId: string;
+  status: JobStatus;
   createdAt: Date;
   updatedAt: Date;
 }

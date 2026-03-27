@@ -35,6 +35,12 @@ export default class extends JsonResource {
                     email: application.applicant.email,
                     avatar: application.applicant.avatar,
                     phone: application.applicant.phone
+                } : undefined,
+                job: application.job ? {
+                    id: application.job.id,
+                    status: application.job.status,
+                    createdAt: application.job.createdAt,
+                    updatedAt: application.job.updatedAt
                 } : undefined
             })) : [],
             pagination: this.resource.pagination,

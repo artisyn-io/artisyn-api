@@ -1,4 +1,4 @@
-import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason, ApplicationStatus } from './interfaces';
+import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason, ApplicationStatus, JobStatus } from './interfaces';
 import { body, param, query } from 'express-validator';
 
 // User validation
@@ -302,6 +302,22 @@ export const applicationValidation = {
   ],
   delete: [
     param('id').isUUID().withMessage('Valid application ID is required'),
+  ],
+};
+
+export const jobValidation = {
+  list: [
+    query('status').optional().isIn(Object.values(JobStatus)).withMessage('Invalid job status filter'),
+  ],
+  getOne: [
+    param('id').isUUID().withMessage('Valid job ID is required'),
+  ],
+  update: [
+    param('id').isUUID().withMessage('Valid job ID is required'),
+    body('status').isIn(Object.values(JobStatus)).withMessage('Valid job status is required'),
+  ],
+  delete: [
+    param('id').isUUID().withMessage('Valid job ID is required'),
   ],
 };
 
