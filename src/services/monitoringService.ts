@@ -3,6 +3,8 @@
  * Tracks API metrics and alerts on suspicious activities
  */
 
+import { dispatchAlert } from './notificationService';
+
 export interface SecurityAlert {
   id: string;
   type: 'rate-limit' | 'blocked-ip' | 'failed-auth' | 'api-error' | 'suspicious-activity';
@@ -198,18 +200,15 @@ const logAlert = (alert: SecurityAlert) => {
 };
 
 /**
- * Notify admins about security alerts
+ * Notify admins about security alerts through configured channels
  */
-const notifyAdmins = (alert: SecurityAlert) => {
-  // This would integrate with your notification system
-  // For now, we'll just log it
-  console.warn(`[ADMIN ALERT] High severity security event: ${alert.message}`, alert.data);
-
-  // TODO: We should implement:
-  // - Email notifications
-  // - SMS alerts
-  // - Slack/Discord webhooks
-  // - PagerDuty integration
+const notifyAdmins = async (alert: SecurityAlert) => {
+  try {
+    await dispatchAlert(alert);
+  } catch (error) {
+    // Notification failures must never crash the app
+    console.error('[Monitoring] Failed to dispatch admin notification:', error instanceof Error ? error.message : error);
+  }
 };
 
 /**

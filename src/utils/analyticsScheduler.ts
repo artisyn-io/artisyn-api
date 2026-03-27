@@ -3,11 +3,18 @@ import { env } from './helpers';
 
 /**
  * Analytics Scheduler
- * Handles automatic generation of analytics reports at scheduled intervals
- * 
+ * Handles automatic generation of analytics reports at scheduled intervals.
+ *
+ * Controlled by the ENABLE_ANALYTICS_SCHEDULER environment variable.
+ * Set it to "true" to enable background analytics jobs; any other value
+ * (or omitting it) keeps the scheduler disabled so local development and
+ * CI boots stay fast and quiet.
+ *
  * Uses setInterval for simplicity - in production, consider using
  * node-cron or a job queue like Bull for more robust scheduling
  */
+
+const LOG_PREFIX = '[Analytics Scheduler]';
 
 // Interval constants (in milliseconds)
 const HOUR = 60 * 60 * 1000;
@@ -22,15 +29,26 @@ let monthlyInterval: NodeJS.Timeout | null = null;
 let cleanupInterval: NodeJS.Timeout | null = null;
 
 /**
+ * Check whether the analytics scheduler is enabled via configuration.
+ */
+const isSchedulerEnabled = (): boolean => {
+    return env('ENABLE_ANALYTICS_SCHEDULER') === true;
+};
+
+/**
  * Generates hourly analytics aggregation
  */
 const generateHourlyReport = async () => {
     try {
-        console.log('[Analytics Scheduler] Generating hourly aggregation...');
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Generating hourly aggregation...`);
+        }
         await AnalyticsService.generateAggregation('hourly');
-        console.log('[Analytics Scheduler] Hourly aggregation completed');
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Hourly aggregation completed`);
+        }
     } catch (error) {
-        console.error('[Analytics Scheduler] Hourly aggregation failed:', error);
+        console.error(`${LOG_PREFIX} Hourly aggregation failed:`, error);
     }
 };
 
@@ -39,11 +57,15 @@ const generateHourlyReport = async () => {
  */
 const generateDailyReport = async () => {
     try {
-        console.log('[Analytics Scheduler] Generating daily aggregation...');
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Generating daily aggregation...`);
+        }
         await AnalyticsService.generateAggregation('daily');
-        console.log('[Analytics Scheduler] Daily aggregation completed');
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Daily aggregation completed`);
+        }
     } catch (error) {
-        console.error('[Analytics Scheduler] Daily aggregation failed:', error);
+        console.error(`${LOG_PREFIX} Daily aggregation failed:`, error);
     }
 };
 
@@ -52,11 +74,15 @@ const generateDailyReport = async () => {
  */
 const generateWeeklyReport = async () => {
     try {
-        console.log('[Analytics Scheduler] Generating weekly aggregation...');
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Generating weekly aggregation...`);
+        }
         await AnalyticsService.generateAggregation('weekly');
-        console.log('[Analytics Scheduler] Weekly aggregation completed');
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Weekly aggregation completed`);
+        }
     } catch (error) {
-        console.error('[Analytics Scheduler] Weekly aggregation failed:', error);
+        console.error(`${LOG_PREFIX} Weekly aggregation failed:`, error);
     }
 };
 
@@ -65,11 +91,15 @@ const generateWeeklyReport = async () => {
  */
 const generateMonthlyReport = async () => {
     try {
-        console.log('[Analytics Scheduler] Generating monthly aggregation...');
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Generating monthly aggregation...`);
+        }
         await AnalyticsService.generateAggregation('monthly');
-        console.log('[Analytics Scheduler] Monthly aggregation completed');
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Monthly aggregation completed`);
+        }
     } catch (error) {
-        console.error('[Analytics Scheduler] Monthly aggregation failed:', error);
+        console.error(`${LOG_PREFIX} Monthly aggregation failed:`, error);
     }
 };
 
@@ -79,17 +109,25 @@ const generateMonthlyReport = async () => {
 const runDataCleanup = async () => {
     try {
         const retentionDays = parseInt(env('ANALYTICS_RETENTION_DAYS', '90'));
-        console.log(`[Analytics Scheduler] Running data cleanup (retention: ${retentionDays} days)...`);
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Running data cleanup (retention: ${retentionDays} days)...`);
+        }
         const result = await AnalyticsService.cleanupOldData(retentionDays);
-        console.log(`[Analytics Scheduler] Cleanup completed: ${result.deletedCount} records deleted`);
+        if (env('NODE_ENV') !== 'test') {
+            console.debug(`${LOG_PREFIX} Cleanup completed: ${result.deletedCount} records deleted`);
+        }
     } catch (error) {
-        console.error('[Analytics Scheduler] Data cleanup failed:', error);
+        console.error(`${LOG_PREFIX} Data cleanup failed:`, error);
     }
 };
 
 /**
- * Starts all scheduled analytics jobs
- * Call this function during app initialization
+ * Starts all scheduled analytics jobs.
+ *
+ * Skipped in test environments and when ENABLE_ANALYTICS_SCHEDULER is not
+ * set to "true". The initial startup aggregation that previously ran five
+ * seconds after boot has been removed; use {@link triggerAggregation} to
+ * run a one-off aggregation when needed.
  */
 export const startAnalyticsScheduler = () => {
     // Don't run scheduler in test environment
@@ -97,7 +135,12 @@ export const startAnalyticsScheduler = () => {
         return;
     }
 
-    console.log('[Analytics Scheduler] Starting scheduled jobs...');
+    if (!isSchedulerEnabled()) {
+        console.debug(`${LOG_PREFIX} Scheduler disabled (set ENABLE_ANALYTICS_SCHEDULER=true to enable)`);
+        return;
+    }
+
+    console.debug(`${LOG_PREFIX} Starting scheduled jobs...`);
 
     // Hourly aggregation - runs every hour
     hourlyInterval = setInterval(generateHourlyReport, HOUR);
@@ -114,13 +157,7 @@ export const startAnalyticsScheduler = () => {
     // Data cleanup - runs daily
     cleanupInterval = setInterval(runDataCleanup, DAY);
 
-    // Generate initial reports on startup (after a short delay)
-    setTimeout(async () => {
-        await generateHourlyReport();
-        await generateDailyReport();
-    }, 5000);
-
-    console.log('[Analytics Scheduler] All jobs scheduled');
+    console.debug(`${LOG_PREFIX} All jobs scheduled`);
 };
 
 /**
@@ -128,7 +165,9 @@ export const startAnalyticsScheduler = () => {
  * Call this during graceful shutdown
  */
 export const stopAnalyticsScheduler = () => {
-    console.log('[Analytics Scheduler] Stopping scheduled jobs...');
+    if (env('NODE_ENV') !== 'test') {
+        console.debug(`${LOG_PREFIX} Stopping scheduled jobs...`);
+    }
 
     if (hourlyInterval) clearInterval(hourlyInterval);
     if (dailyInterval) clearInterval(dailyInterval);
@@ -142,7 +181,9 @@ export const stopAnalyticsScheduler = () => {
     monthlyInterval = null;
     cleanupInterval = null;
 
-    console.log('[Analytics Scheduler] All jobs stopped');
+    if (env('NODE_ENV') !== 'test') {
+        console.debug(`${LOG_PREFIX} All jobs stopped`);
+    }
 };
 
 /**
