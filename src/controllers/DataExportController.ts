@@ -4,7 +4,9 @@ import BaseController from "./BaseController";
 import DataExportRequestResource from "src/resources/DataExportRequestResource";
 import { RequestError } from 'src/utils/errors';
 import { logAuditEvent } from 'src/utils/auditLogger';
+import { sendMail } from 'src/utils/mailer';
 import { prisma } from 'src/db';
+import argon2 from 'argon2';
 
 // Removed unused import from '@prisma/client';
 
@@ -251,14 +253,41 @@ export default class extends BaseController {
             RequestError.assertFound(userId, 'Unauthorized', 401);
             RequestError.assertFound(password, 'Password required for account deletion', 400);
 
-            // Verify password before proceeding
             const user = await prisma.user.findUnique({
                 where: { id: userId },
             });
 
             RequestError.assertFound(user, 'User not found', 404);
 
-            // TODO: Verify password using argon2 or similar
+            // Verify password
+            const passwordValid = await argon2.verify(user.password, password);
+            RequestError.abortIf(!passwordValid, 'Invalid password', 403);
+
+            // Block if deletion already pending
+            RequestError.abortIf(
+                !!user.deletionScheduledAt,
+                'Account deletion already scheduled. Check your email or cancel the existing request.',
+                409
+            );
+
+            // Schedule deletion 30 days from now
+            const deletionDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+            await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    deletionRequestedAt: new Date(),
+                    deletionScheduledAt: deletionDate,
+                },
+            });
+
+            // Send confirmation email
+            await sendMail({
+                to: user.email,
+                subject: 'Account Deletion Scheduled',
+                text: `Your account has been scheduled for deletion on ${deletionDate.toDateString()}. If you did not request this or wish to cancel, you can do so within 30 days by visiting your account settings.`,
+                caption: 'You have 30 days to cancel this request.',
+            });
 
             // Log deletion request
             await logAuditEvent(userId, 'DATA_DELETE', {
@@ -266,19 +295,17 @@ export default class extends BaseController {
                 entityType: 'User',
                 entityId: userId,
                 statusCode: 202,
-                metadata: { action: 'request_deletion' },
+                metadata: { action: 'request_deletion', scheduledAt: deletionDate },
             });
-
-            // TODO: Create background job to:
-            // 1. Schedule user data deletion
-            // 2. Send confirmation email with 30-day cancellation window
-            // 3. Actually delete data after 30 days
 
             return res.status(202).json({
                 status: 'success',
-                message: 'Account deletion requested. Check your email to confirm. Account will be deleted in 30 days.',
+                message: 'Account deletion scheduled. Check your email to confirm. You have 30 days to cancel.',
                 code: 202,
-                data: { status: 'pending_deletion' },
+                data: {
+                    status: 'pending_deletion',
+                    deletionScheduledAt: deletionDate,
+                },
             });
         } catch (error) {
             throw error;
@@ -294,8 +321,41 @@ export default class extends BaseController {
 
             RequestError.assertFound(userId, 'Unauthorized', 401);
 
-            // TODO: Check if user has pending deletion
-            // Cancel the scheduled deletion
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+            });
+
+            RequestError.assertFound(user, 'User not found', 404);
+
+            // Check if deletion is actually pending
+            RequestError.abortIf(
+                !user.deletionScheduledAt,
+                'No pending account deletion found.',
+                400
+            );
+
+            // Ensure still within the 30-day cancellation window
+            RequestError.abortIf(
+                user.deletionScheduledAt <= new Date(),
+                'Deletion window has passed. Account cannot be restored.',
+                410
+            );
+
+            await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    deletionScheduledAt: null,
+                    deletionRequestedAt: null,
+                },
+            });
+
+            // Send cancellation confirmation email
+            await sendMail({
+                to: user.email,
+                subject: 'Account Deletion Cancelled',
+                text: 'Your account deletion request has been successfully cancelled. Your account is now fully restored.',
+                caption: 'Your account is safe.',
+            });
 
             // Log cancellation
             await logAuditEvent(userId, 'DATA_DELETE', {
@@ -308,7 +368,7 @@ export default class extends BaseController {
 
             return res.json({
                 status: 'success',
-                message: 'Account deletion cancelled',
+                message: 'Account deletion cancelled. Your account has been restored.',
                 code: 200,
                 data: { status: 'deletion_cancelled' },
             });

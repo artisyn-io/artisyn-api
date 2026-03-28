@@ -57,6 +57,8 @@ model User {
   emailVerificationCode String?   @db.VarChar(64)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+  deletionRequestedAt   DateTime?
+  deletionScheduledAt   DateTime?
 
   // Relations
   curator              Curator?
