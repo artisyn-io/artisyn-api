@@ -6,6 +6,20 @@ import { prisma } from "../db";
 import { isPast, constructFrom } from "date-fns";
 import ErrorHandler from "../utils/request-handlers";
 
+
+import { NextFunction, Request, Response } from "express";
+import { isTokenExpired } from "../utils/helpers";
+
+export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  const accessToken = req.user?.accessToken;
+
+  if (!accessToken || isTokenExpired(accessToken.expiresAt)) {
+    return res.status(401).json({ error: "Unauthorized: token expired or invalid" });
+  }
+
+  next();
+}
+
 /**
  * Authentication Middleware
  * 

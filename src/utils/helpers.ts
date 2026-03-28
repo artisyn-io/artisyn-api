@@ -7,6 +7,19 @@ import { Flatten } from "src/interfaces/basic-types";
 import jwt from "jsonwebtoken";
 import { prisma } from "src/db";
 
+
+import { isBefore } from "date-fns";
+
+export function isTokenExpired(expiresAt?: string | null): boolean {
+  if (!expiresAt) return true; // treat missing expiry as expired
+
+  const expiryDate = new Date(expiresAt);
+  if (isNaN(expiryDate.getTime())) {
+    return true; // invalid date string
+  }
+
+  return isBefore(expiryDate, new Date());
+}
 /**
  * Flatten an object with array values
  *
