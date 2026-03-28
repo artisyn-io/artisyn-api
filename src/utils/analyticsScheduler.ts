@@ -166,3 +166,24 @@ export default {
     stop: stopAnalyticsScheduler,
     trigger: triggerAggregation,
 };
+
+let analyticsInterval: NodeJS.Timer | null = null;
+
+export function startAnalyticsScheduler() {
+  if (analyticsInterval) {
+    console.log("Analytics scheduler already running, skipping duplicate start.");
+    return;
+  }
+
+  analyticsInterval = setInterval(() => {
+    // analytics job logic
+    console.log("Running analytics job...");
+  }, 60_000);
+}
+
+export function stopAnalyticsScheduler() {
+  if (analyticsInterval) {
+    clearInterval(analyticsInterval);
+    analyticsInterval = null;
+  }
+}

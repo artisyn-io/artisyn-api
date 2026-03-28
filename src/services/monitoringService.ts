@@ -274,3 +274,24 @@ export const startMonitoringScheduler = () => {
     }
   }, 5 * 60 * 1000);
 };
+
+let monitoringInterval: NodeJS.Timer | null = null;
+
+export function startMonitoringService() {
+  if (monitoringInterval) {
+    console.log("Monitoring service already running, skipping duplicate start.");
+    return;
+  }
+
+  monitoringInterval = setInterval(() => {
+    // monitoring logic
+    console.log("Running monitoring check...");
+  }, 120_000);
+}
+
+export function stopMonitoringService() {
+  if (monitoringInterval) {
+    clearInterval(monitoringInterval);
+    monitoringInterval = null;
+  }
+}

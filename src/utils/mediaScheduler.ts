@@ -103,3 +103,25 @@ export default {
     start: startMediaScheduler,
     stop: stopMediaScheduler,
 };
+
+
+let mediaCleanupInterval: NodeJS.Timer | null = null;
+
+export function startMediaScheduler() {
+  if (mediaCleanupInterval) {
+    console.log("Media scheduler already running, skipping duplicate start.");
+    return;
+  }
+
+  mediaCleanupInterval = setInterval(() => {
+    // media cleanup logic
+    console.log("Running media cleanup...");
+  }, 300_000);
+}
+
+export function stopMediaScheduler() {
+  if (mediaCleanupInterval) {
+    clearInterval(mediaCleanupInterval);
+    mediaCleanupInterval = null;
+  }
+}
