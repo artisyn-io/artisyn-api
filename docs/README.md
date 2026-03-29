@@ -17,13 +17,21 @@ Clone the REPO
 git clone https://github.com/artisyn-io/artisyn-api.git
 ```
 
-Setup your Postgre credentials and add update the `DATABASE_URL` env variable, no need to create DB, it will be automatically created.
+Setup your Postgre credentials and update the `DATABASE_URL` env variable. Use a dedicated schema for local development rather than `public` to avoid drift with other apps sharing the same database.
 
 ```sh
 pnpm install
 ```
 
-This will run the `initialize` script which will generate prisma schema, create and migrate the database and finally seed it.
+This will run the `setup` script during `postinstall`, which ensures `.env` exists and generates the Prisma client.
+
+To create or fully reinitialize the local development database, run:
+
+```sh
+pnpm initialize
+```
+
+`initialize` performs a forced Prisma reset for the local development database, reapplies migrations, and runs the configured seed.
 
 Finally fire up the dev server
 

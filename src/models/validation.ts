@@ -1,4 +1,4 @@
-import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason, ApplicationStatus } from './interfaces';
+import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason, ApplicationStatus, JobStatus } from './interfaces';
 import { body, param, query } from 'express-validator';
 
 // User validation
@@ -305,20 +305,16 @@ export const applicationValidation = {
   ],
 };
 
-// Job validation
 export const jobValidation = {
-  getAll: [
-    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-    query('status').optional().isIn(['active', 'in_progress', 'completed', 'cancelled', 'disputed']).withMessage('Invalid job status'),
+  list: [
+    query('status').optional().isIn(Object.values(JobStatus)).withMessage('Invalid job status filter'),
   ],
   getOne: [
     param('id').isUUID().withMessage('Valid job ID is required'),
   ],
   update: [
     param('id').isUUID().withMessage('Valid job ID is required'),
-    body('status').optional().isIn(['active', 'in_progress', 'completed', 'cancelled', 'disputed']).withMessage('Invalid job status'),
-    body('notes').optional().isString().isLength({ max: 2000 }).withMessage('Notes must be a string with max 2000 characters'),
+    body('status').isIn(Object.values(JobStatus)).withMessage('Valid job status is required'),
   ],
   delete: [
     param('id').isUUID().withMessage('Valid job ID is required'),

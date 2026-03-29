@@ -1,10 +1,11 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { IUser } from "src/models/interfaces";
 import app from "../../index";
 import { faker } from "@faker-js/faker";
 import { prisma } from "src/db";
 import request from "supertest";
+import { generateAccessToken } from "src/utils/helpers";
 
 describe("Tips Controller", () => {
     let sender: IUser;
@@ -12,54 +13,61 @@ describe("Tips Controller", () => {
     let senderToken: string;
     let receiverToken: string;
 
-    const senderEmail = faker.internet.email();
-    const receiverEmail = faker.internet.email();
+    beforeEach(async () => {
+        const runId = faker.string.alphanumeric(10).toLowerCase();
 
-    beforeAll(async () => {
-        // Create sender user
-        const senderResponse = await request(app)
-            .post("/api/auth/signup")
-            .send({
-                email: senderEmail,
+        sender = await prisma.user.create({
+            data: {
+                email: `sender-${runId}@test.com`,
                 lastName: faker.person.lastName(),
                 firstName: faker.person.firstName(),
                 password: "Password123#",
-                password_confirmation: "Password123#",
-            });
+            },
+        }) as IUser;
 
-        sender = senderResponse.body.data;
-        senderToken = senderResponse.body.token;
-
-        // Create receiver user
-        const receiverResponse = await request(app)
-            .post("/api/auth/signup")
-            .send({
-                email: receiverEmail,
+        receiver = await prisma.user.create({
+            data: {
+                email: `receiver-${runId}@test.com`,
                 lastName: faker.person.lastName(),
                 firstName: faker.person.firstName(),
                 password: "Password123#",
-                password_confirmation: "Password123#",
-            });
+            },
+        }) as IUser;
 
-        receiver = receiverResponse.body.data;
-        receiverToken = receiverResponse.body.token;
+        senderToken = generateAccessToken({
+            username: sender.email,
+            id: sender.id,
+            index: faker.number.int({ min: 1, max: 1000000 }),
+        }).token;
+
+        receiverToken = generateAccessToken({
+            username: receiver.email,
+            id: receiver.id,
+            index: faker.number.int({ min: 1, max: 1000000 }),
+        }).token;
+
+        await prisma.tip.create({
+            data: {
+                amount: 1,
+                currency: "XLM",
+                status: "PENDING",
+                senderId: sender.id,
+                receiverId: receiver.id,
+                message: "seed tip",
+            },
+        });
     });
 
-    // Clean up after tests
-    afterAll(async () => {
-        // Delete tips first (foreign key constraint)
+    afterEach(async () => {
         await prisma.tip.deleteMany({
             where: {
                 OR: [{ senderId: sender?.id }, { receiverId: receiver?.id }],
             },
         });
 
-        // Delete users
-        if (sender?.id) {
-            await prisma.user.delete({ where: { id: sender.id } });
-        }
-        if (receiver?.id) {
-            await prisma.user.delete({ where: { id: receiver.id } });
+        const userIds = [sender?.id, receiver?.id].filter(Boolean) as string[];
+        if (userIds.length > 0) {
+            await prisma.user.deleteMany({ where: { id: { in: userIds } } });
         }
     });
 

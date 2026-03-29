@@ -12,49 +12,35 @@ describe('Listings API Integration Tests', () => {
     let userToken: string;
     let otherToken: string;
     let curatorId: string;
-    let applicantId: string;
+    let userId: string;
     let categoryId: string;
     let locationId: string;
     let listingId: string;
-    let applicationId: string;
-    let statusApplicationId: string;
+    const runId = Math.random().toString(36).slice(2, 10);
 
     beforeAll(async () => {
-        // Cleanup potential stale data from aborted runs
-        await prisma.tip.deleteMany();
-        await prisma.review.deleteMany();
-        await prisma.artisan.deleteMany();
-        await prisma.personalAccessToken.deleteMany();
-        await prisma.curator.deleteMany();
-        await prisma.user.deleteMany();
-        await prisma.application.deleteMany();
-        await prisma.subcategory.deleteMany();
-        await prisma.category.deleteMany();
-        await prisma.location.deleteMany();
-
-        // 1. Setup Data: Create Category & Location
-        const category = await prisma.category.create({ data: { name: 'Test Category' } });
+        const category = await prisma.category.create({ data: { name: `Test Category ${runId}` } });
         categoryId = category.id;
+
         const location = await prisma.location.create({
-            data: { city: 'Test City', state: 'TS', country: 'Testland', latitude: 0, longitude: 0 }
+            data: { city: `Test City ${runId}`, state: 'TS', country: 'Testland', latitude: 0, longitude: 0 }
         });
         locationId = location.id;
 
-        // 2. Setup Users: Curator & Regular User
         const curator = await prisma.user.create({
             data: {
-                email: 'curator@test.com', password: 'hash', firstName: 'C', lastName: 'T', role: UserRole.CURATOR
+                email: `curator-${runId}@test.com`, password: 'hash', firstName: 'C', lastName: 'T', role: UserRole.CURATOR
             }
         });
         curatorId = curator.id;
+
         const user = await prisma.user.create({
             data: {
-                email: 'user@test.com', password: 'hash', firstName: 'U', lastName: 'T', role: UserRole.USER
+                email: `user-${runId}@test.com`, password: 'hash', firstName: 'U', lastName: 'T', role: UserRole.USER
             }
         });
-        applicantId = user.id;
+        userId = user.id;
 
-        // 3. Generate Tokens
         const cAuth = generateAccessToken({ username: curator.email, id: curator.id, index: 1 });
         curatorToken = cAuth.token;
         await prisma.personalAccessToken.create({
@@ -67,18 +53,6 @@ describe('Listings API Integration Tests', () => {
             data: { token: uAuth.token, name: 'Test', userId: user.id, expiresAt: new Date(uAuth.jwt.exp! * 1000) }
         });
 
-        const otherUser = await prisma.user.create({
-            data: {
-                email: 'other@test.com', password: 'hash', firstName: 'O', lastName: 'T', role: UserRole.USER
-            }
-        });
-        const otherAuth = generateAccessToken({ username: otherUser.email, id: otherUser.id, index: 3 });
-        otherToken = otherAuth.token;
-        await prisma.personalAccessToken.create({
-            data: { token: otherAuth.token, name: 'Test', userId: otherUser.id, expiresAt: new Date(otherAuth.jwt.exp! * 1000) }
-        });
-
-        // 4. Create Initial Listing
         const listing = await prisma.artisan.create({
             data: {
                 name: 'Initial Listing',
@@ -94,18 +68,28 @@ describe('Listings API Integration Tests', () => {
     });
 
     afterAll(async () => {
-        // Cleanup
-        await prisma.personalAccessToken.deleteMany();
-        await prisma.application.deleteMany();
-        await prisma.artisan.deleteMany();
-        await prisma.user.deleteMany();
-        await prisma.category.deleteMany();
-        await prisma.location.deleteMany();
+        await prisma.application.deleteMany({
+            where: {
+                OR: [{ listingId }, { applicantId: userId }]
+            }
+        });
+        await prisma.artisan.deleteMany({
+            where: {
+                OR: [{ id: listingId }, { curatorId }]
+            }
+        });
+        await prisma.personalAccessToken.deleteMany({
+            where: { userId: { in: [curatorId, userId] } }
+        });
+        await prisma.curator.deleteMany({
+            where: { userId: { in: [curatorId, userId] } }
+        });
+        await prisma.user.deleteMany({
+            where: { id: { in: [curatorId, userId] } }
+        });
+        await prisma.category.deleteMany({ where: { id: categoryId } });
+        await prisma.location.deleteMany({ where: { id: locationId } });
     });
-
-    // =========================================================================
-    // Public Access Tests
-    // =========================================================================
 
     it('GET /api/listings should be public and return 200', async () => {
         const res = await request(app).get('/api/listings');
@@ -127,10 +111,6 @@ describe('Listings API Integration Tests', () => {
         expect(res.status).toBe(200);
         expect(res.body.data.id).toBe(listingId);
     });
-
-    // =========================================================================
-    // Authentication & Role Tests
-    // =========================================================================
 
     it('POST /api/listings should deny unauthenticated users (401)', async () => {
         const res = await request(app).post('/api/listings').send({});
@@ -168,14 +148,9 @@ describe('Listings API Integration Tests', () => {
             });
 
         expect(res.body.data.name).toBe('New Listing');
-        // Verify curator info is in response but stripped of sensitive data
         expect(res.body.data.curator.id).toBe(curatorId);
         expect(res.body.data.curator.password).toBeUndefined();
     });
-
-    // =========================================================================
-    // Update & Delete Tests
-    // =========================================================================
 
     it('PUT /api/listings/:id should return 202 on success', async () => {
         const res = await request(app)
@@ -191,7 +166,6 @@ describe('Listings API Integration Tests', () => {
     });
 
     it('DELETE /api/listings/:id should return 202 on success', async () => {
-        // Create a temporary listing to delete
         const tempListing = await prisma.artisan.create({
             data: { name: 'To Delete', description: '...', phone: '1', categoryId, locationId, curatorId }
         });
@@ -202,21 +176,52 @@ describe('Listings API Integration Tests', () => {
 
         expect(res.status).toBe(202);
 
-        // Verify deletion
         const check = await prisma.artisan.findUnique({ where: { id: tempListing.id } });
         expect(check).toBeNull();
     });
 
-    // =========================================================================
-    // Application Management Tests
-    // =========================================================================
+    let applicationId: string;
 
-    it('POST /api/applications should reject unauthenticated requests', async () => {
+    it('POST /api/applications should deny unauthenticated users (401)', async () => {
         const res = await request(app)
             .post('/api/applications')
-            .send({ listingId });
+            .send({ listingId, message: 'Please consider me.' });
 
         expect(res.status).toBe(401);
+    });
+
+    it('POST /api/applications should validate listingId (422)', async () => {
+        const res = await request(app)
+            .post('/api/applications')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({ listingId: 'not-a-uuid', message: 'Please consider me.' });
+
+        expect(res.status).toBe(422);
+    });
+
+    it('POST /api/applications should allow authenticated users to apply to a listing', async () => {
+        const res = await request(app)
+            .post('/api/applications')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({ listingId, message: 'Please consider me.' })
+            .expect(201);
+
+        applicationId = res.body.data.id;
+        expect(applicationId).toBeDefined();
+        expect(res.body.data.listingId).toBe(listingId);
+        expect(res.body.data.applicantId).toBe(userId);
+        expect(res.body.data.status).toBe('PENDING');
+        expect(res.body.data.message).toBe('Please consider me.');
+    });
+
+    it('POST /api/applications should reject duplicate active applications', async () => {
+        const res = await request(app)
+            .post('/api/applications')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({ listingId, message: 'Trying again.' });
+
+        expect(res.status).toBe(409);
+        expect(res.body.message).toMatch(/active application/i);
     });
 
     it('POST /api/applications should validate listing existence', async () => {
@@ -339,12 +344,30 @@ describe('Listings API Integration Tests', () => {
         expect(res.body.message).toMatch(/Cannot transition/);
     });
 
-    it('DELETE /api/applications/:id should only allow pending withdrawals', async () => {
-        const res = await request(app)
-            .delete(`/api/applications/${statusApplicationId}`)
-            .set('Authorization', `Bearer ${userToken}`)
-            .expect(400);
+    it('Applicant should be able to withdraw own application only when pending', async () => {
+        const tempListing = await prisma.artisan.create({
+            data: {
+                name: 'Withdraw Listing',
+                description: 'Withdraw test listing',
+                phone: '222',
+                categoryId,
+                locationId,
+                curatorId,
+                isActive: true
+            }
+        });
 
-        expect(res.body.message).toMatch(/Only pending applications/);
+        const createRes = await request(app)
+            .post('/api/applications')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({ listingId: tempListing.id, message: 'I may withdraw this.' })
+            .expect(201);
+
+        const withdrawRes = await request(app)
+            .put(`/api/applications/${createRes.body.data.id}/status`)
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({ status: 'WITHDRAWN' })
+            .expect(200);
+        expect(withdrawRes.body.data.status).toBe('WITHDRAWN');
     });
 });

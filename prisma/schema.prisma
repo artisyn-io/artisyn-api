@@ -57,6 +57,11 @@ model User {
   emailVerificationCode String?   @db.VarChar(64)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+  deletionRequestedAt   DateTime?
+  deletionScheduledAt   DateTime?
+  dataExportRequests   DataExportRequest[]   @relation("DataExportRequests")
+  pendingDeletion      PendingDeletion?       // ← ADD THIS
+  applications         Application[]         @relation("Applications")
 
   // Relations
   curator              Curator?
@@ -74,10 +79,7 @@ model User {
   privacySettings      PrivacySettings?
   linkedAccounts       AccountLink[]         @relation("LinkedAccounts")
   auditLogs            AuditLog[]            @relation("UserAuditLogs")
-  dataExportRequests   DataExportRequest[]   @relation("DataExportRequests")
-  applications         Application[]         @relation("Applications")
-  jobsAsClient         Job[]                 @relation("JobClient")
-  jobsAsCurator        Job[]                 @relation("JobCurator")
+  jobs                 Job[]
   locationId           String?
 
   @@index([email])
@@ -141,6 +143,19 @@ model PasswordCodeResets {
   @@index([email])
   @@map("password_code_resets")
 }
+
+model PendingDeletion {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  scheduledAt DateTime
+  token       String   @unique @default(uuid())
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pending_deletions")
+}
+
 
 // Curator profile model
 model Curator {
@@ -227,7 +242,7 @@ model Artisan {
   reviews     Review[]
   tips        Tip[]
   applications Application[]
-  jobs        Job[]
+  jobs         Job[]
 
   @@index([curatorId])
   @@index([categoryId])
@@ -360,6 +375,21 @@ model Tip {
   @@index([txHash])
 }
 
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum JobStatus {
+  ACTIVE
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
 // Application model for listing applications
 model Application {
   id          String            @id @default(uuid())
@@ -382,30 +412,25 @@ model Application {
   @@map("applications")
 }
 
-// Job model – created when an application is accepted
+// Jobs model representing accepted applications turned into engagements
 model Job {
-  id            String    @id @default(uuid())
-  applicationId String    @unique
+  id            String     @id @default(uuid())
   listingId     String
-  clientId      String    // User who applied (applicant)
-  curatorId     String    // Listing owner
-  status        JobStatus @default(active)
-  notes         String?   @db.Text
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  applicationId String     @unique
+  applicantId   String
+  status        JobStatus  @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  // Relations
-  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   listing     Artisan     @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  client      User        @relation("JobClient", fields: [clientId], references: [id], onDelete: Cascade)
-  curator     User        @relation("JobCurator", fields: [curatorId], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicant   User        @relation(fields: [applicantId], references: [id], onDelete: Cascade)
 
   @@index([listingId])
-  @@index([clientId])
-  @@index([curatorId])
+  @@index([applicationId])
+  @@index([applicantId])
   @@index([status])
   @@index([createdAt])
-  @@map("jobs")
 }
 
 // Enum for review moderation status
@@ -431,23 +456,6 @@ enum ReportReason {
   HARASSMENT
   OFF_TOPIC
   OTHER
-}
-
-// Enum for application status
-enum ApplicationStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-  WITHDRAWN
-}
-
-// Enum for job status
-enum JobStatus {
-  active
-  in_progress
-  completed
-  cancelled
-  disputed
 }
 
 // Enum for analytics event types
@@ -790,3 +798,5 @@ model DataExportRequest {
   @@index([createdAt])
   @@map("data_export_requests")
 }
+
+

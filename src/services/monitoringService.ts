@@ -3,10 +3,17 @@
  * Tracks API metrics and alerts on suspicious activities
  */
 
+import { dispatchAlert } from "./notificationService";
+
 export interface SecurityAlert {
   id: string;
-  type: 'rate-limit' | 'blocked-ip' | 'failed-auth' | 'api-error' | 'suspicious-activity';
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  type:
+    | "rate-limit"
+    | "blocked-ip"
+    | "failed-auth"
+    | "api-error"
+    | "suspicious-activity";
+  severity: "low" | "medium" | "high" | "critical";
   message: string;
   data: Record<string, any>;
   timestamp: Date;
@@ -40,10 +47,10 @@ const maxMetricsInMemory = 1000;
  * Create a security alert
  */
 export const createAlert = (
-  type: SecurityAlert['type'],
-  severity: SecurityAlert['severity'],
+  type: SecurityAlert["type"],
+  severity: SecurityAlert["severity"],
   message: string,
-  data: Record<string, any> = {}
+  data: Record<string, any> = {},
 ): SecurityAlert => {
   const alert: SecurityAlert = {
     id: generateAlertId(),
@@ -52,8 +59,8 @@ export const createAlert = (
     message,
     data: {
       ...data,
-      ip: data.ip || 'unknown',
-      userId: data.userId || 'anonymous',
+      ip: data.ip || "unknown",
+      userId: data.userId || "anonymous",
       timestamp: new Date().toISOString(),
     },
     timestamp: new Date(),
@@ -72,7 +79,7 @@ export const createAlert = (
   logAlert(alert);
 
   // Trigger notifications for high severity alerts
-  if (severity === 'high' || severity === 'critical') {
+  if (severity === "high" || severity === "critical") {
     notifyAdmins(alert);
   }
 
@@ -82,11 +89,14 @@ export const createAlert = (
 /**
  * Get recent alerts
  */
-export const getRecentAlerts = (limit: number = 100, type?: SecurityAlert['type']): SecurityAlert[] => {
+export const getRecentAlerts = (
+  limit: number = 100,
+  type?: SecurityAlert["type"],
+): SecurityAlert[] => {
   let alerts = alertStore.slice(-limit);
 
   if (type) {
-    alerts = alerts.filter(alert => alert.type === type);
+    alerts = alerts.filter((alert) => alert.type === type);
   }
 
   return alerts.reverse();
@@ -95,15 +105,19 @@ export const getRecentAlerts = (limit: number = 100, type?: SecurityAlert['type'
 /**
  * Get alerts by severity
  */
-export const getAlertsBySeverity = (severity: SecurityAlert['severity']): SecurityAlert[] => {
-  return alertStore.filter(alert => alert.severity === severity && !alert.resolved);
+export const getAlertsBySeverity = (
+  severity: SecurityAlert["severity"],
+): SecurityAlert[] => {
+  return alertStore.filter(
+    (alert) => alert.severity === severity && !alert.resolved,
+  );
 };
 
 /**
  * Resolve an alert
  */
 export const resolveAlert = (alertId: string): boolean => {
-  const alert = alertStore.find(a => a.id === alertId);
+  const alert = alertStore.find((a) => a.id === alertId);
   if (alert) {
     alert.resolved = true;
     return true;
@@ -139,7 +153,7 @@ export const recordMetrics = (
   totalRateLimitHits: number,
   totalBlockedIPs: number,
   totalFailedAuths: number,
-  averageResponseTime: number
+  averageResponseTime: number,
 ): APIMetrics => {
   const metrics: APIMetrics = {
     totalRequests,
@@ -172,8 +186,13 @@ export const getCurrentMetrics = (): APIMetrics | null => {
 /**
  * Get metrics for a time range
  */
-export const getMetricsForRange = (startTime: Date, endTime: Date): APIMetrics[] => {
-  return metricsStore.filter(m => m.timestamp >= startTime && m.timestamp <= endTime);
+export const getMetricsForRange = (
+  startTime: Date,
+  endTime: Date,
+): APIMetrics[] => {
+  return metricsStore.filter(
+    (m) => m.timestamp >= startTime && m.timestamp <= endTime,
+  );
 };
 
 /**
@@ -192,24 +211,24 @@ const logAlert = (alert: SecurityAlert) => {
   const timestamp = alert.timestamp.toISOString();
   const prefix = `[${alert.type.toUpperCase()}] [${alert.severity.toUpperCase()}]`;
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (process.env.NODE_ENV !== "test") {
     console.log(`${prefix} ${timestamp} - ${alert.message}`, alert.data);
   }
 };
 
 /**
- * Notify admins about security alerts
+ * Notify admins about security alerts through configured channels
  */
-const notifyAdmins = (alert: SecurityAlert) => {
-  // This would integrate with your notification system
-  // For now, we'll just log it
-  console.warn(`[ADMIN ALERT] High severity security event: ${alert.message}`, alert.data);
-
-  // TODO: We should implement:
-  // - Email notifications
-  // - SMS alerts
-  // - Slack/Discord webhooks
-  // - PagerDuty integration
+const notifyAdmins = async (alert: SecurityAlert) => {
+  try {
+    await dispatchAlert(alert);
+  } catch (error) {
+    // Notification failures must never crash the app
+    console.error(
+      "[Monitoring] Failed to dispatch admin notification:",
+      error instanceof Error ? error.message : error,
+    );
+  }
 };
 
 /**
@@ -225,14 +244,15 @@ const generateAlertId = (): string => {
 export const getAlertStatistics = () => {
   const stats = {
     total: alertStore.length,
-    byType: {} as Record<SecurityAlert['type'], number>,
-    bySeverity: {} as Record<SecurityAlert['severity'], number>,
+    byType: {} as Record<SecurityAlert["type"], number>,
+    bySeverity: {} as Record<SecurityAlert["severity"], number>,
     unresolved: 0,
   };
 
   for (const alert of alertStore) {
     stats.byType[alert.type] = (stats.byType[alert.type] || 0) + 1;
-    stats.bySeverity[alert.severity] = (stats.bySeverity[alert.severity] || 0) + 1;
+    stats.bySeverity[alert.severity] =
+      (stats.bySeverity[alert.severity] || 0) + 1;
     if (!alert.resolved) stats.unresolved++;
   }
 
@@ -247,7 +267,9 @@ export const getMonitoringDashboard = () => {
     metrics: getCurrentMetrics(),
     alerts: getAlertStatistics(),
     recentAlerts: getRecentAlerts(10),
-    highSeverityAlerts: getAlertsBySeverity('critical').concat(getAlertsBySeverity('high')),
+    highSeverityAlerts: getAlertsBySeverity("critical").concat(
+      getAlertsBySeverity("high"),
+    ),
   };
 };
 
@@ -256,21 +278,27 @@ export const getMonitoringDashboard = () => {
  */
 export const startMonitoringScheduler = () => {
   // Clear old alerts every hour
-  setInterval(() => {
-    clearOldAlerts(24);
-  }, 60 * 60 * 1000);
+  setInterval(
+    () => {
+      clearOldAlerts(24);
+    },
+    60 * 60 * 1000,
+  );
 
   // Check error rate every 5 minutes
-  setInterval(() => {
-    const tooHighErrorRate = checkErrorRateThreshold(5);
-    if (tooHighErrorRate) {
-      const metrics = getCurrentMetrics();
-      createAlert(
-        'api-error',
-        'high',
-        `High error rate detected: ${metrics?.errorRate.toFixed(2)}%`,
-        { errorRate: metrics?.errorRate }
-      );
-    }
-  }, 5 * 60 * 1000);
+  setInterval(
+    () => {
+      const tooHighErrorRate = checkErrorRateThreshold(5);
+      if (tooHighErrorRate) {
+        const metrics = getCurrentMetrics();
+        createAlert(
+          "api-error",
+          "high",
+          `High error rate detected: ${metrics?.errorRate.toFixed(2)}%`,
+          { errorRate: metrics?.errorRate },
+        );
+      }
+    },
+    5 * 60 * 1000,
+  );
 };

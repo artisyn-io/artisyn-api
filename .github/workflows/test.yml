@@ -47,8 +47,6 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
-        with:
-          version: 8
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -61,24 +59,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile --ignore-scripts
 
-      # - name: Delete all migrations except the initial schema
-      #   run: |
-      #     echo "Deleting migration directories except 20250423000000_initial_schema"
-      #     find prisma/migrations -type d ! -name '20250423000000_initial_schema' -exec rm -rf {} +
-
-      - name: Generate Prisma Client and Run Migrations
-        run: pnpm prisma generate \
-          && pnpm prisma migrate deploy \
-          && pnpm prisma db seed
-
-      # - name: Check Prisma Client
-      #   run: cat node_modules/.prisma/client/index.d.ts | grep UserRole
-
-      - name: Run Migrations
-        run: pnpm migrate
-
-      - name: Seed the database
-        run: pnpm seed
+      # Database setup for CI tests
+      # Using 'prisma db push' for faster, idempotent schema sync in test environment
+      # This avoids migration history conflicts and duplicate enum errors
+      - name: Generate Prisma Client and Sync Database Schema
+        run: |
+          pnpm prisma generate && \
+          pnpm prisma db push --force-reset && \
+          pnpm prisma db seed
 
       - name: Run Tests
         run: pnpm test

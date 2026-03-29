@@ -1,9 +1,33 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import fs from 'node:fs/promises';
 
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+import * as mailer from 'src/mailer/mailer';
 import { prisma } from 'src/db';
+import { dataExportQueue } from 'src/services/DataExportQueue';
+import { DataExportService, dataExportService } from 'src/services/DataExportService';
 
-describe('DataExportController', () => {
+const waitForTerminalExportStatus = async (requestId: string, timeoutMs = 5000) => {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+        const request = await prisma.dataExportRequest.findUnique({
+            where: { id: requestId },
+        });
+
+        if (request && (request.status === 'ready' || request.status === 'failed')) {
+            return request;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    throw new Error(`Timed out waiting for export request ${requestId} to finish`);
+};
+
+describe('Data export processing', () => {
     let testUserId: string;
+    let testEmail: string;
 
     beforeAll(async () => {
         const user = await prisma.user.create({
@@ -14,16 +38,37 @@ describe('DataExportController', () => {
                 lastName: 'User',
             },
         });
+
         testUserId = user.id;
+        testEmail = user.email;
     });
 
     afterEach(async () => {
+        const requests = await prisma.dataExportRequest.findMany({
+            where: { userId: testUserId },
+        });
+
+        await Promise.all(
+            requests.map(async (request) => {
+                const filePath = DataExportService.getExportFilePath(request.id, request.format);
+                await fs.unlink(filePath).catch(() => undefined);
+            }),
+        );
+
         await prisma.dataExportRequest.deleteMany({
             where: { userId: testUserId },
         });
+
+        vi.restoreAllMocks();
     });
 
-    it('should create data export request', async () => {
+    afterAll(async () => {
+        await prisma.user.delete({ where: { id: testUserId } }).catch(() => undefined);
+    });
+
+    it('processes export requests asynchronously and stores a download url', async () => {
+        const sendMailSpy = vi.spyOn(mailer, 'sendMail').mockResolvedValue(null);
+
         const request = await prisma.dataExportRequest.create({
             data: {
                 userId: testUserId,
@@ -32,133 +77,47 @@ describe('DataExportController', () => {
             },
         });
 
-        expect(request.userId).toBe(testUserId);
-        expect(request.format).toBe('json');
-        expect(request.status).toBe('pending');
-    });
+        dataExportQueue.enqueue(request.id);
 
-    it('should support json and csv formats', async () => {
-        const jsonRequest = await prisma.dataExportRequest.create({
-            data: {
-                userId: testUserId,
-                format: 'json',
-            },
-        });
-
-        const csvRequest = await prisma.dataExportRequest.create({
-            data: {
-                userId: testUserId,
-                format: 'csv',
-            },
-        });
-
-        expect(jsonRequest.format).toBe('json');
-        expect(csvRequest.format).toBe('csv');
-
-        await prisma.dataExportRequest.delete({ where: { id: csvRequest.id } });
-    });
-
-    it('should track export request status', async () => {
-        const request = await prisma.dataExportRequest.create({
-            data: {
-                userId: testUserId,
-                status: 'pending',
-            },
-        });
-
-        const processing = await prisma.dataExportRequest.update({
-            where: { id: request.id },
-            data: { status: 'processing' },
-        });
-
-        expect(processing.status).toBe('processing');
-
-        const ready = await prisma.dataExportRequest.update({
-            where: { id: request.id },
-            data: { status: 'ready' },
-        });
+        const ready = await waitForTerminalExportStatus(request.id);
+        const fileContents = await fs.readFile(
+            DataExportService.getExportFilePath(request.id, request.format),
+            'utf8',
+        );
 
         expect(ready.status).toBe('ready');
+        expect(ready.downloadUrl).toContain(`/api/data-export/${request.id}/download`);
+        expect(ready.fileSize).toBeGreaterThan(0);
+        expect(ready.expiresAt).not.toBeNull();
+        expect(fileContents).toContain(testEmail);
+        expect(sendMailSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: testEmail,
+                subject: expect.stringContaining('ready'),
+            }),
+        );
     });
 
-    it('should set expiration date for downloads', async () => {
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    it('marks export requests as failed when generation throws', async () => {
+        vi.spyOn(mailer, 'sendMail').mockResolvedValue(null);
+        const buildPayloadSpy = vi
+            .spyOn(dataExportService, 'buildExportPayload')
+            .mockRejectedValueOnce(new Error('Simulated export failure'));
 
         const request = await prisma.dataExportRequest.create({
             data: {
                 userId: testUserId,
-                status: 'ready',
-                expiresAt,
-                fileSize: 1024000,
-                downloadUrl: 'https://example.com/download/export-123.json',
-            },
-        });
-
-        expect(request.expiresAt).toBeDefined();
-        expect(request.expiresAt!.getTime()).toBeGreaterThan(Date.now());
-        expect(request.fileSize).toBe(1024000);
-    });
-
-    it('should store error messages for failed exports', async () => {
-        const request = await prisma.dataExportRequest.create({
-            data: {
-                userId: testUserId,
-                status: 'failed',
-                errorMessage: 'Database connection timeout',
-            },
-        });
-
-        expect(request.status).toBe('failed');
-        expect(request.errorMessage).toBe('Database connection timeout');
-    });
-
-    it('should track multiple export requests per user', async () => {
-        const req1 = await prisma.dataExportRequest.create({
-            data: { userId: testUserId, format: 'json', status: 'ready' },
-        });
-
-        const req2 = await prisma.dataExportRequest.create({
-            data: { userId: testUserId, format: 'csv', status: 'pending' },
-        });
-
-        const userRequests = await prisma.dataExportRequest.findMany({
-            where: { userId: testUserId },
-        });
-
-        expect(userRequests.length).toBeGreaterThanOrEqual(2);
-
-        await prisma.dataExportRequest.delete({ where: { id: req2.id } });
-    });
-
-    it('should allow status progression for exports', async () => {
-        const request = await prisma.dataExportRequest.create({
-            data: {
-                userId: testUserId,
+                format: 'json',
                 status: 'pending',
             },
         });
 
-        const statuses = ['pending', 'processing', 'ready', 'expired'] as const;
+        dataExportQueue.enqueue(request.id);
 
-        for (const status of statuses) {
-            const updated = await prisma.dataExportRequest.update({
-                where: { id: request.id },
-                data: { status },
-            });
-            expect(updated.status).toBe(status);
-        }
-    });
+        const failed = await waitForTerminalExportStatus(request.id);
 
-    it('should record creation timestamp', async () => {
-        const before = new Date();
-
-        const request = await prisma.dataExportRequest.create({
-            data: { userId: testUserId },
-        });
-
-        const after = new Date();
-
-        expect(request.createdAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-        expect(request.createdAt.getTime()).toBeLessThanOrEqual(after.getTime());
+        expect(buildPayloadSpy).toHaveBeenCalled();
+        expect(failed.status).toBe('failed');
+        expect(failed.errorMessage).toContain('Simulated export failure');
     });
 });

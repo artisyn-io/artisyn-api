@@ -1,34 +1,37 @@
 import { JsonResource } from ".";
 
+/**
+ * JobResource
+ *
+ * Transforms a single Job model into the standardized API response format.
+ */
 export default class extends JsonResource {
-    data() {
-        return {
-            id: this.id,
-            applicationId: this.applicationId,
-            listingId: this.listingId,
-            clientId: this.clientId,
-            curatorId: this.curatorId,
-            status: this.resource.status,
-            notes: this.notes,
-            createdAt: this.createdAt,
-            updatedAt: this.updatedAt,
-            listing: this.listing ? {
-                id: this.listing.id,
-                name: this.listing.name,
-                description: this.listing.description,
-            } : undefined,
-            client: this.client ? {
-                id: this.client.id,
-                firstName: this.client.firstName,
-                lastName: this.client.lastName,
-                avatar: this.client.avatar,
-            } : undefined,
-            curator: this.curator ? {
-                id: this.curator.id,
-                firstName: this.curator.firstName,
-                lastName: this.curator.lastName,
-                avatar: this.curator.avatar,
-            } : undefined,
-        };
-    }
+  data() {
+    return {
+      id: this.id,
+      listingId: this.listingId,
+      applicationId: this.applicationId,
+      applicantId: this.applicantId,
+      status: this.status,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+      listing: this.listing
+        ? {
+            id: this.listing.id,
+            name: this.listing.name,
+            curatorId: this.listing.curatorId,
+          }
+        : undefined,
+      applicant: this.applicant
+        ? {
+            id: this.applicant.id,
+            firstName: this.applicant.firstName,
+            lastName: this.applicant.lastName,
+            email: this.applicant.email,
+            avatar: this.applicant.avatar,
+            phone: this.applicant.phone,
+          }
+        : undefined,
+    };
+  }
 }

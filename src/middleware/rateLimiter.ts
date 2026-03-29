@@ -9,6 +9,42 @@ import { env } from '../utils/helpers';
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 /**
+ * Set of authorized bypass tokens (hashed)
+ * These should be scoped, auditable credentials separate from JWT_SECRET
+ */
+const authorizedBypassTokens = new Set<string>();
+
+/**
+ * Register an authorized bypass token
+ * @param token - The bypass token to register
+ */
+export const registerBypassToken = (token: string): void => {
+  // Store hashed token for security
+  const hash = require('crypto').createHash('sha256').update(token).digest('hex');
+  authorizedBypassTokens.add(hash);
+};
+
+/**
+ * Remove an authorized bypass token
+ * @param token - The bypass token to remove
+ */
+export const revokeBypassToken = (token: string): void => {
+  const hash = require('crypto').createHash('sha256').update(token).digest('hex');
+  authorizedBypassTokens.delete(hash);
+};
+
+/**
+ * Validate if a bypass token is authorized
+ * @param token - The bypass token to validate
+ * @returns boolean - Whether the token is authorized
+ */
+const isValidBypassToken = (token: string | undefined): boolean => {
+  if (!token) return false;
+  const hash = require('crypto').createHash('sha256').update(token).digest('hex');
+  return authorizedBypassTokens.has(hash);
+};
+
+/**
  * Rate limit configuration for different user types
  */
 export interface RateLimitConfig {
@@ -129,7 +165,9 @@ export const createRateLimiter = (config: RateLimitConfig) => {
       res.setHeader('X-RateLimit-Remaining', Math.max(0, result.remaining));
       res.setHeader('X-RateLimit-Reset', new Date(Date.now() + config.windowMs).toISOString());
 
-      if (!result.allowed && req.header('advance-token') !== env('JWT_SECRET')) {
+      // Skip rate limiting only for authorized bypass tokens
+      // This uses scoped credentials that are auditable and separate from JWT_SECRET
+      if (!result.allowed && !isValidBypassToken(req.header('x-bypass-token'))) {
         res.setHeader('Retry-After', result.retryAfter);
 
         if (config.handler) {
@@ -185,11 +223,28 @@ export const getRouteLimitConfig = (req: Request, route: string): RateLimitConfi
 
   return {
     ...selectedConfig,
-    keyGenerator: (req: Request) => {
-      // Use user ID if authenticated, otherwise use IP
-      return req.user ? `user-${(req.user as any).id}` : `ip-${req.ip}`;
-    },
+    keyGenerator: getRequestRateLimitKey,
   };
+};
+
+/**
+ * Generate a stable rate-limit key before auth middleware has populated req.user.
+ * If an Authorization header is present, scope the bucket to that caller instead
+ * of collapsing every authenticated request onto the shared test runner IP.
+ */
+export const getRequestRateLimitKey = (req: Request): string => {
+  if (req.user) {
+    return `user-${(req.user as any).id}`;
+  }
+
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(' ')[1];
+
+  if (token) {
+    return `token-${token}`;
+  }
+
+  return `ip-${req.ip}`;
 };
 
 /**
@@ -198,9 +253,7 @@ export const getRouteLimitConfig = (req: Request, route: string): RateLimitConfi
 export const rateLimitMiddleware = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   maxRequests: 100,
-  keyGenerator: (req: Request) => {
-    return req.user ? `user-${(req.user as any).id}` : `ip-${req.ip}`;
-  },
+  keyGenerator: getRequestRateLimitKey,
 });
 
 /**

@@ -1,0 +1,4 @@
+-- This migration became a duplicate after the application schema was already
+-- introduced in 20260326140125_updates. Keep this step as a no-op so fresh
+-- databases can apply the full migration chain without failing on duplicate
+-- enum/table creation.

@@ -1,6 +1,7 @@
 # Artisyn.io Backend API
 
 [![Tests](https://github.com/artisyn-io/artisyn-api/actions/workflows/test.yml/badge.svg)](https://github.com/artisyn-io/artisyn-api/actions/workflows/test.yml)
+[![Discord](https://img.shields.io/discord/1482790798016643103?style=for-the-badge&logo=discord&label=Join%20the%20community)](https://discord.gg/wQP2CkHj)
 
 ## Find Artisans Near You
 

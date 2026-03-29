@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { blockIP, getBlockedIPs, ipBlockingMiddleware, isIPBlocked, unblockIP } from '../middleware/ipBlocking';
-import { checkRateLimit, cleanupRateLimit, createRateLimiter, rateLimitConfigs } from '../middleware/rateLimiter';
+import { checkRateLimit, cleanupRateLimit, createRateLimiter, rateLimitConfigs, registerBypassToken, revokeBypassToken } from '../middleware/rateLimiter';
 import { createAPIKey, hashAPIKey, revokeAPIKey, verifyAPIKey } from '../services/apiKeyService';
 import { createAlert, getAlertStatistics, getRecentAlerts, resolveAlert } from '../services/monitoringService';
 import express, { Express } from 'express';
@@ -128,6 +128,144 @@ describe('Security & Rate Limiting Features', () => {
       await new Promise(resolve => setTimeout(resolve, 150));
       let result3 = checkRateLimit('test-ip-reset', config);
       expect(result3.allowed).toBe(true);
+    });
+
+    it('should NOT allow bypass with JWT_SECRET (security fix)', async () => {
+      const config = {
+        windowMs: 60000,
+        maxRequests: 1,
+        keyGenerator: () => 'test-jwt-bypass',
+      };
+
+      app.get('/jwt-test', createRateLimiter(config), (req, res) => {
+        res.json({ success: true });
+      });
+
+      // First request succeeds
+      await request(app).get('/jwt-test');
+
+      // Second request with JWT_SECRET header should FAIL (bypass removed)
+      const response = await request(app)
+        .get('/jwt-test')
+        .set('advance-token', process.env.JWT_SECRET || 'test-secret');
+
+      expect(response.status).toBe(429);
+    });
+
+    it('should allow bypass ONLY with registered bypass token', async () => {
+      const config = {
+        windowMs: 60000,
+        maxRequests: 1,
+        keyGenerator: () => 'test-bypass-token',
+      };
+
+      app.get('/bypass-test', createRateLimiter(config), (req, res) => {
+        res.json({ success: true });
+      });
+
+      // Register a bypass token
+      const bypassToken = 'secure-admin-bypass-token-12345';
+      registerBypassToken(bypassToken);
+
+      // First request succeeds
+      await request(app).get('/bypass-test');
+
+      // Second request WITHOUT bypass token should fail
+      const response1 = await request(app).get('/bypass-test');
+      expect(response1.status).toBe(429);
+
+      // Third request WITH valid bypass token should succeed
+      const response2 = await request(app)
+        .get('/bypass-test')
+        .set('x-bypass-token', bypassToken);
+      expect(response2.status).toBe(200);
+    });
+
+    it('should reject invalid bypass tokens', async () => {
+      const config = {
+        windowMs: 60000,
+        maxRequests: 1,
+        keyGenerator: () => 'test-invalid-bypass',
+      };
+
+      app.get('/invalid-bypass-test', createRateLimiter(config), (req, res) => {
+        res.json({ success: true });
+      });
+
+      // Register a bypass token
+      registerBypassToken('valid-token');
+
+      // First request succeeds
+      await request(app).get('/invalid-bypass-test');
+
+      // Second request with INVALID bypass token should fail
+      const response = await request(app)
+        .get('/invalid-bypass-test')
+        .set('x-bypass-token', 'invalid-token');
+
+      expect(response.status).toBe(429);
+    });
+
+    it('should allow revoking bypass tokens', async () => {
+      const config = {
+        windowMs: 60000,
+        maxRequests: 1,
+        keyGenerator: () => 'test-revoke-bypass',
+      };
+
+      app.get('/revoke-test', createRateLimiter(config), (req, res) => {
+        res.json({ success: true });
+      });
+
+      const bypassToken = 'revokable-token';
+      registerBypassToken(bypassToken);
+
+      // First request succeeds
+      await request(app).get('/revoke-test');
+
+      // Revoke the token
+      revokeBypassToken(bypassToken);
+
+      // Request with revoked token should fail
+      const response = await request(app)
+        .get('/revoke-test')
+        .set('x-bypass-token', bypassToken);
+
+      expect(response.status).toBe(429);
+    });
+
+    it('should prevent normal clients from bypassing rate limiting', async () => {
+      const config = {
+        windowMs: 60000,
+        maxRequests: 2,
+        keyGenerator: () => 'normal-client-test',
+      };
+
+      app.get('/normal-client', createRateLimiter(config), (req, res) => {
+        res.json({ success: true });
+      });
+
+      // Normal client makes 2 requests (within limit)
+      const response1 = await request(app).get('/normal-client');
+      expect(response1.status).toBe(200);
+
+      const response2 = await request(app).get('/normal-client');
+      expect(response2.status).toBe(200);
+
+      // 3rd request should be blocked (no bypass token)
+      const response3 = await request(app).get('/normal-client');
+      expect(response3.status).toBe(429);
+
+      // Attempting to use common headers should NOT bypass
+      const response4 = await request(app)
+        .get('/normal-client')
+        .set('advance-token', 'random-value');
+      expect(response4.status).toBe(429);
+
+      const response5 = await request(app)
+        .get('/normal-client')
+        .set('x-bypass-token', 'unauthorized-token');
+      expect(response5.status).toBe(429);
     });
   });
 

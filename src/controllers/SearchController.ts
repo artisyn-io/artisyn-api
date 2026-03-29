@@ -41,7 +41,7 @@ export default class SearchController extends BaseController {
 
                // Curator itself doesn't have name fields; those live on the associated user.
                const whereCurator = {
-                    isActive: true,
+                    verificationStatus: "VERIFIED" as const,
                     OR: query
                          ? [
                               { user: { firstName: searchFilter } },
@@ -119,13 +119,20 @@ export default class SearchController extends BaseController {
 
                     prisma.curator.findMany({
                          where: {
-                              isActive: true,
+                              verificationStatus: "VERIFIED" as const,
                               OR: [
                                    { user: { firstName: { contains: query, mode: "insensitive" as const } } },
                                    { user: { lastName: { contains: query, mode: "insensitive" as const } } },
                               ],
                          },
-                         select: { user: { select: { firstName: true, lastName: true } } },
+                         select: {
+                              user: {
+                                   select: {
+                                        firstName: true,
+                                        lastName: true,
+                                   },
+                              },
+                         },
                          take: 5,
                     }),
                ]);

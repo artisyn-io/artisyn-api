@@ -1,7 +1,8 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 import { Request, Response } from 'express';
+import { auditLogger, securityLogger } from './logger';
 
 /**
  * Security logging utility for auditing and threat detection
@@ -25,38 +26,8 @@ export interface SecurityLog {
 const logStore: SecurityLog[] = [];
 const maxLogsInMemory = 5000;
 
-// Log file paths
+// Log file paths (Keep for export functionality if needed)
 const logsDir = process.env.LOGS_DIR || './storage/logs';
-const securityLogFile = path.join(logsDir, 'security.log');
-const auditLogFile = path.join(logsDir, 'audit.log');
-
-/**
- * Ensure logs directory exists
- */
-const ensureLogsDirectory = () => {
-  if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir, { recursive: true });
-  }
-};
-
-/**
- * Format security log entry
- */
-const formatLogEntry = (log: SecurityLog): string => {
-  return JSON.stringify({
-    timestamp: log.timestamp.toISOString(),
-    eventType: log.eventType,
-    severity: log.severity,
-    userId: log.userId || 'anonymous',
-    ip: log.ip,
-    userAgent: log.userAgent,
-    endpoint: log.endpoint,
-    method: log.method,
-    statusCode: log.statusCode,
-    message: log.message,
-    details: log.details,
-  });
-};
 
 /**
  * Log a security event
@@ -67,8 +38,7 @@ export const logSecurityEvent = (
   message: string,
   req: Request | null,
   details: Record<string, any> = {}
-): SecurityLog => {
-  ensureLogsDirectory();
+ ): SecurityLog => {
 
   const log: SecurityLog = {
     timestamp: new Date(),
@@ -90,12 +60,11 @@ export const logSecurityEvent = (
     logStore.shift();
   }
 
-  // Write to file
-  try {
-    fs.appendFileSync(securityLogFile, formatLogEntry(log) + '\n');
-  } catch (error) {
-    console.error('Error writing to security log file:', error);
-  }
+  // Write to file with Winston (non-blocking, structured, rotated)
+  securityLogger.info(message, {
+      ...log,
+      timestamp: log.timestamp.toISOString()
+  });
 
   if (process.env.NODE_ENV !== 'test') {
     // Console logging for critical events
@@ -121,7 +90,6 @@ export const logAuditEvent = (
   status: 'success' | 'failure',
   req?: Request
 ): void => {
-  ensureLogsDirectory();
 
   const auditLog = {
     timestamp: new Date().toISOString(),
@@ -135,11 +103,8 @@ export const logAuditEvent = (
     userAgent: req?.get('user-agent'),
   };
 
-  try {
-    fs.appendFileSync(auditLogFile, JSON.stringify(auditLog) + '\n');
-  } catch (error) {
-    console.error('Error writing to audit log file:', error);
-  }
+  // Write to file with Winston (non-blocking, structured, rotated)
+  auditLogger.info(action, auditLog);
 };
 
 /**
@@ -301,9 +266,12 @@ export const getLogsForTimeRange = (startTime: Date, endTime: Date): SecurityLog
  */
 export const exportLogsToFile = (fileName: string, logs: SecurityLog[] = logStore): boolean => {
   try {
-    ensureLogsDirectory();
     const filePath = path.join(logsDir, fileName);
-    const content = logs.map(log => formatLogEntry(log)).join('\n');
+    // Ensure logs directory exists for exports
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    const content = logs.map(log => JSON.stringify(log)).join('\n');
     fs.writeFileSync(filePath, content);
     console.log(`[Logging] Exported ${logs.length} logs to ${filePath}`);
     return true;
@@ -391,3 +359,4 @@ export const startLogCleanupScheduler = () => {
     clearOldLogsFromMemory(24);
   }, 60 * 60 * 1000); // Run every hour
 };
+

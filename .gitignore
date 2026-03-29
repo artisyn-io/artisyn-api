@@ -54,3 +54,4 @@ prisma/.env
 .pnpm-store/
 package-lock.json
 pnpm-lock.yaml
+wave-*.md
