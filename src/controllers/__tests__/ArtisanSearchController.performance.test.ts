@@ -18,7 +18,41 @@ vi.mock("../../utils/analyticsMiddleware", () => ({
   trackBusinessEvent: vi.fn(),
 }));
 
-describe.skip("ArtisanSearchController Performance Tests", () => {
+/**
+ * Performance Thresholds (documented for contributors)
+ *
+ * These thresholds reflect expected response times when the database
+ * layer is mocked. They are intentionally generous to avoid flakiness
+ * on slower CI machines, while still catching genuine regressions.
+ *
+ * | Scenario                        | Threshold |
+ * |---------------------------------|-----------|
+ * | Basic search                    | 200ms     |
+ * | Complex filtering               | 500ms     |
+ * | Geospatial search               | 300ms     |
+ * | Deep pagination                 | 100ms     |
+ * | Autocomplete suggestions        | 50ms      |
+ * | Memory increase (100 searches)  | 10MB      |
+ *
+ * To run only performance tests:
+ *   npx vitest run --testPathPattern=performance
+ *
+ * To opt in on CI, set the environment variable:
+ *   RUN_PERF_TESTS=true
+ */
+
+const PERFORMANCE_THRESHOLDS = {
+  basicSearch: 200,
+  complexFiltering: 500,
+  geospatialSearch: 300,
+  deepPagination: 100,
+  suggestions: 50,
+  memoryIncrease: 10 * 1024 * 1024, // 10MB
+};
+
+const runIfPerf = process.env.RUN_PERF_TESTS === "true" ? describe : describe.skip;
+
+runIfPerf("ArtisanSearchController Performance Tests", () => {
   let controller: ArtisanSearchController;
   let mockRequest: any;
   let mockResponse: any;
@@ -51,8 +85,7 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
   });
 
   describe("Search Performance", () => {
-    it("should complete basic search within 200ms", async () => {
-      // Mock large dataset response
+    it(`should complete basic search within ${PERFORMANCE_THRESHOLDS.basicSearch}ms`, async () => {
       const mockArtisans = Array.from({ length: 100 }, (_, i) => ({
         id: `artisan-${i}`,
         name: `Artisan ${i}`,
@@ -73,24 +106,29 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
           avatar: null,
         },
         reviews: Array.from({ length: 5 }, (_, j) => ({
-          rating: Math.floor(Math.random() * 5) + 1,
+          rating: (j % 5) + 1, // deterministic, no Math.random()
         })),
       }));
 
       (prisma.artisan.findMany as any).mockResolvedValue(mockArtisans);
       (prisma.artisan.count as any).mockResolvedValue(1000);
 
-      mockRequest.query = { search: "Artisan", radius: 1, latitude: "40.7128", longitude: "-74.0060" };
-      //
+      mockRequest.query = {
+        search: "Artisan",
+        radius: 1,
+        latitude: "40.7128",
+        longitude: "-74.0060",
+      };
+
       const startTime = performance.now();
       await controller.index(mockRequest, mockResponse);
       const endTime = performance.now();
 
       const executionTime = endTime - startTime;
-      expect(executionTime).toBeLessThan(200); // Should complete within 200ms
+      expect(executionTime).toBeLessThan(PERFORMANCE_THRESHOLDS.basicSearch);
     });
 
-    it("should handle complex filtering within 500ms", async () => {
+    it(`should handle complex filtering within ${PERFORMANCE_THRESHOLDS.complexFiltering}ms`, async () => {
       const mockArtisans = Array.from({ length: 50 }, (_, i) => ({
         id: `artisan-${i}`,
         name: `Artisan ${i}`,
@@ -106,7 +144,7 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
           lastName: "Doe",
           avatar: null,
         },
-        reviews: Array.from({ length: 3 }, (_, j) => ({ rating: 5 })),
+        reviews: Array.from({ length: 3 }, () => ({ rating: 5 })),
       }));
 
       (prisma.artisan.findMany as any).mockResolvedValue(mockArtisans);
@@ -128,10 +166,10 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
       const endTime = performance.now();
 
       const executionTime = endTime - startTime;
-      expect(executionTime).toBeLessThan(500); // Should complete within 500ms for complex queries
+      expect(executionTime).toBeLessThan(PERFORMANCE_THRESHOLDS.complexFiltering);
     });
 
-    it("should handle geospatial search efficiently", async () => {
+    it(`should handle geospatial search within ${PERFORMANCE_THRESHOLDS.geospatialSearch}ms`, async () => {
       const mockArtisans = Array.from({ length: 30 }, (_, i) => ({
         id: `artisan-${i}`,
         name: `Artisan ${i}`,
@@ -144,8 +182,8 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
           city: "Test City",
           state: "Test State",
           country: "Test Country",
-          latitude: 40.7128 + (Math.random() - 0.5) * 0.1,
-          longitude: -74.006 + (Math.random() - 0.5) * 0.1,
+          latitude: 40.7128 + (i - 15) * 0.005, // deterministic, no Math.random()
+          longitude: -74.006 + (i - 15) * 0.005,
         },
         curator: {
           id: "curator-1",
@@ -169,13 +207,12 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
       const endTime = performance.now();
 
       const executionTime = endTime - startTime;
-      expect(executionTime).toBeLessThan(300); // Geospatial queries should be efficient
+      expect(executionTime).toBeLessThan(PERFORMANCE_THRESHOLDS.geospatialSearch);
     });
   });
 
   describe("Pagination Performance", () => {
-    it("should handle large dataset pagination efficiently", async () => {
-      // Mock response for paginated results
+    it(`should handle large dataset deep pagination within ${PERFORMANCE_THRESHOLDS.deepPagination}ms`, async () => {
       const mockArtisans = Array.from({ length: 20 }, (_, i) => ({
         id: `artisan-${i}`,
         name: `Artisan ${i}`,
@@ -199,21 +236,21 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
       }));
 
       (prisma.artisan.findMany as any).mockResolvedValue(mockArtisans);
-      (prisma.artisan.count as any).mockResolvedValue(100000); // Large dataset
+      (prisma.artisan.count as any).mockResolvedValue(100000);
 
-      mockRequest.query = { page: "50", limit: "20" }; // Deep pagination
+      mockRequest.query = { page: "50", limit: "20" };
 
       const startTime = performance.now();
       await controller.index(mockRequest, mockResponse);
       const endTime = performance.now();
 
       const executionTime = endTime - startTime;
-      expect(executionTime).toBeLessThan(100); // Pagination should be fast even for deep pages
+      expect(executionTime).toBeLessThan(PERFORMANCE_THRESHOLDS.deepPagination);
     });
   });
 
   describe("Suggestions Performance", () => {
-    it("should return suggestions quickly", async () => {
+    it(`should return suggestions within ${PERFORMANCE_THRESHOLDS.suggestions}ms`, async () => {
       const mockSuggestions = Array.from({ length: 10 }, (_, i) => ({
         name: `Suggestion ${i}`,
         category: { name: "Test Category" },
@@ -228,7 +265,7 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
       const endTime = performance.now();
 
       const executionTime = endTime - startTime;
-      expect(executionTime).toBeLessThan(50); // Suggestions should be very fast
+      expect(executionTime).toBeLessThan(PERFORMANCE_THRESHOLDS.suggestions);
     });
   });
 
@@ -253,7 +290,7 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
           lastName: "Doe",
           avatar: null,
         },
-        reviews: Array.from({ length: 5 }, (_, j) => ({ rating: 5 })),
+        reviews: Array.from({ length: 5 }, () => ({ rating: 5 })),
       }));
 
       (prisma.artisan.findMany as any).mockResolvedValue(mockArtisans);
@@ -261,14 +298,12 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
 
       mockRequest.query = { search: "Test" };
 
-      // Run multiple searches to check for memory leaks
       const initialMemory = process.memoryUsage().heapUsed;
 
       for (let i = 0; i < 100; i++) {
         await controller.index(mockRequest, mockResponse);
       }
 
-      // Force garbage collection if available
       if (global.gc) {
         global.gc();
       }
@@ -276,8 +311,7 @@ describe.skip("ArtisanSearchController Performance Tests", () => {
       const finalMemory = process.memoryUsage().heapUsed;
       const memoryIncrease = finalMemory - initialMemory;
 
-      // Memory increase should be minimal (less than 10MB)
-      expect(memoryIncrease).toBeLessThan(10 * 1024 * 1024);
+      expect(memoryIncrease).toBeLessThan(PERFORMANCE_THRESHOLDS.memoryIncrease);
     });
   });
 });

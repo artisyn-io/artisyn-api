@@ -12,7 +12,6 @@ import {
   securityHeadersMiddleware,
   timingAttackPreventionMiddleware,
 } from "src/middleware/securityHeaders";
-// Security imports
 import {
   rateLimitMiddleware,
   registerBypassToken,
@@ -23,11 +22,11 @@ import {
   startLogCleanupScheduler,
 } from "src/utils/securityLogging";
 import routes, { loadRoutes } from "src/routes/index";
-
 import { ErrorHandler } from "./request-handlers";
 import { analyticsMiddleware } from "./analyticsMiddleware";
 import { apiKeyValidationMiddleware } from "src/services/apiKeyService";
 import cors from "cors";
+import { CorsOptions } from "cors";
 import { env } from "./helpers";
 import { fileURLToPath } from "url";
 import logger from "pino-http";
@@ -41,9 +40,36 @@ import { startMonitoringScheduler } from "src/services/monitoringService";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const initialize = async (app: Express) => {
-  // ===== SECURITY MIDDLEWARE (Must be first) =====
+// ===== CORS CONFIGURATION =====
+const buildCorsOptions = (): CorsOptions => {
+  const allowedOrigins = env("CORS_ALLOWED_ORIGINS")
+    ? env("CORS_ALLOWED_ORIGINS")!.split(",").map((o) => o.trim())
+    : [];
 
+  return {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      if (
+        allowedOrigins.length === 0 ||
+        allowedOrigins.includes("*") ||
+        allowedOrigins.includes(origin)
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin '${origin}' not allowed`));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-HTTP-Method"],
+    exposedHeaders: ["Content-Range", "X-Content-Range"],
+    maxAge: 86400,
+  };
+};
+
+export const initialize = async (app: Express) => {
   // ===== BODY PARSING MIDDLEWARE =====
   // Registered here only. Do not add body parsers in src/index.ts or any
   // other bootstrap file — duplicate registration causes unpredictable
@@ -54,6 +80,8 @@ export const initialize = async (app: Express) => {
 
   // Parse application/x-www-form-urlencoded (for non-multipart forms)
   app.use(express.urlencoded({ extended: true }));
+
+  // ===== SECURITY MIDDLEWARE =====
 
   // Security headers - protects against common vulnerabilities
   app.use(securityHeadersMiddleware);
@@ -76,8 +104,8 @@ export const initialize = async (app: Express) => {
   // Initialize rate limit bypass tokens from environment
   const bypassTokensEnv = process.env.RATE_LIMIT_BYPASS_TOKENS || "";
   if (bypassTokensEnv) {
-    const tokens = bypassTokensEnv.split(",").map((t) => t.trim());
-    tokens.forEach((token) => {
+    const tokens = bypassTokensEnv.split(",").map((t: string) => t.trim());
+    tokens.forEach((token: string) => {
       if (token) {
         registerBypassToken(token);
         console.log(`[Security] Registered rate limit bypass token`);
@@ -94,18 +122,12 @@ export const initialize = async (app: Express) => {
   // Record failed authentication attempts for IP blocking
   app.use(recordFailedAttemptMiddleware(["/auth/login", "/auth/register"]));
 
-  // Parse application/json
-  app.use(express.json());
-
-  // Parse application/x-www-form-urlencoded (for non-multipart forms)
-  app.use(express.urlencoded({ extended: true }));
-
   // Method Override
   app.use(methodOverride("X-HTTP-Method"));
 
   // Route And Cors
   await loadRoutes(path.resolve(__dirname, "../routes"));
-  app.use(cors());
+  app.use(cors(buildCorsOptions()));
 
   // Passport
   if (env("GOOGLE_CLIENT_ID")) {
@@ -129,22 +151,11 @@ export const initialize = async (app: Express) => {
     console.log("[Security] Starting security services and schedulers...");
   }
 
-  // Start rate limit cleanup
   startRateLimitCleanup();
-
-  // Start IP blocking cleanup
   startIPBlockingCleanup();
-
-  // Load previously blocked IPs from database
   await loadBlockedIPsFromDB();
-
-  // Start monitoring scheduler
   startMonitoringScheduler();
-
-  // Start log cleanup scheduler
   startLogCleanupScheduler();
-
-  // Start analytics and media schedulers
   startAnalyticsScheduler();
   startMediaScheduler();
 
