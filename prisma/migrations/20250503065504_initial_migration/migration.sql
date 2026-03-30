@@ -1,4 +1,4 @@
--- CreateEnum
+
 CREATE TYPE "UserRole" AS ENUM ('USER', 'CURATOR', 'ADMIN');
 
 -- CreateEnum
