@@ -59,12 +59,20 @@ jobs:
         with:
           node-version: 20.x
 
-      - name: Copy ENV
-        run: cp .env.example .env
-
-      - name: Ensure CI database URL in .env
+      - name: Create CI env file
         run: |
-          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/artisyn?schema=artisyn_api" >> .env
+          cat > .env <<'EOF'
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5432/artisyn?schema=artisyn_api
+          JWT_SECRET=your-jwt-secret-key
+          JWT_EXPIRES_IN=7d
+          NODE_ENV=test
+          GOOGLE_CALLBACK=http://localhost:3000/api/auth/google/callback
+          GOOGLE_CLIENT_ID=xxxxxxx
+          GOOGLE_CLIENT_SECRET=xxxxxxx
+          FACEBOOK_CALLBACK=http://localhost:3000/api/auth/facebook/callback
+          FACEBOOK_CLIENT_ID=xxxxxxx
+          FACEBOOK_CLIENT_SECRET=xxxxxxx
+          EOF
 
       - name: Wait for PostgreSQL
         run: |
@@ -85,9 +93,16 @@ jobs:
       - name: Reset Database Schema
         run: pnpm prisma migrate reset --force --skip-seed
 
+      - name: Verify Prisma migration status
+        run: pnpm prisma migrate status
+
+      - name: Verify required tables exist
+        run: |
+          psql "postgresql://postgres:postgres@localhost:5432/artisyn?schema=artisyn_api" -c "\dt artisyn_api.*"
+
       # Seed the database with test data
       - name: Seed Database
         run: pnpm prisma db seed
 
       - name: Run Tests
-        run: pnpm test
+        run: pnpm vitest --run --maxWorkers=1
