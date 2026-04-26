@@ -631,6 +631,13 @@ enum FriendshipStatus {
   BLOCKED
 }
 
+// Enum for API key status
+enum APIKeyStatus {
+  active
+  revoked
+  expired
+}
+
 // Enum for audit action types
 enum AuditAction {
   LOGIN
@@ -808,6 +815,28 @@ model Friendship {
   @@index([friendId, status])
   @@index([status])
   @@map("friendships")
+}
+
+// API Key model for persistent API key management
+model APIKey {
+  id               String       @id @default(uuid())
+  key              String       @unique // Hashed key
+  name             String
+  description      String?
+  userId           String?
+  status           APIKeyStatus @default(active)
+  rateLimit        Int          @default(1000)
+  expiresAt        DateTime?
+  lastUsedAt       DateTime?
+  ipWhitelist      String[]     @default([])
+  allowedEndpoints String[]     @default([])
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([key])
+  @@index([userId])
+  @@index([status])
+  @@map("api_keys")
 }
 
 // Data Export Request model - for GDPR data export functionality

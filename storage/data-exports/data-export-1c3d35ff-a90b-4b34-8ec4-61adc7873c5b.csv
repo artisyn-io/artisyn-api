@@ -1,0 +1,5 @@
+section,id,payload
+exportedAt,,2026-04-26T13:17:02.390Z
+user,2b86d01f-b14c-4b0c-a020-2dc697d05010,"{""id"":""2b86d01f-b14c-4b0c-a020-2dc697d05010"",""email"":""test-user-1777209421895@test.com"",""walletAddress"":null,""firstName"":""Test"",""lastName"":""User"",""role"":""USER"",""avatar"":null,""bio"":null,""phone"":null,""googleId"":null,""facebookId"":null,""emailVerifiedAt"":null,""createdAt"":""2026-04-26T13:17:02.016Z"",""updatedAt"":""2026-04-26T13:17:02.016Z"",""deletionRequestedAt"":null,""deletionScheduledAt"":null,""locationId"":null,""location"":null,""curator"":null,""media"":[],""profile"":null,""preferences"":null,""privacySettings"":null,""applications"":[],""artisans"":[],""reviews"":[],""receivedReviews"":[],""reviewReports"":[],""sentTips"":[],""receivedTips"":[],""auditLogs"":[]}"
+linkedAccounts,,[]
+dataExportRequests,,[]

@@ -69,11 +69,19 @@ Updates the authenticated user's profile. All fields are optional.
   "gender": "MALE",
   "profilePictureUrl": "https://...",
   "website": "https://example.com",
+  "socialLinks": {
+    "twitter": "@artisan",
+    "linkedin": "https://www.linkedin.com/in/artisan",
+    "github": "https://github.com/artisan"
+  },
   "occupation": "Senior Engineer",
   "companyName": "Tech Corp",
   "location": "San Francisco"
 }
 ```
+
+`socialLinks` accepts an object with any of these optional keys: `twitter`, `linkedin`, `instagram`, `facebook`, `tiktok`, `youtube`, `github`.
+Each provided value must be a non-empty string up to 255 characters.
 
 **Response (200):**
 ```json
@@ -109,13 +117,16 @@ Returns profile completion percentage and missing fields.
     "profilePictureUrl": null,
     "website": "https://example.com",
     "occupation": "Engineer",
-    "companyName": null
+    "companyName": null,
+    "missingFields": ["dateOfBirth", "profilePictureUrl", "companyName"]
   },
   "status": "success",
   "message": "Profile completion retrieved",
   "code": 200
 }
 ```
+
+`missingFields` is derived from the same completion inputs used to calculate `profileCompletionPercentage`: `bio`, `dateOfBirth`, `profilePictureUrl`, `website`, `occupation`, and `companyName`.
 
 ---
 
@@ -139,6 +150,8 @@ Retrieves another user's public profile (if their profile is public).
     "occupation": "Engineer",
     "companyName": "Tech Corp",
     "location": "San Francisco",
+    "email": "creator@example.com",
+    "phone": "+15550001111",
     "verifiedBadge": true,
     "isProfessional": true,
     "isPublic": true,
@@ -148,6 +161,10 @@ Retrieves another user's public profile (if their profile is public).
   "code": 200
 }
 ```
+
+Public profile responses are filtered through the target user's active privacy settings.
+If `profileVisibility` is not `PUBLIC`, the endpoint returns `403`.
+If `showLocation`, `showEmail`, or `showPhone` are disabled, those fields are returned as `null`.
 
 **Error Responses:**
 - `404`: Profile not found

@@ -43,7 +43,6 @@ describe("Curator Verification System", () => {
         await prisma.curatorVerificationDocument.deleteMany({});
         await prisma.curatorVerificationApplication.deleteMany({});
         await prisma.personalAccessToken.deleteMany({});
-        await prisma.curator.deleteMany({});
         await prisma.media.deleteMany({
             where: {
                 tags: { has: 'curator_verification' }
@@ -133,7 +132,6 @@ describe("Curator Verification System", () => {
         await prisma.curatorVerificationDocument.deleteMany({});
         await prisma.curatorVerificationApplication.deleteMany({});
         await prisma.personalAccessToken.deleteMany({});
-        await prisma.curator.deleteMany({});
         await prisma.media.deleteMany({
             where: {
                 tags: { has: 'curator_verification' }

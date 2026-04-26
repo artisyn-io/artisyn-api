@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, VerificationStatus } from '@prisma/client';
+import { UserRole, VerificationStatus } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import argon2 from 'argon2';
@@ -7,6 +7,7 @@ import { prisma } from 'src/db';
 
 describe('Curator Model', () => {
   let userId: string;
+  const createdUserIds: string[] = [];
 
   // Set up a user for testing
   beforeAll(async () => {
@@ -23,13 +24,17 @@ describe('Curator Model', () => {
     });
 
     userId = user.id;
+    createdUserIds.push(user.id);
   });
 
   // Clean up after tests
   afterAll(async () => {
-    await prisma.curator.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.$disconnect();
+    await prisma.curator.deleteMany({
+      where: { userId: { in: createdUserIds } },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: createdUserIds } },
+    });
   });
 
   it('should create a new curator profile', async () => {
@@ -94,7 +99,7 @@ describe('Curator Model', () => {
   it('should delete a curator profile when the user is deleted', async () => {
     // Create a new user and curator for this test
     const userData = {
-      email: 'curator-delete@example.com',
+      email: `curator-delete-${Date.now()}@example.com`,
       password: await argon2.hash('password123'),
       firstName: 'Delete',
       lastName: 'Test',
@@ -104,6 +109,7 @@ describe('Curator Model', () => {
     const user = await prisma.user.create({
       data: userData,
     });
+    createdUserIds.push(user.id);
 
     await prisma.curator.create({
       data: {

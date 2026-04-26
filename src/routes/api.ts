@@ -47,11 +47,11 @@ router.use("/", (await import("./api/applications")).default);
 router.get("/curators/:id/reviews", reviewController.curatorReviews);
 
 // Profile routes
-router.get('/profile', new ProfileController().getProfile);
-router.post('/profile', new ProfileController().updateProfile);
-router.get('/profile/completion', new ProfileController().getProfileCompletion);
+router.get('/profile', authenticateToken, new ProfileController().getProfile);
+router.post('/profile', authenticateToken, new ProfileController().updateProfile);
+router.get('/profile/completion', authenticateToken, new ProfileController().getProfileCompletion);
 router.get('/profile/:userId/public', new ProfileController().getPublicProfile);
-router.delete('/profile', new ProfileController().deleteProfile);
+router.delete('/profile', authenticateToken, new ProfileController().deleteProfile);
 
 // Preferences routes
 router.get('/preferences', authenticateToken, new PreferencesController().getPreferences);

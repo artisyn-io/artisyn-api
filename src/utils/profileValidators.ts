@@ -1,5 +1,22 @@
 import type { InitialRules } from 'simple-body-validator';
 
+import { ValidationError } from './errors';
+
+const supportedSocialPlatforms = [
+    'twitter',
+    'linkedin',
+    'instagram',
+    'facebook',
+    'tiktok',
+    'youtube',
+    'github',
+] as const;
+
+export type SocialPlatform = (typeof supportedSocialPlatforms)[number];
+export type SocialLinks = Partial<Record<SocialPlatform, string>>;
+
+const socialLinkValidationMessage = 'socialLinks must be an object keyed by supported platforms with non-empty string values.';
+
 /**
  * Validation rules for User Profile
  */
@@ -10,6 +27,7 @@ export const profileValidationRules: InitialRules = {
     profilePictureUrl: ['url'],
     coverPhotoUrl: ['url'],
     website: ['url'],
+    socialLinks: ['nullable'],
     occupation: ['string', 'max:100'],
     companyName: ['string', 'max:100'],
     location: ['string', 'max:100'],
@@ -66,4 +84,47 @@ export const accountLinkValidationRules: InitialRules = {
  */
 export const dataExportValidationRules: InitialRules = {
     format: ['string', 'in:json,csv'],
+};
+
+export const normalizeSocialLinks = (value: unknown): SocialLinks | undefined => {
+    if (value === undefined || value === null || value === '') {
+        return undefined;
+    }
+
+    if (typeof value !== 'object' || Array.isArray(value)) {
+        throw new ValidationError('Validation failed', {
+            socialLinks: [socialLinkValidationMessage],
+        });
+    }
+
+    const entries = Object.entries(value);
+    const normalized: SocialLinks = {};
+
+    for (const [platform, linkValue] of entries) {
+        if (!supportedSocialPlatforms.includes(platform as SocialPlatform)) {
+            throw new ValidationError('Validation failed', {
+                socialLinks: [
+                    `${platform} is not a supported social platform. Supported platforms: ${supportedSocialPlatforms.join(', ')}.`,
+                ],
+            });
+        }
+
+        if (typeof linkValue !== 'string') {
+            throw new ValidationError('Validation failed', {
+                socialLinks: [socialLinkValidationMessage],
+            });
+        }
+
+        const normalizedValue = linkValue.trim();
+
+        if (!normalizedValue || normalizedValue.length > 255) {
+            throw new ValidationError('Validation failed', {
+                socialLinks: [socialLinkValidationMessage],
+            });
+        }
+
+        normalized[platform as SocialPlatform] = normalizedValue;
+    }
+
+    return normalized;
 };

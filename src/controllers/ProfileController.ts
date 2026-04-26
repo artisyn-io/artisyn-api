@@ -7,7 +7,7 @@ import UserProfileCollection from "src/resources/UserProfileCollection";
 import UserProfileResource from "src/resources/UserProfileResource";
 import { logAuditEvent } from 'src/utils/auditLogger';
 import { prisma } from 'src/db';
-import { profileValidationRules } from 'src/utils/profileValidators';
+import { normalizeSocialLinks, profileValidationRules } from 'src/utils/profileValidators';
 import { PrivacyService } from 'src/services/PrivacyService';
 
 /**
@@ -76,15 +76,15 @@ export default class extends BaseController {
             RequestError.assertFound(userId, 'Unauthorized', 401);
 
             // Validate input
-            const errors = await this.validateAsync(req, profileValidationRules);
-            RequestError.abortIf(Object.keys(errors).length > 0, 'Validation failed', 422);
+            const data = await this.validateAsync(req, profileValidationRules);
+            const socialLinks = normalizeSocialLinks(data.socialLinks);
 
             // Get existing profile
             const existingProfile = await prisma.userProfile.findFirst({
                 where: { userId },
             });
 
-            // Calculate completion percentage from merged profile state
+// Calculate completion percentage from merged profile state
             const completionFields = [
                 'bio',
                 'dateOfBirth',
@@ -107,7 +107,8 @@ export default class extends BaseController {
 
             // Prepare update data
             const updateData: any = {
-                ...req.body,
+                ...data,
+                socialLinks,
                 profileCompletionPercentage: completionPercentage,
             };
 
@@ -168,9 +169,33 @@ export default class extends BaseController {
                 },
             });
 
-            const data = profile || {
+            const completionFields = [
+                'bio',
+                'dateOfBirth',
+                'profilePictureUrl',
+                'website',
+                'occupation',
+                'companyName',
+            ];
+            
+            const missingFields = completionFields.filter((field: string) => {
+                const value = profile?.[field as keyof typeof profile];
+                return value === undefined || value === null || value === '';
+            });
+
+            const data = profile ? {
+                ...profile,
+                missingFields,
+            } : {
                 id: null,
                 profileCompletionPercentage: 0,
+                bio: null,
+                dateOfBirth: null,
+                profilePictureUrl: null,
+                website: null,
+                occupation: null,
+                companyName: null,
+                missingFields: [...completionFields],
             };
 
             new UserProfileResource(req, res, data)
@@ -195,7 +220,7 @@ export default class extends BaseController {
             const viewerId = req.user?.id || null;
             RequestError.assertFound(targetUserId, 'User ID required', 400);
 
-            // Use PrivacyService for unified visibility checking
+// Use PrivacyService for unified visibility checking
             const profile = await PrivacyService.getFilteredProfileData(viewerId, String(targetUserId));
 
             RequestError.assertFound(profile, 'Profile not found', 404);

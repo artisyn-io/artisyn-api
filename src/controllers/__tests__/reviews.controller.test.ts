@@ -1,5 +1,6 @@
 import { ReviewStatus, UserRole } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { registerBypassToken, revokeBypassToken } from "src/middleware/rateLimiter";
 
 import { IUser } from "src/models/interfaces";
 import RegisterController from "src/controllers/auth/RegisterController";
@@ -19,6 +20,18 @@ describe("Reviews Controller", () => {
   let curatorToken: string;
   let adminToken: string;
   let testReviewId: string;
+  const bypassToken = `reviews-test-bypass-${faker.string.alphanumeric(12)}`;
+
+  const api = {
+    get: (path: string) =>
+      request(app).get(path).set("x-bypass-token", bypassToken),
+    post: (path: string) =>
+      request(app).post(path).set("x-bypass-token", bypassToken),
+    put: (path: string) =>
+      request(app).put(path).set("x-bypass-token", bypassToken),
+    delete: (path: string) =>
+      request(app).delete(path).set("x-bypass-token", bypassToken),
+  };
 
   const authorEmail = faker.internet.email();
   const curatorEmail = faker.internet.email();
@@ -26,6 +39,7 @@ describe("Reviews Controller", () => {
 
   beforeAll(async () => {
     const upload = multer();
+    registerBypassToken(bypassToken);
 
     // Review routes (some support optional authentication)
     const reviewController = new ReviewController();
@@ -195,11 +209,13 @@ describe("Reviews Controller", () => {
     if (admin?.id) {
       await prisma.user.delete({ where: { id: admin.id } });
     }
+
+    revokeBypassToken(bypassToken);
   });
 
   describe("POST /reviews", () => {
     it("should create a new review", async () => {
-      const response = await request(app)
+      const response = await api
         .post("/test/reviews")
         .set("Authorization", `Bearer ${authorToken}`)
         .send({
@@ -221,7 +237,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should prevent self-review", async () => {
-      const response = await request(app)
+      const response = await api
         .post("/test/reviews")
         .set("Authorization", `Bearer ${curatorToken}`)
         .send({
@@ -233,7 +249,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should validate rating range", async () => {
-      const response = await request(app)
+      const response = await api
         .post("/test/reviews")
         .set("Authorization", `Bearer ${authorToken}`)
         .send({
@@ -245,7 +261,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should validate target exists", async () => {
-      const response = await request(app)
+      const response = await api
         .post("/test/reviews")
         .set("Authorization", `Bearer ${authorToken}`)
         .send({
@@ -257,7 +273,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should prevent duplicate reviews", async () => {
-      const response = await request(app)
+      const response = await api
         .post("/test/reviews")
         .set("Authorization", `Bearer ${authorToken}`)
         .send({
@@ -271,7 +287,7 @@ describe("Reviews Controller", () => {
 
   describe("GET /reviews", () => {
     it("should list reviews", async () => {
-      const response = await request(app)
+      const response = await api
         .get("/test/reviews")
         .set("Authorization", `Bearer ${authorToken}`);
 
@@ -281,7 +297,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should filter reviews by targetId", async () => {
-      const response = await request(app)
+      const response = await api
         .get(`/test/reviews?targetId=${curator.id}`)
         .set("Authorization", `Bearer ${authorToken}`);
 
@@ -292,7 +308,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should filter reviews by authorId", async () => {
-      const response = await request(app)
+      const response = await api
         .get(`/test/reviews?authorId=${author.id}`)
         .set("Authorization", `Bearer ${authorToken}`);
 
@@ -305,7 +321,7 @@ describe("Reviews Controller", () => {
 
   describe("GET /reviews/:id", () => {
     it("should return review for author", async () => {
-      const response = await request(app)
+      const response = await api
         .get(`/test/reviews/${testReviewId}`)
         .set("Authorization", `Bearer ${authorToken}`);
 
@@ -314,7 +330,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should return review for target", async () => {
-      const response = await request(app)
+      const response = await api
         .get(`/test/reviews/${testReviewId}`)
         .set("Authorization", `Bearer ${curatorToken}`);
 
@@ -323,7 +339,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should return 404 for non-existent review", async () => {
-      const response = await request(app)
+      const response = await api
         .get("/test/reviews/non-existent-id")
         .set("Authorization", `Bearer ${authorToken}`);
 
@@ -333,7 +349,7 @@ describe("Reviews Controller", () => {
 
   describe("PUT /reviews/:id", () => {
     it("should update review for author", async () => {
-      const response = await request(app)
+      const response = await api
         .put(`/test/reviews/${testReviewId}`)
         .set("Authorization", `Bearer ${authorToken}`)
         .send({
@@ -347,7 +363,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should deny update for non-author", async () => {
-      const response = await request(app)
+      const response = await api
         .put(`/test/reviews/${testReviewId}`)
         .set("Authorization", `Bearer ${curatorToken}`)
         .send({
@@ -360,7 +376,7 @@ describe("Reviews Controller", () => {
 
   describe("PUT /reviews/:id/moderate", () => {
     it("should approve review (admin only)", async () => {
-      const response = await request(app)
+      const response = await api
         .put(`/test/reviews/${testReviewId}/moderate`)
         .set("Authorization", `Bearer ${adminToken}`)
         .send({
@@ -373,7 +389,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should deny moderation for non-admin", async () => {
-      const response = await request(app)
+      const response = await api
         .put(`/test/reviews/${testReviewId}/moderate`)
         .set("Authorization", `Bearer ${authorToken}`)
         .send({
@@ -386,7 +402,7 @@ describe("Reviews Controller", () => {
 
   describe("POST /reviews/:id/respond", () => {
     it("should allow curator to respond to review", async () => {
-      const response = await request(app)
+      const response = await api
         .post(`/test/reviews/${testReviewId}/respond`)
         .set("Authorization", `Bearer ${curatorToken}`)
         .send({
@@ -401,7 +417,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should deny response from non-target", async () => {
-      const response = await request(app)
+      const response = await api
         .post(`/test/reviews/${testReviewId}/respond`)
         .set("Authorization", `Bearer ${authorToken}`)
         .send({
@@ -412,7 +428,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should prevent duplicate response", async () => {
-      const response = await request(app)
+      const response = await api
         .post(`/test/reviews/${testReviewId}/respond`)
         .set("Authorization", `Bearer ${curatorToken}`)
         .send({
@@ -425,7 +441,7 @@ describe("Reviews Controller", () => {
 
   describe("PUT /reviews/:id/respond", () => {
     it("should allow curator to update response", async () => {
-      const response = await request(app)
+      const response = await api
         .put(`/test/reviews/${testReviewId}/respond`)
         .set("Authorization", `Bearer ${curatorToken}`)
         .send({
@@ -455,7 +471,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should allow user to report a review", async () => {
-      const response = await request(app)
+      const response = await api
         .post(`/test/reviews/${secondReviewId}/report`)
         .set("Authorization", `Bearer ${authorToken}`)
         .send({
@@ -469,7 +485,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should prevent duplicate reports", async () => {
-      const response = await request(app)
+      const response = await api
         .post(`/test/reviews/${secondReviewId}/report`)
         .set("Authorization", `Bearer ${authorToken}`)
         .send({
@@ -482,7 +498,7 @@ describe("Reviews Controller", () => {
 
   describe("GET /reviews/aggregation/:targetId", () => {
     it("should return rating aggregation for curator", async () => {
-      const response = await request(app).get(
+      const response = await api.get(
         `/test/reviews/aggregation/${curator.id}`,
       );
 
@@ -494,7 +510,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should return 404 for non-existent user", async () => {
-      const response = await request(app).get(
+      const response = await api.get(
         "/test/reviews/aggregation/non-existent-id",
       );
 
@@ -504,7 +520,7 @@ describe("Reviews Controller", () => {
 
   describe("GET /reviews/moderation-queue", () => {
     it("should return pending reviews for admin", async () => {
-      const response = await request(app)
+      const response = await api
         .get("/test/reviews/moderation-queue")
         .set("Authorization", `Bearer ${adminToken}`);
 
@@ -513,7 +529,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should deny access for non-admin", async () => {
-      const response = await request(app)
+      const response = await api
         .get("/test/reviews/moderation-queue")
         .set("Authorization", `Bearer ${authorToken}`);
 
@@ -523,7 +539,7 @@ describe("Reviews Controller", () => {
 
   describe("GET /reviews/reports", () => {
     it("should return reports for admin", async () => {
-      const response = await request(app)
+      const response = await api
         .get("/test/reviews/reports")
         .set("Authorization", `Bearer ${adminToken}`);
 
@@ -532,7 +548,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should deny access for non-admin", async () => {
-      const response = await request(app)
+      const response = await api
         .get("/test/reviews/reports")
         .set("Authorization", `Bearer ${authorToken}`);
 
@@ -542,7 +558,7 @@ describe("Reviews Controller", () => {
 
   describe("DELETE /reviews/:id", () => {
     it("should deny deletion for non-author", async () => {
-      const response = await request(app)
+      const response = await api
         .delete(`/test/reviews/${testReviewId}`)
         .set("Authorization", `Bearer ${curatorToken}`);
 
@@ -550,7 +566,7 @@ describe("Reviews Controller", () => {
     });
 
     it("should allow deletion for author", async () => {
-      const response = await request(app)
+      const response = await api
         .delete(`/test/reviews/${testReviewId}`)
         .set("Authorization", `Bearer ${authorToken}`);
 

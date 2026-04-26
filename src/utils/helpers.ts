@@ -77,14 +77,18 @@ export const authenticateToken = (
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
-  RequestError.assertFound(token, "Unauthenticated", 401, req, res);
+  if (!token) {
+    return RequestError.abortIf(true, "Unauthenticated", 401, req, res);
+  }
 
   try {
     jwt.verify(
       token!,
       env("JWT_SECRET", ""),
       async (err: any, jwtPayload: any) => {
-        RequestError.assertFound(!err, "Unauthenticated", 401);
+        if (err) {
+          return RequestError.abortIf(true, "Unauthenticated", 401, req, res);
+        }
 
         const accessToken = await prisma.personalAccessToken.findFirst({
           where: { token },
