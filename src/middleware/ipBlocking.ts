@@ -1,7 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
 
-import { prisma } from '../db';
-
 /**
  * In-memory store for blocked IPs
  * Structure: { ip: { blockedUntil: number, reason: string } }
@@ -200,54 +198,9 @@ export const startIPBlockingCleanup = () => {
 };
 
 /**
- * Store blocked IP in database for persistence
+ * NOTE: IP blocking is intentionally in-memory only.
+ * Blocked IPs do not persist across process restarts.
+ * This is a deliberate design choice for simplicity and performance.
+ * If persistence is required in the future, add an IPBlock model to the
+ * Prisma schema and implement the appropriate DB calls here.
  */
-export const persistBlockedIP = async (ip: string, reason: string, durationMs: number) => {
-  try {
-    // Create IP block record (requires IPBlock model in Prisma)
-    // await prisma.ipBlock.create({
-    //   data: {
-    //     ip,
-    //     reason,
-    //     blockedUntil: new Date(Date.now() + durationMs),
-    //   },
-    // });
-    if (process.env.NODE_ENV !== 'test') {
-      console.log(`[IP Blocking] IP ${ip} blocked: ${reason}`);
-    }
-  } catch (error) {
-
-    if (process.env.NODE_ENV !== 'test') {
-      console.error('Error persisting blocked IP:', error);
-    }
-  }
-};
-
-/**
- * Load previously blocked IPs from database
- */
-export const loadBlockedIPsFromDB = async () => {
-  try {
-    // Load IP blocks from database on startup
-    // const blocks = await prisma.ipBlock.findMany({
-    //   where: {
-    //     blockedUntil: {
-    //       gt: new Date(),
-    //     },
-    //   },
-    // });
-    // blocks.forEach(block => {
-    //   blockedIPs.set(block.ip, {
-    //     blockedUntil: block.blockedUntil.getTime(),
-    //     reason: block.reason,
-    //   });
-    // });
-    if (process.env.NODE_ENV !== 'test') {
-      console.log('[IP Blocking] Loaded blocked IPs from database');
-    }
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'test') {
-      console.error('Error loading blocked IPs:', error);
-    }
-  }
-};

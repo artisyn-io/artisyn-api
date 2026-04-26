@@ -3,6 +3,7 @@ import { blockIP, getBlockedIPs, ipBlockingMiddleware, isIPBlocked, unblockIP } 
 import { checkRateLimit, cleanupRateLimit, createRateLimiter, rateLimitConfigs, registerBypassToken, revokeBypassToken } from '../middleware/rateLimiter';
 import { createAPIKey, hashAPIKey, revokeAPIKey, verifyAPIKey } from '../services/apiKeyService';
 import { createAlert, getAlertStatistics, getRecentAlerts, resolveAlert } from '../services/monitoringService';
+import { exportLogsToFile, isValidLogFileName } from '../utils/securityLogging';
 import express, { Express } from 'express';
 
 import request from 'supertest';
@@ -507,6 +508,46 @@ describe('Security & Rate Limiting Features', () => {
       const hash2 = hashAPIKey('password123');
       expect(hash1).toBe(hash2); // Consistent hashing
       expect(hash1.length).toBeGreaterThan(32); // Long hash
+    });
+  });
+
+  describe('Log Filename Sanitization Tests (Issue #116)', () => {
+    it('should accept valid filenames', () => {
+      expect(isValidLogFileName('security_logs_2024.log')).toBe(true);
+      expect(isValidLogFileName('export-2024-01-01.json')).toBe(true);
+      expect(isValidLogFileName('logs.txt')).toBe(true);
+      expect(isValidLogFileName('my file.log')).toBe(true);
+    });
+
+    it('should reject path traversal attempts', () => {
+      expect(isValidLogFileName('../etc/passwd')).toBe(false);
+      expect(isValidLogFileName('../../secret')).toBe(false);
+      expect(isValidLogFileName('logs/../../etc/passwd')).toBe(false);
+    });
+
+    it('should reject filenames with slashes', () => {
+      expect(isValidLogFileName('/etc/passwd')).toBe(false);
+      expect(isValidLogFileName('subdir/file.log')).toBe(false);
+    });
+
+    it('should reject empty or non-string filenames', () => {
+      expect(isValidLogFileName('')).toBe(false);
+      expect(isValidLogFileName(null as any)).toBe(false);
+      expect(isValidLogFileName(undefined as any)).toBe(false);
+    });
+
+    it('should reject filenames with null bytes', () => {
+      expect(isValidLogFileName('file\x00.log')).toBe(false);
+    });
+
+    it('should return false from exportLogsToFile for unsafe filenames', () => {
+      const result = exportLogsToFile('../etc/passwd');
+      expect(result).toBe(false);
+    });
+
+    it('should return false from exportLogsToFile for path traversal', () => {
+      const result = exportLogsToFile('../../outside.log');
+      expect(result).toBe(false);
     });
   });
 });

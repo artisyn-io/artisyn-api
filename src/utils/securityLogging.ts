@@ -262,14 +262,37 @@ export const getLogsForTimeRange = (startTime: Date, endTime: Date): SecurityLog
 };
 
 /**
+ * Validate a log export filename.
+ * Accepts only alphanumeric characters, hyphens, underscores, and dots.
+ * Rejects path traversal sequences and absolute paths.
+ */
+export const isValidLogFileName = (fileName: string): boolean => {
+  if (!fileName || typeof fileName !== 'string') return false;
+  // Allow only safe filename characters; no slashes, no null bytes, no traversal
+  return /^[\w\-. ]+$/.test(fileName) && !fileName.includes('..');
+};
+
+/**
  * Export logs to file
  */
 export const exportLogsToFile = (fileName: string, logs: SecurityLog[] = logStore): boolean => {
   try {
-    const filePath = path.join(logsDir, fileName);
+    if (!isValidLogFileName(fileName)) {
+      console.error(`[Logging] Rejected unsafe filename: ${fileName}`);
+      return false;
+    }
+
+    // Resolve the final path and verify it stays within logsDir
+    const resolvedLogsDir = path.resolve(logsDir);
+    const filePath = path.resolve(resolvedLogsDir, fileName);
+    if (!filePath.startsWith(resolvedLogsDir + path.sep) && filePath !== resolvedLogsDir) {
+      console.error(`[Logging] Path traversal attempt detected: ${fileName}`);
+      return false;
+    }
+
     // Ensure logs directory exists for exports
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
+    if (!fs.existsSync(resolvedLogsDir)) {
+      fs.mkdirSync(resolvedLogsDir, { recursive: true });
     }
     const content = logs.map(log => JSON.stringify(log)).join('\n');
     fs.writeFileSync(filePath, content);
