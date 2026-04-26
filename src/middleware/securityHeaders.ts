@@ -32,24 +32,14 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   // Strict-Transport-Security - Enforce HTTPS
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
 
-  // Remove X-Powered-By header
+  // Remove identifying headers to prevent fingerprinting
   res.removeHeader('X-Powered-By');
-
-  // Remove Server header
   res.removeHeader('Server');
-
-  // Set a custom server header without version info
-  res.setHeader('Server', 'Artisyn-API');
 
   // Prevent caching of sensitive data
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-
-  // Additional security headers
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   next();
 };
@@ -129,36 +119,6 @@ export const preventParameterPollutionMiddleware = (req: Request, res: Response,
     console.error('Parameter pollution prevention error:', error);
     next();
   }
-};
-
-/**
- * Middleware to validate request body size
- */
-export const validateBodySizeMiddleware = (maxSize: number = 10 * 1024 * 1024) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    let size = 0;
-
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-
-      if (size > maxSize) {
-        req.destroy();
-        return res.status(413).json({
-          success: false,
-          message: `Request body too large. Maximum size: ${maxSize / 1024 / 1024}MB`,
-        });
-      }
-    });
-
-    req.on('end', () => {
-      next();
-    });
-
-    req.on('error', (error) => {
-      console.error('Body size validation error:', error);
-      next();
-    });
-  };
 };
 
 /**
