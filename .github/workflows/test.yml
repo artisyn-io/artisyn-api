@@ -14,7 +14,7 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
+          POSTGRES_USER: root
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: artisyn
         ports:
@@ -30,7 +30,7 @@ jobs:
           - 1025:1025
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/artisyn?schema=public
+      DATABASE_URL: postgresql://root:postgres@localhost:5432/artisyn?schema=public
       JWT_SECRET: your-jwt-secret-key
       JWT_EXPIRES_IN: 7d
       NODE_ENV: test

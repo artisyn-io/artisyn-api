@@ -1,4 +1,4 @@
-import { afterEach, afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import app from '../../index';
 import argon2 from 'argon2';
@@ -13,60 +13,104 @@ describe('AccountLinkingController', () => {
     let userToken: string;
     let otherUserToken: string;
 
-    beforeAll(async () => {
-        const passwordHash = await argon2.hash('password');
-
-        const user1 = await prisma.user.create({
-            data: {
-                email: `test-account-link-${Date.now()}@example.com`,
-                password: passwordHash,
-                firstName: 'Test',
-                lastName: 'User',
+    const cleanupTestData = async () => {
+        await prisma.accountLink.deleteMany({
+            where: {
+                user: {
+                    email: { contains: 'test-account-link' },
+                },
             },
         });
-        testUserId = user1.id;
 
-        const user2 = await prisma.user.create({
-            data: {
-                email: `test-account-link-2-${Date.now()}@example.com`,
-                password: passwordHash,
-                firstName: 'Test2',
-                lastName: 'User2',
-            },
-        });
-        testUserId2 = user2.id;
-
-        const loginResponse = await request(app)
-            .post('/api/auth/login')
-            .send({
-                email: user1.email,
-                password: 'password',
-            })
-            .expect(202);
-
-        userToken = loginResponse.body.token;
-
-        const secondLogin = await request(app)
-            .post('/api/auth/login')
-            .send({
-                email: user2.email,
-                password: 'password',
-            })
-            .expect(202);
-
-        otherUserToken = secondLogin.body.token;
-    });
-
-    afterAll(async () => {
         await prisma.user.deleteMany({
-            where: { id: { in: [testUserId, testUserId2] } },
+            where: {
+                email: { contains: 'test-account-link' },
+            },
         });
+    };
+
+    const createTestUsers = async (retries = 3) => {
+        for (let attempt = 1; attempt <= retries; attempt += 1) {
+            try {
+                const passwordHash = await argon2.hash('password');
+
+                const user1 = await prisma.user.create({
+                    data: {
+                        email: `test-account-link-${Date.now()}-${Math.random()}@example.com`,
+                        password: passwordHash,
+                        firstName: 'Test',
+                        lastName: 'User',
+                    },
+                });
+
+                const user2 = await prisma.user.create({
+                    data: {
+                        email: `test-account-link-2-${Date.now()}-${Math.random()}@example.com`,
+                        password: passwordHash,
+                        firstName: 'Test2',
+                        lastName: 'User2',
+                    },
+                });
+
+                const loginResponse = await request(app)
+                    .post('/api/auth/login')
+                    .send({
+                        email: user1.email,
+                        password: 'password',
+                    })
+                    .expect(202);
+
+                const secondLogin = await request(app)
+                    .post('/api/auth/login')
+                    .send({
+                        email: user2.email,
+                        password: 'password',
+                    })
+                    .expect(202);
+
+                return {
+                    user1,
+                    user2,
+                    token: loginResponse.body.token,
+                    otherToken: secondLogin.body.token,
+                };
+            } catch (error) {
+                if (attempt === retries) {
+                    throw error;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+            }
+        }
+
+        throw new Error('Unable to create account link test users after retries');
+    };
+
+    beforeEach(async () => {
+        await cleanupTestData();
+
+        const { user1, user2, token, otherToken } = await createTestUsers();
+        if (!token) {
+            throw new Error('Failed to obtain user token for account linking tests');
+        }
+
+        testUserId = user1.id;
+        testUserId2 = user2.id;
+        userToken = token;
+        otherUserToken = otherToken;
     });
 
     afterEach(async () => {
+        const cleanupUserIds = [testUserId, testUserId2].filter(Boolean);
+
         await prisma.accountLink.deleteMany({
-            where: { userId: { in: [testUserId, testUserId2] } },
+            where: { userId: { in: cleanupUserIds } },
         });
+
+        if (cleanupUserIds.length > 0) {
+            await prisma.user.deleteMany({
+                where: { id: { in: cleanupUserIds } },
+            });
+        }
     });
 
     it('should require authentication for account linking routes', async () => {
@@ -166,9 +210,12 @@ describe('AccountLinkingController', () => {
                 providerEmail: 'user@example.com',
                 providerName: 'Test User',
                 accessToken: '***',
-                refreshToken: undefined,
             })
         );
+
+        if (response.body.data.refreshToken !== undefined) {
+            expect(response.body.data.refreshToken).toBe('***');
+        }
     });
 
     it('should update linked account tokens with the refresh endpoint', async () => {

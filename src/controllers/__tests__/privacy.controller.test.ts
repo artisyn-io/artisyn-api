@@ -10,43 +10,72 @@ describe('PrivacySettingsController', () => {
     let testUserId2: string;
     let userToken: string;
 
-    const createTestUsers = async () => {
-        const passwordHash = await argon2.hash('password');
-
-        const user1 = await prisma.user.create({
-            data: {
-                email: `test-privacy-${Date.now()}-${Math.random()}@example.com`,
-                password: passwordHash,
-                firstName: 'Test',
-                lastName: 'User',
+    const cleanupTestData = async () => {
+        await prisma.privacySettings.deleteMany({
+            where: {
+                user: {
+                    email: { contains: 'test-privacy' },
+                },
             },
         });
 
-        const user2 = await prisma.user.create({
-            data: {
-                email: `test-privacy-2-${Date.now()}-${Math.random()}@example.com`,
-                password: passwordHash,
-                firstName: 'Test2',
-                lastName: 'User2',
+        await prisma.user.deleteMany({
+            where: {
+                email: { contains: 'test-privacy' },
             },
         });
+    };
 
-        const loginResponse = await request(app)
-            .post('/api/auth/login')
-            .send({
-                email: user1.email,
-                password: 'password',
-            })
-            .expect(202);
+    const createTestUsers = async (retries = 3) => {
+        for (let attempt = 1; attempt <= retries; attempt += 1) {
+            try {
+                const passwordHash = await argon2.hash('password');
 
-        return {
-            user1,
-            user2,
-            token: loginResponse.body.token,
-        };
+                const user1 = await prisma.user.create({
+                    data: {
+                        email: `test-privacy-${Date.now()}-${Math.random()}@example.com`,
+                        password: passwordHash,
+                        firstName: 'Test',
+                        lastName: 'User',
+                    },
+                });
+
+                const user2 = await prisma.user.create({
+                    data: {
+                        email: `test-privacy-2-${Date.now()}-${Math.random()}@example.com`,
+                        password: passwordHash,
+                        firstName: 'Test2',
+                        lastName: 'User2',
+                    },
+                });
+
+                const loginResponse = await request(app)
+                    .post('/api/auth/login')
+                    .send({
+                        email: user1.email,
+                        password: 'password',
+                    })
+                    .expect(202);
+
+                return {
+                    user1,
+                    user2,
+                    token: loginResponse.body.token,
+                };
+            } catch (error) {
+                if (attempt === retries) {
+                    throw error;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+            }
+        }
+
+        throw new Error('Unable to create test users after retries');
     };
 
     beforeEach(async () => {
+        await cleanupTestData();
+
         const { user1, user2, token } = await createTestUsers();
         if (!token) {
             throw new Error('Failed to obtain user token for privacy tests');
@@ -69,6 +98,8 @@ describe('PrivacySettingsController', () => {
                 where: { id: { in: cleanupUserIds } },
             });
         }
+
+        await cleanupTestData();
     });
 
     it('should require authentication for privacy endpoints', async () => {
