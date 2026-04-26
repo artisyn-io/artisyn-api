@@ -1,0 +1,56 @@
+{
+  "exportedAt": "2026-04-26T12:49:29.733Z",
+  "user": {
+    "id": "faaccf83-815a-42d3-b8d6-a41e124decd8",
+    "email": "test-user-1777207769501@test.com",
+    "walletAddress": null,
+    "firstName": "Test",
+    "lastName": "User",
+    "role": "USER",
+    "avatar": null,
+    "bio": null,
+    "phone": null,
+    "googleId": null,
+    "facebookId": null,
+    "emailVerifiedAt": null,
+    "createdAt": "2026-04-26T12:49:29.590Z",
+    "updatedAt": "2026-04-26T12:49:29.590Z",
+    "deletionRequestedAt": null,
+    "deletionScheduledAt": null,
+    "locationId": null,
+    "location": null,
+    "curator": null,
+    "media": [],
+    "profile": null,
+    "preferences": null,
+    "privacySettings": null,
+    "applications": [],
+    "artisans": [],
+    "reviews": [],
+    "receivedReviews": [],
+    "reviewReports": [],
+    "sentTips": [],
+    "receivedTips": [],
+    "auditLogs": [
+      {
+        "id": "38dc2653-f658-4f9d-a3be-d0b20b3e4c69",
+        "userId": "faaccf83-815a-42d3-b8d6-a41e124decd8",
+        "action": "DATA_EXPORT",
+        "entityType": "DataExportRequest",
+        "entityId": "3185fbb8-8cc5-40a3-af10-01091babbf2c",
+        "oldValues": null,
+        "newValues": null,
+        "ipAddress": "::ffff:127.0.0.1",
+        "userAgent": null,
+        "statusCode": 201,
+        "errorMessage": null,
+        "metadata": {
+          "format": "json"
+        },
+        "createdAt": "2026-04-26T12:49:29.724Z"
+      }
+    ]
+  },
+  "linkedAccounts": [],
+  "dataExportRequests": []
+}

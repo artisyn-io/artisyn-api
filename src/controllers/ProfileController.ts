@@ -7,8 +7,23 @@ import UserProfileCollection from "src/resources/UserProfileCollection";
 import UserProfileResource from "src/resources/UserProfileResource";
 import { logAuditEvent } from 'src/utils/auditLogger';
 import { prisma } from 'src/db';
-import { profileValidationRules } from 'src/utils/profileValidators';
 import { PrivacyService } from 'src/services/PrivacyService';
+import { normalizeSocialLinks, profileValidationRules } from 'src/utils/profileValidators';
+
+const profileCompletionFields = [
+    'bio',
+    'dateOfBirth',
+    'profilePictureUrl',
+    'website',
+    'occupation',
+    'companyName',
+] as const;
+
+const isPubliclyVisible = (
+    isPublic: boolean,
+    profileVisibility?: 'PUBLIC' | 'PRIVATE' | 'FRIENDS_ONLY' | 'CUSTOM'
+) => isPublic && (profileVisibility ?? 'PUBLIC') === 'PUBLIC';
+
 
 /**
  * UserProfileController - Manages user profile CRUD operations
@@ -76,38 +91,24 @@ export default class extends BaseController {
             RequestError.assertFound(userId, 'Unauthorized', 401);
 
             // Validate input
-            const errors = await this.validateAsync(req, profileValidationRules);
-            RequestError.abortIf(Object.keys(errors).length > 0, 'Validation failed', 422);
+            const data = await this.validateAsync(req, profileValidationRules);
+            const socialLinks = normalizeSocialLinks(data.socialLinks);
 
             // Get existing profile
             const existingProfile = await prisma.userProfile.findFirst({
                 where: { userId },
             });
 
-            // Calculate completion percentage from merged profile state
-            const completionFields = [
-                'bio',
-                'dateOfBirth',
-                'profilePictureUrl',
-                'website',
-                'occupation',
-                'companyName',
-            ];
-            
-            // Merge existing profile with request body
-            const mergedProfile = {
-                ...existingProfile,
-                ...req.body,
-            };
-            
-            const filledFields = completionFields.filter(
-                field => mergedProfile[field] !== undefined && mergedProfile[field] !== null && mergedProfile[field] !== ''
+            // Calculate completion percentage
+            const filledFields = profileCompletionFields.filter(
+                field => data[field] !== undefined && data[field] !== null && data[field] !== ''
             ).length;
-            const completionPercentage = Math.round((filledFields / completionFields.length) * 100);
+            const completionPercentage = Math.round((filledFields / profileCompletionFields.length) * 100);
 
             // Prepare update data
             const updateData: any = {
-                ...req.body,
+                ...data,
+                socialLinks,
                 profileCompletionPercentage: completionPercentage,
             };
 
@@ -168,9 +169,24 @@ export default class extends BaseController {
                 },
             });
 
-            const data = profile || {
+            const missingFields = profileCompletionFields.filter(field => {
+                const value = profile?.[field];
+                return value === undefined || value === null || value === '';
+            });
+
+            const data = profile ? {
+                ...profile,
+                missingFields,
+            } : {
                 id: null,
                 profileCompletionPercentage: 0,
+                bio: null,
+                dateOfBirth: null,
+                profilePictureUrl: null,
+                website: null,
+                occupation: null,
+                companyName: null,
+                missingFields: [...profileCompletionFields],
             };
 
             new UserProfileResource(req, res, data)
@@ -211,7 +227,7 @@ export default class extends BaseController {
                 },
             });
 
-            new UserProfileResource(req, res, profile)
+            new UserProfileResource(req, res, publicProfile)
                 .json()
                 .status(200)
                 .additional({

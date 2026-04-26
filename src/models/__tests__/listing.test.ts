@@ -9,6 +9,7 @@ describe('Artisan Model', () => {
   let userId: string;
   let categoryId: string;
   let locationId: string;
+  const createdUserIds: string[] = [];
 
   // Set up test data
   beforeAll(async () => {
@@ -26,6 +27,7 @@ describe('Artisan Model', () => {
     });
 
     userId = user.id;
+    createdUserIds.push(user.id);
 
     // Create a category
     const category = await prisma.category.create({
@@ -53,11 +55,18 @@ describe('Artisan Model', () => {
 
   // Clean up after tests
   afterAll(async () => {
-    await prisma.artisan.deleteMany();
-    await prisma.category.deleteMany();
-    await prisma.location.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.$disconnect();
+    await prisma.artisan.deleteMany({
+      where: { curatorId: { in: createdUserIds } },
+    });
+    await prisma.category.deleteMany({
+      where: { id: categoryId ? { in: [categoryId] } : undefined },
+    });
+    await prisma.location.deleteMany({
+      where: { id: locationId ? { in: [locationId] } : undefined },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: createdUserIds } },
+    });
   });
 
   it('should create a new artisan with fixed price', async () => {
@@ -168,7 +177,7 @@ describe('Artisan Model', () => {
   it('should delete artisans when a user is deleted', async () => {
     // Create a new user for this test
     const userData = {
-      email: 'artisan-cascade@example.com',
+      email: `artisan-cascade-${Date.now()}@example.com`,
       password: await argon2.hash('password123'),
       firstName: 'Cascade',
       lastName: 'Test',
@@ -178,6 +187,7 @@ describe('Artisan Model', () => {
     const user = await prisma.user.create({
       data: userData,
     });
+    createdUserIds.push(user.id);
 
     // Create a artisan for this user
     await prisma.artisan.create({

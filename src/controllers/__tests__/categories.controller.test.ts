@@ -9,6 +9,17 @@ import request from 'supertest'
 
 describe('Test controllers', () => {
     let category: ICategory;
+    const categorySeed = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const initialCategoryData = {
+        icon: `fas-${categorySeed}`,
+        name: `Hello-${categorySeed}`,
+        description: `Hello World ${categorySeed}`,
+    };
+    const updatedCategoryData = {
+        icon: `fas1-${categorySeed}`,
+        name: `Hello 1-${categorySeed}`,
+        description: `Hello 1 World ${categorySeed}`,
+    };
 
     beforeAll(() => {
         const upload = multer({ dest: 'public/media' })
@@ -25,63 +36,65 @@ describe('Test controllers', () => {
 
     it('should create category', async () => {
         const response = (await request(app).post('/tester').send({
-            icon: 'fas',
-            name: 'Hello',
-            description: 'Hello World',
+            ...initialCategoryData,
         }))
 
         category = response.body.data
 
-        expect(response.body.data.icon).toBe('fas');
-        expect(response.body.data.name).toBe('Hello');
-        expect(response.body.data.description).toBe('Hello World');
+        expect(response.body.data.icon).toBe(initialCategoryData.icon);
+        expect(response.body.data.name).toBe(initialCategoryData.name);
+        expect(response.body.data.description).toBe(initialCategoryData.description);
         expect(response.statusCode).toBe(201);
     });
 
     it('should show get categories', async () => {
         const response = await request(app).get('/tester');
-        expect(response.body.data[0].icon).toBe('fas');
-        expect(response.body.data[0].name).toBe('Hello');
-        expect(response.body.data[0].description).toBe('Hello World');
+        const createdCategory = response.body.data.find((item: ICategory) => item.id === category.id);
+
+        expect(createdCategory).toBeDefined();
+        expect(createdCategory.icon).toBe(initialCategoryData.icon);
+        expect(createdCategory.name).toBe(initialCategoryData.name);
+        expect(createdCategory.description).toBe(initialCategoryData.description);
         expect(response.statusCode).toBe(200);
         expect(Array.isArray(response.body.data)).toBeTruthy();
     });
 
     it('should show get public categories', async () => {
         const response = await request(app).get('/public/tester');
-        expect(response.body.data[0].icon).toBe('fas');
-        expect(response.body.data[0].name).toBe('Hello');
-        expect(response.body.data[0].description).toBe('Hello World');
+        const createdCategory = response.body.data.find((item: ICategory) => item.id === category.id);
+
+        expect(createdCategory).toBeDefined();
+        expect(createdCategory.icon).toBe(initialCategoryData.icon);
+        expect(createdCategory.name).toBe(initialCategoryData.name);
+        expect(createdCategory.description).toBe(initialCategoryData.description);
         expect(response.statusCode).toBe(200);
         expect(Array.isArray(response.body.data)).toBeTruthy();
     });
 
     it('should get category', async () => {
         const response = await request(app).get('/tester/' + category.id);
-        expect(response.body.data.icon).toBe('fas');
-        expect(response.body.data.name).toBe('Hello');
-        expect(response.body.data.description).toBe('Hello World');
+        expect(response.body.data.icon).toBe(initialCategoryData.icon);
+        expect(response.body.data.name).toBe(initialCategoryData.name);
+        expect(response.body.data.description).toBe(initialCategoryData.description);
         expect(response.statusCode).toBe(200);
     });
 
     it('should get public category', async () => {
         const response = await request(app).get('/public/tester/' + category.id);
-        expect(response.body.data.icon).toBe('fas');
-        expect(response.body.data.name).toBe('Hello');
-        expect(response.body.data.description).toBe('Hello World');
+        expect(response.body.data.icon).toBe(initialCategoryData.icon);
+        expect(response.body.data.name).toBe(initialCategoryData.name);
+        expect(response.body.data.description).toBe(initialCategoryData.description);
         expect(response.statusCode).toBe(200);
     });
 
     it('should update category', async () => {
         const response = await request(app).put('/tester/' + category?.id).send({
-            icon: 'fas1',
-            name: 'Hello 1',
-            description: 'Hello 1 World',
+            ...updatedCategoryData,
         })
 
-        expect(response.body.data.icon).toBe('fas1');
-        expect(response.body.data.name).toBe('Hello 1');
-        expect(response.body.data.description).toBe('Hello 1 World');
+        expect(response.body.data.icon).toBe(updatedCategoryData.icon);
+        expect(response.body.data.name).toBe(updatedCategoryData.name);
+        expect(response.body.data.description).toBe(updatedCategoryData.description);
         expect(response.statusCode).toBe(202);
     });
 

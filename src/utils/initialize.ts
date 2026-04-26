@@ -2,7 +2,6 @@ import express, { Express } from "express";
 import { facebookStrategy, googleStrategy } from "./passport";
 import {
   ipBlockingMiddleware,
-  loadBlockedIPsFromDB,
   recordFailedAttemptMiddleware,
   startIPBlockingCleanup,
 } from "src/middleware/ipBlocking";
@@ -153,7 +152,6 @@ export const initialize = async (app: Express) => {
 
   startRateLimitCleanup();
   startIPBlockingCleanup();
-  await loadBlockedIPsFromDB();
   startMonitoringScheduler();
   startLogCleanupScheduler();
   startAnalyticsScheduler();

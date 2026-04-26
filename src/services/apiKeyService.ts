@@ -76,20 +76,20 @@ export const createAPIKey = async (
   // Store in cache
   apiKeyCache.set(hashedKey, apiKey);
 
-  // Optionally store in database (requires APIKey model in Prisma)
+  // Persist to database
   try {
-    // await prisma.apiKey.create({
-    //   data: {
-    //     id,
-    //     key: hashedKey,
-    //     name,
-    //     description,
-    //     userId,
-    //     status: 'active',
-    //     rateLimit,
-    //     expiresAt,
-    //   },
-    // });
+    await prisma.aPIKey.create({
+      data: {
+        id,
+        key: hashedKey,
+        name,
+        description,
+        userId,
+        status: 'active',
+        rateLimit,
+        expiresAt,
+      },
+    });
     console.log(`[API Key] Created new API key: ${name}`);
   } catch (error) {
     console.error('Error creating API key in database:', error);
@@ -113,17 +113,30 @@ export const verifyAPIKey = async (key: string): Promise<APIKey | null> => {
 
   if (!apiKey) {
     // Load from database if not in cache
-    // try {
-    //   const dbKey = await prisma.apiKey.findUnique({
-    //     where: { key: hashedKey },
-    //   });
-    //   if (dbKey) {
-    //     apiKey = dbKey as any;
-    //     apiKeyCache.set(hashedKey, apiKey);
-    //   }
-    // } catch (error) {
-    //   console.error('Error verifying API key:', error);
-    // }
+    try {
+      const dbKey = await prisma.aPIKey.findUnique({
+        where: { key: hashedKey },
+      });
+      if (dbKey) {
+        apiKey = {
+          id: dbKey.id,
+          key: dbKey.key,
+          name: dbKey.name,
+          description: dbKey.description ?? undefined,
+          userId: dbKey.userId ?? undefined,
+          status: dbKey.status as APIKey['status'],
+          rateLimit: dbKey.rateLimit,
+          createdAt: dbKey.createdAt,
+          expiresAt: dbKey.expiresAt ?? undefined,
+          lastUsedAt: dbKey.lastUsedAt ?? undefined,
+          ipWhitelist: dbKey.ipWhitelist,
+          allowedEndpoints: dbKey.allowedEndpoints,
+        };
+        apiKeyCache.set(hashedKey, apiKey);
+      }
+    } catch (error) {
+      console.error('Error verifying API key:', error);
+    }
   }
 
   if (!apiKey) {
@@ -156,11 +169,15 @@ export const revokeAPIKey = async (keyId: string): Promise<boolean> => {
         key.status = 'revoked';
         apiKeyCache.set(hash, key);
 
-        // Update in database
-        // await prisma.apiKey.update({
-        //   where: { id: keyId },
-        //   data: { status: 'revoked' },
-        // });
+        // Update in database (best-effort; cache is source of truth for active session)
+        try {
+          await prisma.aPIKey.update({
+            where: { id: keyId },
+            data: { status: 'revoked' },
+          });
+        } catch (dbError) {
+          console.error('Error updating revoked API key in database:', dbError);
+        }
 
         console.log(`[API Key] Revoked API key: ${key.name}`);
         return true;
@@ -184,14 +201,28 @@ export const getAPIKeyInfo = async (keyId: string): Promise<APIKey | null> => {
   }
 
   // Try to load from database
-  // try {
-  //   const dbKey = await prisma.apiKey.findUnique({
-  //     where: { id: keyId },
-  //   });
-  //   return dbKey as any;
-  // } catch (error) {
-  //   console.error('Error getting API key info:', error);
-  // }
+  try {
+    const dbKey = await prisma.aPIKey.findUnique({
+      where: { id: keyId },
+    });
+    if (!dbKey) return null;
+    return {
+      id: dbKey.id,
+      key: dbKey.key,
+      name: dbKey.name,
+      description: dbKey.description ?? undefined,
+      userId: dbKey.userId ?? undefined,
+      status: dbKey.status as APIKey['status'],
+      rateLimit: dbKey.rateLimit,
+      createdAt: dbKey.createdAt,
+      expiresAt: dbKey.expiresAt ?? undefined,
+      lastUsedAt: dbKey.lastUsedAt ?? undefined,
+      ipWhitelist: dbKey.ipWhitelist,
+      allowedEndpoints: dbKey.allowedEndpoints,
+    };
+  } catch (error) {
+    console.error('Error getting API key info:', error);
+  }
 
   return null;
 };
@@ -268,21 +299,35 @@ export const requireAPIKey = (req: Request, res: Response, next: NextFunction) =
 export const loadAPIKeysFromDB = async () => {
   try {
     // Load active API keys from database
-    // const keys = await prisma.apiKey.findMany({
-    //   where: {
-    //     status: 'active',
-    //     OR: [
-    //       { expiresAt: null },
-    //       { expiresAt: { gt: new Date() } },
-    //     ],
-    //   },
-    // });
+    const keys = await prisma.aPIKey.findMany({
+      where: {
+        status: 'active',
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
+      },
+    });
 
-    // keys.forEach(key => {
-    //   apiKeyCache.set(key.key, key as any);
-    // });
+    keys.forEach(dbKey => {
+      const apiKey: APIKey = {
+        id: dbKey.id,
+        key: dbKey.key,
+        name: dbKey.name,
+        description: dbKey.description ?? undefined,
+        userId: dbKey.userId ?? undefined,
+        status: dbKey.status as APIKey['status'],
+        rateLimit: dbKey.rateLimit,
+        createdAt: dbKey.createdAt,
+        expiresAt: dbKey.expiresAt ?? undefined,
+        lastUsedAt: dbKey.lastUsedAt ?? undefined,
+        ipWhitelist: dbKey.ipWhitelist,
+        allowedEndpoints: dbKey.allowedEndpoints,
+      };
+      apiKeyCache.set(dbKey.key, apiKey);
+    });
 
-    console.log('[API Key] Loaded API keys from database');
+    console.log(`[API Key] Loaded ${keys.length} API keys from database`);
   } catch (error) {
     console.error('Error loading API keys from database:', error);
   }
@@ -301,10 +346,10 @@ export const cleanupExpiredAPIKeys = async () => {
         apiKeyCache.set(hash, key);
 
         // Update in database
-        // await prisma.apiKey.update({
-        //   where: { id: key.id },
-        //   data: { status: 'expired' },
-        // });
+        await prisma.aPIKey.update({
+          where: { id: key.id },
+          data: { status: 'expired' },
+        });
       }
     }
 

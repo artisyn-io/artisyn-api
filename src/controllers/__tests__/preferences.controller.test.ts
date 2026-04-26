@@ -151,6 +151,11 @@ describe('Preferences', () => {
 
 
 describe('Preferences Controller', () => {
+    afterEach(async () => {
+        await prisma.userPreferences.deleteMany({
+            where: { userId: testUserId },
+        });
+    });
 
     describe('getPreferences', () => {
         it('should return user preferences', async () => {
