@@ -97,6 +97,11 @@ export class PrivacyService {
       if (isBlocked) {
         return { allowed: false, reason: 'blocked' };
       }
+
+      // Restricted users cannot access profile data.
+      if (targetPrivacy.restrictedList.includes(viewerId)) {
+        return { allowed: false, reason: 'restricted' };
+      }
     }
 
     // Check visibility based on level
@@ -179,6 +184,12 @@ export class PrivacyService {
         isProfessional: true,
         isPublic: true,
         createdAt: true,
+        user: {
+          select: {
+            email: true,
+            phone: true,
+          },
+        },
       },
     });
 
@@ -186,16 +197,35 @@ export class PrivacyService {
       return null;
     }
 
+    let resultProfile: any = profile;
+
     // Apply custom privacy rules if visibility is CUSTOM
     if (targetPrivacy?.profileVisibility === PRIVACY_LEVELS.CUSTOM) {
-      return await CustomPrivacyService.filterProfileData(
+      resultProfile = await CustomPrivacyService.filterProfileData(
         profile,
         targetUserId,
         viewerId,
         targetPrivacy.customPrivacyRules
       );
+
+      if (!resultProfile) {
+        return null;
+      }
     }
 
-    return profile;
+    const showLocation = targetPrivacy?.showLocation ?? false;
+    const showEmail = targetPrivacy?.showEmail ?? false;
+    const showPhone = targetPrivacy?.showPhone ?? false;
+    const isOwner = viewerId === targetUserId;
+
+    if (!isOwner && !showLocation) {
+      resultProfile.location = null;
+    }
+
+    resultProfile.email = isOwner || showEmail ? resultProfile.user?.email ?? null : null;
+    resultProfile.phone = isOwner || showPhone ? resultProfile.user?.phone ?? null : null;
+    delete resultProfile.user;
+
+    return resultProfile;
   }
 }

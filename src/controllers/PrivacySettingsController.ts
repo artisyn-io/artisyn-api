@@ -55,21 +55,35 @@ export default class extends BaseController {
                 RequestError.abortIf(true, 'Validation failed', 422);
             }
 
+            if (typeof req.body.customPrivacyRules !== 'undefined') {
+                const { CustomPrivacyService } = await import('../services/CustomPrivacyService');
+                const validation = CustomPrivacyService.validateCustomRules(req.body.customPrivacyRules);
+                if (!validation.valid) {
+                    RequestError.abortIf(true, `Invalid custom privacy rules: ${validation.errors?.join(', ')}`, 422);
+                }
+            }
+
             // Get existing settings
             const existingSettings = await prisma.privacySettings.findFirst({
                 where: { userId },
             });
 
+            const { profileVisibility, ...otherPrivacyData } = req.body;
+
+            if (typeof profileVisibility === 'string') {
+                await PrivacyService.updateProfileVisibility(userId, profileVisibility as any);
+            }
+
             // Update with new data
             const privacySettings = await prisma.privacySettings.upsert({
                 where: { userId },
                 update: {
-                    ...req.body,
+                    ...otherPrivacyData,
                     lastPrivacyReviewDate: new Date(),
                 },
                 create: {
                     userId,
-                    ...req.body,
+                    ...otherPrivacyData,
                     lastPrivacyReviewDate: new Date(),
                 },
             });

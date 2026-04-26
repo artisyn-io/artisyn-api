@@ -261,6 +261,28 @@ describe('Privacy Visibility Tests', () => {
       // Remove from restricted list
       await privacyController.removeFromRestrictedList(mockReq as Request, mockRes as Response);
     });
+
+    it('should deny restricted users regardless of signed-in status', async () => {
+      // Keep profile publicly visible to isolate restricted-list behavior
+      mockReq.body = { profileVisibility: 'PUBLIC' };
+      await privacyController.updateProfileVisibility(mockReq as Request, mockRes as Response);
+
+      // Add user to restricted list
+      mockReq.body = { restrictedUserId: testUsers.restricted };
+      await privacyController.addToRestrictedList(mockReq as Request, mockRes as Response);
+
+      // Signed-in restricted user should be blocked
+      const restrictedCanView = await PrivacyService.canViewProfile(testUsers.restricted, testUsers.owner);
+      expect(restrictedCanView.allowed).toBe(false);
+      expect(restrictedCanView.reason).toBe('restricted');
+
+      const restrictedProfile = await PrivacyService.getFilteredProfileData(testUsers.restricted, testUsers.owner);
+      expect(restrictedProfile).toBeNull();
+
+      // Anonymous access should still follow PUBLIC rules
+      const anonymousCanView = await PrivacyService.canViewProfile(null, testUsers.owner);
+      expect(anonymousCanView.allowed).toBe(true);
+    });
   });
 
   describe('Custom privacy rules validation', () => {

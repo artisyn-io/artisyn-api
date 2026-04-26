@@ -220,7 +220,10 @@ export default class extends BaseController {
             const viewerId = req.user?.id || null;
             RequestError.assertFound(targetUserId, 'User ID required', 400);
 
-// Use PrivacyService for unified visibility checking
+            const access = await PrivacyService.canViewProfile(viewerId, String(targetUserId));
+            RequestError.abortIf(!access.allowed, 'Profile is private', 403);
+
+            // Use PrivacyService for unified visibility checking
             const profile = await PrivacyService.getFilteredProfileData(viewerId, String(targetUserId));
 
             RequestError.assertFound(profile, 'Profile not found', 404);

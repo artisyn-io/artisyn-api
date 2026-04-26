@@ -129,6 +129,42 @@ describe('Profile Completion', () => {
       expect(updatedProfile?.profileCompletionPercentage).toBe(33); // 2/6 fields
       expect(updatedProfile?.bio).toBe('');
     });
+
+    it('should preserve and grow completion across incremental single-field updates', async () => {
+      // Create profile with one completion field
+      mockReq.body = { bio: 'Step 1 bio' };
+      await profileController.updateProfile(mockReq as Request, mockRes as Response);
+
+      let profile = await prisma.userProfile.findUnique({
+        where: { userId: 'test-user-id' },
+      });
+      expect(profile?.profileCompletionPercentage).toBe(17); // 1/6
+
+      // Add one field at a time and ensure completion never regresses
+      const updates = [
+        { website: 'https://step2.example.com', expected: 33 }, // 2/6
+        { occupation: 'Engineer', expected: 50 },               // 3/6
+        { companyName: 'Step Corp', expected: 67 },             // 4/6
+        { profilePictureUrl: 'https://example.com/pic.png', expected: 83 }, // 5/6
+        { dateOfBirth: new Date('1995-02-10'), expected: 100 }, // 6/6
+      ];
+
+      let previousCompletion = profile?.profileCompletionPercentage ?? 0;
+
+      for (const step of updates) {
+        mockReq.body = step;
+        await profileController.updateProfile(mockReq as Request, mockRes as Response);
+
+        profile = await prisma.userProfile.findUnique({
+          where: { userId: 'test-user-id' },
+        });
+
+        const current = profile?.profileCompletionPercentage ?? 0;
+        expect(current).toBe(step.expected);
+        expect(current).toBeGreaterThanOrEqual(previousCompletion);
+        previousCompletion = current;
+      }
+    });
   });
 
   describe('getProfileCompletion', () => {

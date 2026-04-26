@@ -292,6 +292,48 @@ describe('ProfileController', () => {
         expect(updated.bio).toBe('Updated bio');
     });
 
+    it('should preserve completion progress across incremental updates', async () => {
+        await request(app)
+            .post('/api/test/profile')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send({ bio: 'Initial bio' })
+            .expect(200);
+
+        let response = await request(app)
+            .get('/api/test/profile/completion')
+            .set('Authorization', `Bearer ${authToken}`)
+            .expect(200);
+
+        expect(response.body.data.profileCompletionPercentage).toBe(17); // 1/6
+
+        const steps = [
+            { payload: { website: 'https://example.com' }, expected: 33 },
+            { payload: { occupation: 'Engineer' }, expected: 50 },
+            { payload: { companyName: 'Tech Co' }, expected: 67 },
+            { payload: { profilePictureUrl: 'https://example.com/pic.png' }, expected: 83 },
+            { payload: { dateOfBirth: '2000-01-15' }, expected: 100 },
+        ];
+
+        let previous = response.body.data.profileCompletionPercentage;
+
+        for (const step of steps) {
+            await request(app)
+                .post('/api/test/profile')
+                .set('Authorization', `Bearer ${authToken}`)
+                .send(step.payload)
+                .expect(200);
+
+            response = await request(app)
+                .get('/api/test/profile/completion')
+                .set('Authorization', `Bearer ${authToken}`)
+                .expect(200);
+
+            expect(response.body.data.profileCompletionPercentage).toBe(step.expected);
+            expect(response.body.data.profileCompletionPercentage).toBeGreaterThanOrEqual(previous);
+            previous = response.body.data.profileCompletionPercentage;
+        }
+    });
+
     it('should track profile as public or private', async () => {
         const profile = await prisma.userProfile.create({
             data: {

@@ -522,6 +522,131 @@ Sets how long user data should be retained.
 
 ---
 
+### 8. Add User To Restricted List
+**POST** `/api/privacy/restrict`
+
+Adds a user to the restricted list. Restricted users are denied profile access even when visibility is `PUBLIC`.
+
+**Request Body:**
+```json
+{
+  "restrictedUserId": "uuid-of-user-to-restrict"
+}
+```
+
+**Response (200):**
+```json
+{
+  "data": { /* updated privacy settings with restrictedList */ },
+  "status": "success",
+  "message": "User added to restricted list",
+  "code": 200
+}
+```
+
+---
+
+### 9. Remove User From Restricted List
+**POST** `/api/privacy/unrestrict`
+
+Removes a user from the restricted list.
+
+**Request Body:**
+```json
+{
+  "restrictedUserId": "uuid-of-user-to-unrestrict"
+}
+```
+
+**Response (200):**
+```json
+{
+  "data": { /* updated privacy settings */ },
+  "status": "success",
+  "message": "User removed from restricted list",
+  "code": 200
+}
+```
+
+---
+
+### 10. Get Restricted List
+**GET** `/api/privacy/restricted-list`
+
+Retrieves the list of restricted users.
+
+**Response (200):**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "avatar": "https://..."
+    }
+  ],
+  "status": "success",
+  "message": "Restricted list retrieved",
+  "code": 200
+}
+```
+
+---
+
+### 11. Update Custom Privacy Rules
+**POST** `/api/privacy/custom-rules`
+
+Updates field-level rules used when `profileVisibility` is `CUSTOM`.
+
+**Request Body:**
+```json
+{
+  "customPrivacyRules": {
+    "rules": [
+      { "field": "bio", "visibility": "public" },
+      { "field": "website", "visibility": "friends" },
+      { "field": "dateOfBirth", "visibility": "private" }
+    ],
+    "defaultVisibility": "public"
+  }
+}
+```
+
+**Response (200):**
+```json
+{
+  "data": { /* updated privacy settings */ },
+  "status": "success",
+  "message": "Custom privacy rules updated",
+  "code": 200
+}
+```
+
+---
+
+### 12. Get Default Custom Rules Template
+**GET** `/api/privacy/custom-rules/default`
+
+Returns the default custom-rules template to help clients bootstrap `CUSTOM` visibility settings.
+
+**Response (200):**
+```json
+{
+  "data": {
+    "rules": [
+      { "field": "bio", "visibility": "public" }
+    ],
+    "defaultVisibility": "public"
+  },
+  "status": "success",
+  "message": "Default custom privacy rules retrieved",
+  "code": 200
+}
+```
+
+---
+
 ## Account Linking Endpoints
 
 ### 1. Get Linked Accounts
