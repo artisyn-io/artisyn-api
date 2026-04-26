@@ -31,7 +31,7 @@ jobs:
           - 1025:1025
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/artisyn?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/artisyn?schema=artisyn_api
       PGHOST: localhost
       PGPORT: 5432
       PGUSER: postgres
@@ -64,7 +64,7 @@ jobs:
 
       - name: Ensure CI database URL in .env
         run: |
-          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/artisyn?schema=public" >> .env
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/artisyn?schema=artisyn_api" >> .env
 
       - name: Wait for PostgreSQL
         run: |
@@ -81,12 +81,9 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm prisma generate
 
-      # Apply migrations to set up the test database
-      - name: Run Database Migrations
-        run: pnpm prisma migrate deploy
-
-      - name: Align schema with Prisma models
-        run: pnpm prisma db push --skip-generate
+      # Reset and migrate to guarantee a clean schema for every run.
+      - name: Reset Database Schema
+        run: pnpm prisma migrate reset --force --skip-seed
 
       # Seed the database with test data
       - name: Seed Database
