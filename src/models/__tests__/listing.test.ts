@@ -55,6 +55,11 @@ describe('Artisan Model', () => {
 
   // Clean up after tests
   afterAll(async () => {
+    await prisma.artisan.deleteMany();
+    await prisma.category.deleteMany();
+    await prisma.location.deleteMany();
+    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.$disconnect();
     await prisma.artisan.deleteMany({
       where: { curatorId: { in: createdUserIds } },
     });

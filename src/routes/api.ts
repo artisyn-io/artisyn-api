@@ -71,6 +71,8 @@ router.post('/privacy/retention', authenticateToken, new PrivacySettingsControll
 // Account Linking routes
 router.get('/account-links', authenticateToken, new AccountLinkingController().getLinkedAccounts);
 router.post('/account-links', authenticateToken, new AccountLinkingController().linkAccount);
+router.post('/account-links/check-availability', authenticateToken, new AccountLinkingController().checkAvailability);
+router.post('/account-links/verify', authenticateToken, new AccountLinkingController().verifyAccountLink);
 router.get('/account-links/:provider', authenticateToken, new AccountLinkingController().checkProviderLinked);
 router.patch('/account-links/:provider/token', authenticateToken, new AccountLinkingController().updateAccountToken);
 router.delete('/account-links/:provider', authenticateToken, new AccountLinkingController().unlinkAccount);

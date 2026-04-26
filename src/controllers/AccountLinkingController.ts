@@ -4,9 +4,7 @@ import { AccountLinkProvider } from '@prisma/client';
 import BaseController from './BaseController';
 import { RequestError } from 'src/utils/errors';
 import Resource from '../resources/index';
-import AccountLinkResource from 'src/resources/AccountLinkResource';
-import AccountLinkCollection from 'src/resources/AccountLinkCollection';
-import { accountLinkValidationRules } from 'src/utils/profileValidators';
+import { accountLinkValidationRules, accountLinkVerifyValidationRules, checkAvailabilityValidationRules } from 'src/utils/profileValidators';
 import { logAuditEvent } from 'src/utils/auditLogger';
 import { prisma } from 'src/db';
 import { validateAsync } from 'src/utils/validator';
@@ -39,17 +37,18 @@ export default class AccountLinkingController extends BaseController {
       );
     }
 
-    // Create the account link
+    // Create the account link with full OAuth metadata
     const accountLink = await prisma.accountLink.create({
       data: {
         userId,
         provider: validated.provider as AccountLinkProvider,
         providerUserId: validated.providerUserId,
         accessToken: validated.accessToken,
-        providerEmail: validated.providerEmail,
-        providerName: validated.providerName,
-        refreshToken: validated.refreshToken,
-        expiresAt: validated.expiresAt ? new Date(validated.expiresAt) : undefined,
+        refreshToken: validated.refreshToken ?? null,
+        expiresAt: validated.expiresAt ? new Date(validated.expiresAt) : null,
+        providerEmail: validated.providerEmail ?? null,
+        providerName: validated.providerName ?? null,
+        metadata: validated.metadata ?? null,
       },
     });
 
@@ -63,7 +62,16 @@ export default class AccountLinkingController extends BaseController {
       },
     });
 
-    new AccountLinkResource(req, res, accountLink)
+    Resource(req, res, {
+      data: {
+        id: accountLink.id,
+        provider: accountLink.provider,
+        providerEmail: accountLink.providerEmail,
+        providerName: accountLink.providerName,
+        isVerified: accountLink.isVerified,
+        linkedAt: accountLink.createdAt,
+      }
+    })
       .json()
       .status(201)
       .additional({
@@ -74,7 +82,7 @@ export default class AccountLinkingController extends BaseController {
   };
 
   /**
-   * Unlink an account from the user's profile
+   * Unlink an account from the user's profile by provider name
    */
   async unlinkAccount (req: Request, res: Response) {
     const userId = req.user?.id;
@@ -89,6 +97,7 @@ export default class AccountLinkingController extends BaseController {
       throw new RequestError('Invalid provider', 400);
     }
 
+    // Validate provider is a valid AccountLinkProvider
     const validProviders = Object.values(AccountLinkProvider);
     if (!validProviders.includes(providerValue as AccountLinkProvider)) {
       throw new RequestError('Invalid provider', 400);
@@ -125,7 +134,7 @@ export default class AccountLinkingController extends BaseController {
       data: {
         id: accountLink.id,
         provider: accountLink.provider,
-        unlinkedAt: accountLink.updatedAt,
+        unlinkedAt: new Date(),
       }
     })
       .json()
@@ -163,15 +172,11 @@ export default class AccountLinkingController extends BaseController {
         id: true,
         userId: true,
         provider: true,
-        providerUserId: true,
         providerEmail: true,
         providerName: true,
         isVerified: true,
-        linkedAt: true,
-        unlinkedAt: true,
-        accessToken: true,
-        refreshToken: true,
-        expiresAt: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -334,5 +339,134 @@ export default class AccountLinkingController extends BaseController {
       }
       throw error;
     }
+  };
+
+  /**
+   * Check if a provider account (by providerUserId) is available to link
+   * Distinguishes between "already linked to you" and "linked by another user"
+   */
+  async checkAvailability (req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new RequestError('User not authenticated', 401);
+    }
+
+    const validated = await validateAsync(req.body, checkAvailabilityValidationRules);
+
+    const existingLink = await prisma.accountLink.findFirst({
+      where: {
+        provider: validated.provider as AccountLinkProvider,
+        providerUserId: validated.providerUserId,
+      },
+    });
+
+    if (!existingLink) {
+      return Resource(req, res, {
+        data: {
+          available: true,
+          provider: validated.provider,
+          providerUserId: validated.providerUserId,
+        }
+      })
+        .json()
+        .status(200)
+        .additional({
+          status: 'success',
+          message: 'Provider account is available',
+          code: 200,
+        });
+    }
+
+    if (existingLink.userId === userId) {
+      return Resource(req, res, {
+        data: {
+          available: false,
+          reason: 'already_linked_to_you',
+          provider: validated.provider,
+          providerUserId: validated.providerUserId,
+        }
+      })
+        .json()
+        .status(200)
+        .additional({
+          status: 'success',
+          message: 'Provider account is already linked to your profile',
+          code: 200,
+        });
+    }
+
+    return Resource(req, res, {
+      data: {
+        available: false,
+        reason: 'linked_by_another_user',
+        provider: validated.provider,
+        providerUserId: validated.providerUserId,
+      }
+    })
+      .json()
+      .status(200)
+      .additional({
+        status: 'success',
+        message: 'Provider account is already linked by another user',
+        code: 200,
+      });
+  };
+
+  /**
+   * Verify an account link (mark isVerified = true)
+   */
+  async verifyAccountLink (req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new RequestError('User not authenticated', 401);
+    }
+
+    const validated = await validateAsync(req.body, accountLinkVerifyValidationRules);
+
+    const accountLink = await prisma.accountLink.findFirst({
+      where: {
+        userId,
+        provider: validated.provider as AccountLinkProvider,
+      },
+    });
+
+    if (!accountLink) {
+      throw new RequestError('Account link not found', 404);
+    }
+
+    if (accountLink.isVerified) {
+      throw new RequestError('Account link is already verified', 400);
+    }
+
+    const updated = await prisma.accountLink.update({
+      where: { id: accountLink.id },
+      data: { isVerified: true },
+    });
+
+    await logAuditEvent(userId, 'ACCOUNT_LINK', {
+      entityType: 'AccountLink',
+      entityId: accountLink.id,
+      req,
+      metadata: {
+        provider: validated.provider,
+        action: 'verified',
+      },
+    });
+
+    Resource(req, res, {
+      data: {
+        id: updated.id,
+        provider: updated.provider,
+        isVerified: updated.isVerified,
+        updatedAt: updated.updatedAt,
+      }
+    })
+      .json()
+      .status(200)
+      .additional({
+        status: 'success',
+        message: 'Account link verified successfully',
+        code: 200,
+      });
   };
 }

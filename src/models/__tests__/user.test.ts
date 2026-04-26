@@ -10,6 +10,8 @@ describe('User Model', () => {
 
   // Clean up after tests
   afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    await prisma.$disconnect();
     await prisma.user.deleteMany({
       where: { id: { in: createdUserIds } },
     });
@@ -45,9 +47,10 @@ describe('User Model', () => {
       role: UserRole.USER,
     };
 
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: userData,
     });
+    createdUserIds.push(user.id);
     const duplicateUser = await prisma.user.findUnique({ where: { email: userData.email } });
     if (duplicateUser) {
       createdUserIds.push(duplicateUser.id);
