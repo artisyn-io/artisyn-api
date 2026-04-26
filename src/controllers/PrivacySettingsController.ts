@@ -23,10 +23,23 @@ export default class extends BaseController {
             where: { userId },
         });
 
-        // Create default privacy settings if doesn't exist
+        // Create default privacy settings if they don't exist
         if (!privacySettings) {
             privacySettings = await prisma.privacySettings.create({
-                data: { userId },
+                data: {
+                    userId,
+                    profileVisibility: 'PUBLIC',
+                    showEmail: false,
+                    showPhone: false,
+                    showLocation: false,
+                    showOnlineStatus: true,
+                    allowDirectMessages: true,
+                    allowProfileComments: true,
+                    searchEngineIndexing: true,
+                    dataRetentionMonths: 24,
+                    blockList: [],
+                    restrictedList: [],
+                },
             });
         }
 
@@ -48,27 +61,23 @@ export default class extends BaseController {
             const userId = req.user?.id;
             RequestError.assertFound(userId, 'Unauthorized', 401);
 
-            // Validate input
-            const errors = await this.validateAsync(req, privacySettingsValidationRules);
-            if (Object.keys(errors).length > 0) {
-                RequestError.abortIf(true, 'Validation failed', 422);
-            }
+            // Validate input and capture only validated fields
+            const data = await this.validateAsync(req, privacySettingsValidationRules);
 
-            // Get existing settings
+            // Get existing settings for audit only
             const existingSettings = await prisma.privacySettings.findFirst({
                 where: { userId },
             });
 
-            // Update with new data
             const privacySettings = await prisma.privacySettings.upsert({
                 where: { userId },
                 update: {
-                    ...req.body,
+                    ...data,
                     lastPrivacyReviewDate: new Date(),
                 },
                 create: {
                     userId,
-                    ...req.body,
+                    ...data,
                     lastPrivacyReviewDate: new Date(),
                 },
             });

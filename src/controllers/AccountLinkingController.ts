@@ -303,7 +303,21 @@ export default class AccountLinkingController extends BaseController {
         throw new RequestError('Account link not found', 404);
       }
 
-      new AccountLinkResource(req, res, accountLink)
+      const responseData = {
+        userId: accountLink.userId,
+        provider: accountLink.provider,
+        providerUserId: accountLink.providerUserId,
+        providerEmail: accountLink.providerEmail,
+        providerName: accountLink.providerName,
+        isVerified: accountLink.isVerified,
+        linkedAt: accountLink.linkedAt,
+        unlinkedAt: accountLink.unlinkedAt,
+        accessToken: accountLink.accessToken ? '***' : undefined,
+        refreshToken: accountLink.refreshToken ? '***' : undefined,
+        expiresAt: accountLink.expiresAt,
+      };
+
+      Resource(req, res, { data: responseData })
         .json()
         .status(200)
         .additional({

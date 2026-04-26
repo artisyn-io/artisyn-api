@@ -48,6 +48,10 @@ describe('PrivacySettingsController', () => {
 
     beforeEach(async () => {
         const { user1, user2, token } = await createTestUsers();
+        if (!token) {
+            throw new Error('Failed to obtain user token for privacy tests');
+        }
+
         testUserId = user1.id;
         testUserId2 = user2.id;
         userToken = token;
