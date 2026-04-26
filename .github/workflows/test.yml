@@ -17,10 +17,11 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: artisyn
+          POSTGRES_INITDB_ARGS: "--encoding=UTF8"
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d artisyn"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -31,6 +32,11 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/artisyn?schema=public
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: artisyn
       JWT_SECRET: your-jwt-secret-key
       JWT_EXPIRES_IN: 7d
       NODE_ENV: test
@@ -56,6 +62,17 @@ jobs:
       - name: Copy ENV
         run: cp .env.example .env
 
+      - name: Ensure CI database URL in .env
+        run: |
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/artisyn?schema=public" >> .env
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres -d artisyn; do
+            echo "Waiting for postgres..."
+            sleep 1
+          done
+
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile --ignore-scripts
 
@@ -67,6 +84,9 @@ jobs:
       # Apply migrations to set up the test database
       - name: Run Database Migrations
         run: pnpm prisma migrate deploy
+
+      - name: Align schema with Prisma models
+        run: pnpm prisma db push --skip-generate
 
       # Seed the database with test data
       - name: Seed Database
