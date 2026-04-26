@@ -60,13 +60,17 @@ jobs:
         run: pnpm install --no-frozen-lockfile --ignore-scripts
 
       # Database setup for CI tests
-      # Using 'prisma db push' for faster, idempotent schema sync in test environment
-      # This avoids migration history conflicts and duplicate enum errors
-      - name: Generate Prisma Client and Sync Database Schema
-        run: |
-          pnpm prisma generate && \
-          pnpm prisma db push --force-reset && \
-          pnpm prisma db seed
+      # Generate Prisma Client from schema
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
+
+      # Apply migrations to set up the test database
+      - name: Run Database Migrations
+        run: pnpm prisma migrate deploy
+
+      # Seed the database with test data
+      - name: Seed Database
+        run: pnpm prisma db seed
 
       - name: Run Tests
         run: pnpm test
