@@ -53,6 +53,7 @@ export const preferencesValidationRules: InitialRules = {
     twoFactorEnabled: ['boolean'],
     dataCollectionConsent: ['boolean'],
     analyticsTracking: ['boolean'],
+    customPreferences: ['nullable'],
 };
 
 /**
