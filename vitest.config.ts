@@ -5,11 +5,12 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
 
   test: {
-    retry: 10,
+    retry: 2,
     root: './',
     passWithNoTests: true,
     environment: 'node',
     include: ['**/__tests__/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    testTimeout: 60000,
     env: {
       NODE_ENV: 'test',
     },

@@ -487,7 +487,12 @@ describe('Security & Rate Limiting Features', () => {
     it('should not expose server version', async () => {
       const response = await request(app).get('/health');
       const server = response.headers['server'];
-      expect(server).not.toContain('Express');
+      // Server header should either not exist, or not contain version info
+      if (server) {
+        expect(server).not.toContain('Express');
+        expect(server).not.toContain('node');
+        expect(server).not.toContain('version');
+      }
     });
 
     it('should enforce HTTPS in production', async () => {
