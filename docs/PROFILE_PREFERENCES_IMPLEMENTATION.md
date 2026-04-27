@@ -109,8 +109,8 @@ Methods:
 - `getLinkedAccounts()` - List all linked social accounts
 - `linkAccount()` - Link new social account
 - `unlinkAccount()` - Remove linked account
-- `getAccountLink()` - Get specific linked account
-- `checkProviderAvailability()` - Check if provider can be linked
+- `checkProviderLinked()` - Get specific linked account by provider
+- `checkAvailability()` - Check if provider account can be linked
 - `verifyAccountLink()` - Verify account ownership
 
 Features:

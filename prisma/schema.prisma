@@ -736,7 +736,7 @@ model AccountLink {
   refreshToken   String?             @db.Text
   expiresAt      DateTime?
   metadata       Json?
-  isVerified     Boolean             @default(true)
+   isVerified     Boolean             @default(false)
   linkedAt       DateTime            @default(now())
   unlinkedAt     DateTime?
   createdAt      DateTime            @default(now())
