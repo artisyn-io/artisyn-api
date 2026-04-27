@@ -57,6 +57,18 @@ export const preferencesValidationRules: InitialRules = {
 };
 
 /**
+ * Validation rules for Notification Preferences
+ */
+export const notificationValidationRules: InitialRules = {
+    emailNotifications: ['boolean'],
+    pushNotifications: ['boolean'],
+    smsNotifications: ['boolean'],
+    marketingEmails: ['boolean'],
+    activityEmails: ['boolean'],
+    digestFrequency: ['string', 'in:daily,weekly,monthly,never'],
+};
+
+/**
  * Validation rules for Privacy Settings
  */
 export const privacySettingsValidationRules: InitialRules = {

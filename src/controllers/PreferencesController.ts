@@ -4,7 +4,7 @@ import BaseController from "./BaseController";
 import { RequestError } from 'src/utils/errors';
 import UserPreferencesResource from "src/resources/UserPreferencesResource";
 import { logAuditEvent } from 'src/utils/auditLogger';
-import { preferencesValidationRules } from 'src/utils/profileValidators';
+import { notificationValidationRules, preferencesValidationRules } from 'src/utils/profileValidators';
 import { prisma } from 'src/db';
 
 /**
@@ -91,26 +91,14 @@ export default class extends BaseController {
         const userId = req.user?.id;
         RequestError.assertFound(userId, 'Unauthorized', 401);
 
-        const notificationPrefs: any = {
-            emailNotifications: req.body.emailNotifications,
-            pushNotifications: req.body.pushNotifications,
-            smsNotifications: req.body.smsNotifications,
-            marketingEmails: req.body.marketingEmails,
-            activityEmails: req.body.activityEmails,
-            digestFrequency: req.body.digestFrequency,
-        };
-
-        // Filter out undefined values
-        Object.keys(notificationPrefs).forEach((key: string) =>
-            notificationPrefs[key] === undefined && delete notificationPrefs[key]
-        );
+        const data = await this.validateAsync(req, notificationValidationRules);
 
         const preferences = await prisma.userPreferences.upsert({
             where: { userId },
-            update: notificationPrefs,
+            update: data,
             create: {
                 userId,
-                ...notificationPrefs,
+                ...data,
             },
         });
 

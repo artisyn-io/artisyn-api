@@ -219,9 +219,10 @@ export default class extends BaseController {
             const blockList = privacySettings?.blockList || [];
             const updatedBlockList = blockList.filter((id: string) => id !== blockedUserId);
 
-            const updated = await prisma.privacySettings.update({
+            const updated = await prisma.privacySettings.upsert({
                 where: { userId },
-                data: { blockList: updatedBlockList },
+                update: { blockList: updatedBlockList },
+                create: { userId, blockList: updatedBlockList },
             });
 
             // Log unblock action
