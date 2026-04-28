@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -119,5 +120,63 @@ describe('Data export processing', () => {
         expect(buildPayloadSpy).toHaveBeenCalled();
         expect(failed.status).toBe('failed');
         expect(failed.errorMessage).toContain('Simulated export failure');
+    });
+
+    it('retries a failed export request and processes it to ready', async () => {
+        vi.spyOn(mailer, 'sendMail').mockResolvedValue(null);
+
+        // Create a request already in failed state
+        const request = await prisma.dataExportRequest.create({
+            data: {
+                userId: testUserId,
+                format: 'json',
+                status: 'failed',
+                errorMessage: 'Previous failure',
+            },
+        });
+
+        // Reset to pending (simulating the retry endpoint) and re-enqueue
+        await prisma.dataExportRequest.update({
+            where: { id: request.id },
+            data: { status: 'pending', errorMessage: null },
+        });
+
+        dataExportQueue.enqueue(request.id);
+
+        const ready = await waitForTerminalExportStatus(request.id);
+
+        expect(ready.status).toBe('ready');
+        expect(ready.errorMessage).toBeNull();
+        expect(ready.downloadUrl).toContain(`/api/data-export/${request.id}/download`);
+    });
+
+    it('purges expired export files and marks requests as expired', async () => {
+        vi.spyOn(mailer, 'sendMail').mockResolvedValue(null);
+
+        // Create a request that is ready but whose TTL has already elapsed
+        const pastExpiry = new Date(Date.now() - 1000);
+        const request = await prisma.dataExportRequest.create({
+            data: {
+                userId: testUserId,
+                format: 'json',
+                status: 'ready',
+                expiresAt: pastExpiry,
+            },
+        });
+
+        // Write a dummy file so purge has something to delete
+        const filePath = DataExportService.getExportFilePath(request.id, request.format);
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, '{}', 'utf8');
+
+        const purged = await dataExportService.purgeExpiredExports();
+
+        expect(purged).toBeGreaterThanOrEqual(1);
+
+        const updated = await prisma.dataExportRequest.findUnique({ where: { id: request.id } });
+        expect(updated?.status).toBe('expired');
+
+        // File should be gone
+        await expect(fs.access(filePath)).rejects.toThrow();
     });
 });
