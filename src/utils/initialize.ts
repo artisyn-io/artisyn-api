@@ -33,6 +33,7 @@ import methodOverride from "method-override";
 import passport from "passport";
 import path from "path";
 import { startAnalyticsScheduler } from "./analyticsScheduler";
+import { startDeletionPurgeScheduler } from "./deletionPurgeScheduler";
 import { startMediaScheduler } from "./mediaScheduler";
 import { startMonitoringScheduler } from "src/services/monitoringService";
 
@@ -156,6 +157,7 @@ export const initialize = async (app: Express) => {
   startLogCleanupScheduler();
   startAnalyticsScheduler();
   startMediaScheduler();
+  startDeletionPurgeScheduler();
 
   if (process.env.NODE_ENV !== "test") {
     console.log("[Security] All security services initialized successfully");
