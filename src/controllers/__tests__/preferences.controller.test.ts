@@ -284,6 +284,25 @@ describe('Preferences Controller', () => {
             );
         });
 
+        it('should accept valid BCP 47 locale codes for preferences', async () => {
+            const res = await request(app)
+                .post('/api/preferences')
+                .set('Authorization', `Bearer ${userToken}`)
+                .send({
+                    language: 'es-419',
+                })
+                .expect(202);
+
+            expect(res.body).toEqual(
+                expect.objectContaining({
+                    status: 'success',
+                    data: expect.objectContaining({
+                        language: 'es-419',
+                    }),
+                })
+            );
+        });
+
         it('should validate preference values', async () => {
             const res = await request(app)
                 .post('/api/preferences')
@@ -300,7 +319,7 @@ describe('Preferences Controller', () => {
                     errors:
                         expect.objectContaining({
                             language: [
-                                'The language must be one of the following en, es, fr, de, it, pt, ja, zh, ar.',
+                                'The language must be a valid BCP 47 language code.',
                             ],
                             theme: [
                                 'The theme must be one of the following light, dark, system.',

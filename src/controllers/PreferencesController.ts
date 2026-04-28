@@ -107,7 +107,7 @@ export default class extends BaseController {
             req,
             entityType: 'UserPreferences',
             entityId: preferences.id,
-            newValues: notificationPrefs,
+            newValues: preferences,
             statusCode: 202,
             metadata: { type: 'notification_update' },
         });

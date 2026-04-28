@@ -17,3 +17,6 @@ Many artisans lack a platform to help them get noticed; meanwhile, numerous peop
 - 📝 [Smart Contracts](https://github.com/artisyn-io/artisyn-contracts)
 - 📚 [Fork/Clone API Documentation](https://artisyn.apidog.io)
 - [![Telegram](https://core.telegram.org/img/favicon-16x16.png) Telegram Channel](http://t.me/@artisynGF)
+
+
+<!-- COmpleted  -->

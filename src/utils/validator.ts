@@ -43,8 +43,13 @@ setTranslationObject({
     en: {
         unique: 'The selected :attribute is not available.',
         exists: 'The selected :attribute does not exist.',
+        bcp47: 'The :attribute must be a valid BCP 47 language code.',
+        ianaTimezone: 'The :attribute must be a valid IANA time zone identifier.',
     }
 });
+
+export const BCP47_REGEX = /^[a-z]{2,3}(?:-[a-z]{3})?(?:-(?:[a-z]{4}|[a-z]{2}|[0-9]{3}))?(?:-(?:[a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*$/i;
+export const IANA_TIMEZONE_REGEX = /^[A-Za-z][A-Za-z0-9_\/-]*$/;
 
 register('unique', async function (value, parameters, attribute) {
     const [modelName, field, except, exceptField] = parameters ?? [];
@@ -54,6 +59,34 @@ register('unique', async function (value, parameters, attribute) {
 register('exists', async function (value, parameters, attribute) {
     const [modelName, field, except] = parameters ?? [];
     return (await modelExists('exists', value, field ?? attribute, modelName)) === true
+});
+
+register('bcp47', function (value) {
+    if (typeof value !== 'string' || !value.trim()) {
+        return false;
+    }
+
+    return BCP47_REGEX.test(value);
+});
+
+register('ianaTimezone', function (value) {
+    if (typeof value !== 'string' || !value.trim()) {
+        return false;
+    }
+
+    try {
+        // Use Intl.supportedValuesOf if available (modern browsers/Node.js)
+        if (typeof Intl?.supportedValuesOf === 'function') {
+            const supportedTimezones = Intl.supportedValuesOf('timeZone');
+            return supportedTimezones.includes(value);
+        }
+
+        // Fallback: basic check for common timezone patterns
+        // This is not exhaustive but covers most cases
+        return IANA_TIMEZONE_REGEX.test(value) && value.length >= 3 && value.length <= 50;
+    } catch {
+        return false;
+    }
 });
 
 const validator = <X extends InitialRules, A extends boolean = false> (

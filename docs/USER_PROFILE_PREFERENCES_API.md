@@ -97,7 +97,7 @@ Each provided value must be a non-empty string up to 255 characters.
 - `bio`: max 500 characters
 - `profilePictureUrl`, `website`: must be valid URLs
 - `gender`: must be one of MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
-- `timezone`: valid timezone string
+- `timezone`: valid IANA time zone identifier
 
 ---
 
@@ -246,7 +246,7 @@ Updates all user preferences.
 **Validation Rules:**
 - `digestFrequency`: must be one of `daily`, `weekly`, `monthly`, `never`
 - `theme`: must be one of `light`, `dark`, `system`
-- `language`: must be valid language code
+- `language`: must be a valid BCP 47 language code
 - `currencyPreference`: must be 3-character currency code
 
 **Response (200):**
@@ -591,19 +591,19 @@ Links a new social account to the user's profile.
 - `TWITTER`
 - `LINKEDIN`
 
-**Response (201):**
+**Response (202):**
 ```json
 {
   "data": { /* created account link */ },
   "status": "success",
   "message": "Account linked successfully",
-  "code": 201
+  "code": 202
 }
 ```
 
 **Error Responses:**
 - `422`: Validation failed
-- `409`: Provider already linked (updates existing)
+- `409`: Provider already linked (conflict - attempt to link provider that is currently active)
 
 ---
 

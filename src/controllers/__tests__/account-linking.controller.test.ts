@@ -117,6 +117,46 @@ describe('POST /api/account-links (issue #137)', () => {
         expect(res.body.data.accessToken).toBeUndefined();
         expect(res.body.data.refreshToken).toBeUndefined();
     });
+
+    it('should return 409 Conflict when trying to link already-linked provider', async () => {
+        // Link first time
+        await request(app)
+            .post('/api/account-links')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({
+                provider: 'GOOGLE',
+                providerUserId: 'google-123',
+                accessToken: 'access-token',
+            })
+            .expect(202);
+
+        // Try to link same provider again
+        const res = await request(app)
+            .post('/api/account-links')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({
+                provider: 'GOOGLE',
+                providerUserId: 'google-456',
+                accessToken: 'different-token',
+            });
+
+        expect(res.status).toBe(409);
+        expect(res.body.message).toContain('already linked');
+    });
+
+    it('should return 422 for validation errors (distinct from 409 conflict)', async () => {
+        const res = await request(app)
+            .post('/api/account-links')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({
+                provider: 'INVALID_PROVIDER',
+                providerUserId: 'google-123',
+                accessToken: 'access-token',
+            });
+
+        expect(res.status).toBe(422);
+        expect(res.body.errors).toBeDefined();
+    });
 });
 
 // ─── Issue #136: Unlink by provider name ─────────────────────────────────────
@@ -137,11 +177,38 @@ describe('DELETE /api/account-links/:provider (issue #136)', () => {
 
         expect(res.status).toBe(202);
         expect(res.body.data.provider).toBe('GOOGLE');
+        expect(res.body.data.unlinkedAt).toBeDefined();
 
         const link = await prisma.accountLink.findFirst({
             where: { userId: testUserId, provider: 'GOOGLE' },
         });
-        expect(link).toBeNull();
+        expect(link?.unlinkedAt).toBeDefined();
+        expect(link?.unlinkedAt).not.toBeNull();
+    });
+
+    it('should return 400 when account is already unlinked', async () => {
+        const link = await prisma.accountLink.create({
+            data: {
+                userId: testUserId,
+                provider: 'GOOGLE',
+                providerUserId: 'google-123',
+                accessToken: 'token',
+            },
+        });
+
+        // Unlink first time
+        await request(app)
+            .delete('/api/account-links/GOOGLE')
+            .set('Authorization', `Bearer ${userToken}`)
+            .expect(202);
+
+        // Try to unlink again
+        const res = await request(app)
+            .delete('/api/account-links/GOOGLE')
+            .set('Authorization', `Bearer ${userToken}`);
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('Account is already unlinked');
     });
 
     it('should return 404 when provider is not linked', async () => {
@@ -191,6 +258,32 @@ describe('POST /api/account-links/check-availability (issue #134)', () => {
         expect(res.status).toBe(200);
         expect(res.body.data.available).toBe(false);
         expect(res.body.data.reason).toBe('already_linked_to_you');
+    });
+
+    it('should return available when providerUserId was previously unlinked by current user', async () => {
+        const link = await prisma.accountLink.create({
+            data: {
+                userId: testUserId,
+                provider: 'GOOGLE',
+                providerUserId: 'google-mine',
+                accessToken: 'token',
+            },
+        });
+
+        // Unlink it
+        await prisma.accountLink.update({
+            where: { id: link.id },
+            data: { unlinkedAt: new Date() },
+        });
+
+        const res = await request(app)
+            .post('/api/account-links/check-availability')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({ provider: 'GOOGLE', providerUserId: 'google-mine' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.available).toBe(true);
+        expect(res.body.message).toBe('Provider account is available for relinking');
     });
 
     it('should return linked_by_another_user when providerUserId belongs to another user', async () => {
@@ -267,5 +360,117 @@ describe('POST /api/account-links/verify (issue #135)', () => {
             .send({ provider: 'GITHUB' });
 
         expect(res.status).toBe(404);
+    });
+});
+
+// ─── Issue #149: Preserve Account Unlink History ────────────────────────────
+describe('Account Unlink History (issue #149)', () => {
+    it('should allow relinking a previously unlinked account', async () => {
+        // Create and link account
+        await prisma.accountLink.create({
+            data: {
+                userId: testUserId,
+                provider: 'GOOGLE',
+                providerUserId: 'google-123',
+                accessToken: 'old-token',
+            },
+        });
+
+        // Unlink it
+        await request(app)
+            .delete('/api/account-links/GOOGLE')
+            .set('Authorization', `Bearer ${userToken}`)
+            .expect(202);
+
+        // Verify it's unlinked
+        let link = await prisma.accountLink.findFirst({
+            where: { userId: testUserId, provider: 'GOOGLE' },
+        });
+        expect(link?.unlinkedAt).toBeDefined();
+
+        // Relink with new data
+        const res = await request(app)
+            .post('/api/account-links')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({
+                provider: 'GOOGLE',
+                providerUserId: 'google-123',
+                accessToken: 'new-token',
+                providerEmail: 'updated@gmail.com',
+            });
+
+        expect(res.status).toBe(202);
+        expect(res.body.data.provider).toBe('GOOGLE');
+
+        // Verify relinked
+        link = await prisma.accountLink.findFirst({
+            where: { userId: testUserId, provider: 'GOOGLE' },
+        });
+        expect(link?.unlinkedAt).toBeNull();
+        expect(link?.accessToken).toBe('new-token');
+        expect(link?.providerEmail).toBe('updated@gmail.com');
+        expect(link?.isVerified).toBe(false); // Reset on relink
+    });
+
+    it('should not return unlinked accounts in getLinkedAccounts', async () => {
+        // Create and link account
+        await prisma.accountLink.create({
+            data: {
+                userId: testUserId,
+                provider: 'GOOGLE',
+                providerUserId: 'google-123',
+                accessToken: 'token',
+            },
+        });
+
+        // Get linked accounts - should include it
+        let res = await request(app)
+            .get('/api/account-links')
+            .set('Authorization', `Bearer ${userToken}`)
+            .expect(200);
+
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0].provider).toBe('GOOGLE');
+
+        // Unlink it
+        await request(app)
+            .delete('/api/account-links/GOOGLE')
+            .set('Authorization', `Bearer ${userToken}`)
+            .expect(202);
+
+        // Get linked accounts - should not include it
+        res = await request(app)
+            .get('/api/account-links')
+            .set('Authorization', `Bearer ${userToken}`)
+            .expect(200);
+
+        expect(res.body.data).toHaveLength(0);
+    });
+
+    it('should preserve unlink history in database', async () => {
+        // Create and link account
+        const created = await prisma.accountLink.create({
+            data: {
+                userId: testUserId,
+                provider: 'GOOGLE',
+                providerUserId: 'google-123',
+                accessToken: 'token',
+            },
+        });
+
+        // Unlink it
+        await request(app)
+            .delete('/api/account-links/GOOGLE')
+            .set('Authorization', `Bearer ${userToken}`)
+            .expect(202);
+
+        // Verify record still exists with history
+        const link = await prisma.accountLink.findFirst({
+            where: { userId: testUserId, provider: 'GOOGLE' },
+        });
+        expect(link?.id).toBe(created.id);
+        expect(link?.unlinkedAt).toBeDefined();
+        expect(link?.linkedAt).toBeDefined();
+        expect(link?.accessToken).toBe('token'); // Tokens preserved for history
     });
 });

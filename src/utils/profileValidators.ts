@@ -31,8 +31,8 @@ export const profileValidationRules: InitialRules = {
     occupation: ['string', 'max:100'],
     companyName: ['string', 'max:100'],
     location: ['string', 'max:100'],
-    timezone: ['string'],
-    language: ['string', 'in:en,es,fr,de,it,pt,ja,zh,ar'],
+    timezone: ['string', 'ianaTimezone'],
+    language: ['string', 'bcp47'],
     isPublic: ['boolean'],
     isProfessional: ['boolean'],
 };
@@ -48,7 +48,7 @@ export const preferencesValidationRules: InitialRules = {
     activityEmails: ['boolean'],
     digestFrequency: ['string', 'in:daily,weekly,monthly,never'],
     theme: ['string', 'in:light,dark,system'],
-    language: ['string', 'in:en,es,fr,de,it,pt,ja,zh,ar'],
+    language: ['string', 'bcp47'],
     currencyPreference: ['string', 'min:3,max:3'],
     twoFactorEnabled: ['boolean'],
     dataCollectionConsent: ['boolean'],
@@ -117,7 +117,6 @@ export const accountLinkVerifyValidationRules: InitialRules = {
 export const dataExportValidationRules: InitialRules = {
     format: ['string', 'in:json,csv'],
 };
-
 export const normalizeSocialLinks = (value: unknown): SocialLinks | undefined => {
     if (value === undefined || value === null || value === '') {
         return undefined;

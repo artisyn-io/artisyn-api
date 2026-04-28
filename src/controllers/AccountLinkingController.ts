@@ -30,27 +30,46 @@ export default class AccountLinkingController extends BaseController {
       },
     });
 
-    if (existingLink) {
+    if (existingLink && !existingLink.unlinkedAt) {
       throw new RequestError(
         `${validated.provider} account is already linked to your profile`,
-        400
+        409
       );
     }
 
-    // Create the account link with full OAuth metadata
-    const accountLink = await prisma.accountLink.create({
-      data: {
-        userId,
-        provider: validated.provider as AccountLinkProvider,
-        providerUserId: validated.providerUserId,
-        accessToken: validated.accessToken,
-        refreshToken: validated.refreshToken ?? null,
-        expiresAt: validated.expiresAt ? new Date(validated.expiresAt) : null,
-        providerEmail: validated.providerEmail ?? null,
-        providerName: validated.providerName ?? null,
-        metadata: validated.metadata ?? null,
-      },
-    });
+    let accountLink;
+    if (existingLink) {
+      // Relink previously unlinked account
+      accountLink = await prisma.accountLink.update({
+        where: { id: existingLink.id },
+        data: {
+          providerUserId: validated.providerUserId,
+          accessToken: validated.accessToken,
+          refreshToken: validated.refreshToken ?? null,
+          expiresAt: validated.expiresAt ? new Date(validated.expiresAt) : null,
+          providerEmail: validated.providerEmail ?? null,
+          providerName: validated.providerName ?? null,
+          metadata: validated.metadata ?? null,
+          unlinkedAt: null, // Clear unlinkedAt to relink
+          isVerified: false, // Reset verification on relink
+        },
+      });
+    } else {
+      // Create new account link
+      accountLink = await prisma.accountLink.create({
+        data: {
+          userId,
+          provider: validated.provider as AccountLinkProvider,
+          providerUserId: validated.providerUserId,
+          accessToken: validated.accessToken,
+          refreshToken: validated.refreshToken ?? null,
+          expiresAt: validated.expiresAt ? new Date(validated.expiresAt) : null,
+          providerEmail: validated.providerEmail ?? null,
+          providerName: validated.providerName ?? null,
+          metadata: validated.metadata ?? null,
+        },
+      });
+    }
 
     // Log audit event
     await logAuditEvent(userId, 'ACCOUNT_LINK', {
@@ -115,9 +134,14 @@ export default class AccountLinkingController extends BaseController {
       throw new RequestError('Account link not found', 404);
     }
 
-    // Delete the account link
-    await prisma.accountLink.delete({
+    if (accountLink.unlinkedAt) {
+      throw new RequestError('Account is already unlinked', 400);
+    }
+
+    // Update the account link to mark as unlinked
+    const updatedLink = await prisma.accountLink.update({
       where: { id: accountLink.id },
+      data: { unlinkedAt: new Date() },
     });
 
     // Log audit event
@@ -134,7 +158,7 @@ export default class AccountLinkingController extends BaseController {
       data: {
         id: accountLink.id,
         provider: accountLink.provider,
-        unlinkedAt: new Date(),
+        unlinkedAt: updatedLink.unlinkedAt,
       }
     })
       .json()
@@ -156,7 +180,10 @@ export default class AccountLinkingController extends BaseController {
     }
 
     const linkedAccounts = await prisma.accountLink.findMany({
-      where: { userId },
+      where: { 
+        userId,
+        unlinkedAt: null, // Only return active links
+      },
       select: {
         id: true,
         provider: true,
@@ -326,21 +353,40 @@ export default class AccountLinkingController extends BaseController {
     }
 
     if (existingLink.userId === userId) {
-      return Resource(req, res, {
-        data: {
-          available: false,
-          reason: 'already_linked_to_you',
-          provider: validated.provider,
-          providerUserId: validated.providerUserId,
-        }
-      })
-        .json()
-        .status(200)
-        .additional({
-          status: 'success',
-          message: 'Provider account is already linked to your profile',
-          code: 200,
-        });
+      if (existingLink.unlinkedAt) {
+        // Previously unlinked by this user, available for relinking
+        return Resource(req, res, {
+          data: {
+            available: true,
+            provider: validated.provider,
+            providerUserId: validated.providerUserId,
+          }
+        })
+          .json()
+          .status(200)
+          .additional({
+            status: 'success',
+            message: 'Provider account is available for relinking',
+            code: 200,
+          });
+      } else {
+        // Currently linked
+        return Resource(req, res, {
+          data: {
+            available: false,
+            reason: 'already_linked_to_you',
+            provider: validated.provider,
+            providerUserId: validated.providerUserId,
+          }
+        })
+          .json()
+          .status(200)
+          .additional({
+            status: 'success',
+            message: 'Provider account is already linked to your profile',
+            code: 200,
+          });
+      }
     }
 
     return Resource(req, res, {
