@@ -303,6 +303,32 @@ describe('Preferences Controller', () => {
             );
         });
 
+        it('should accept valid ISO 4217 currency codes', async () => {
+            for (const code of ['USD', 'EUR', 'GBP', 'JPY', 'NGN']) {
+                const res = await request(app)
+                    .post('/api/preferences')
+                    .set('Authorization', `Bearer ${userToken}`)
+                    .send({ currencyPreference: code })
+                    .expect(202);
+
+                expect(res.body.data.currencyPreference).toBe(code);
+
+                await prisma.userPreferences.deleteMany({ where: { userId: testUserId } });
+            }
+        });
+
+        it('should reject invalid currency preference values', async () => {
+            for (const bad of ['usd', 'US', 'USDD', '123', 'abc', 'u s']) {
+                const res = await request(app)
+                    .post('/api/preferences')
+                    .set('Authorization', `Bearer ${userToken}`)
+                    .send({ currencyPreference: bad })
+                    .expect(422);
+
+                expect(res.body.errors).toHaveProperty('currencyPreference');
+            }
+        });
+
         it('should validate preference values', async () => {
             const res = await request(app)
                 .post('/api/preferences')

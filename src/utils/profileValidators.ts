@@ -49,7 +49,7 @@ export const preferencesValidationRules: InitialRules = {
     digestFrequency: ['string', 'in:daily,weekly,monthly,never'],
     theme: ['string', 'in:light,dark,system'],
     language: ['string', 'bcp47'],
-    currencyPreference: ['string', 'min:3,max:3'],
+    currencyPreference: ['string', 'iso4217'],
     twoFactorEnabled: ['boolean'],
     dataCollectionConsent: ['boolean'],
     analyticsTracking: ['boolean'],
