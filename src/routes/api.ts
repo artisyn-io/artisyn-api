@@ -103,6 +103,7 @@ router.post('/data-export/request', authenticateToken, new DataExportController(
 router.get('/data-export/requests', authenticateToken, new DataExportController().getExportRequests);
 router.get('/data-export/:requestId/status', authenticateToken, new DataExportController().getExportStatus);
 router.get('/data-export/:requestId/download', authenticateToken, new DataExportController().downloadExport);
+router.post('/data-export/:requestId/retry', authenticateToken, new DataExportController().retryExport);
 router.post('/data-export/:requestId/cancel', authenticateToken, new DataExportController().cancelExport);
 router.post('/account/deletion-request', authenticateToken, new DataExportController().requestAccountDeletion);
 router.post('/account/cancel-deletion', authenticateOptionalToken, new DataExportController().cancelAccountDeletion);
