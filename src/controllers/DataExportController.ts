@@ -327,7 +327,11 @@ export default class extends BaseController {
             const userId = req.user?.id;
             const { token } = req.body;
 
-            RequestError.assertFound(userId, 'Unauthorized', 401);
+            // Enforce explicit authorization rules
+            if (!token) {
+                // In-app flow: must be authenticated
+                RequestError.assertFound(userId, 'Unauthorized', 401);
+            }
 
             // Resolve record by token (email-link flow) or userId (in-app flow)
             const pending = token
@@ -336,8 +340,10 @@ export default class extends BaseController {
 
             RequestError.assertFound(pending, 'No pending deletion request found', 404);
 
-            // Ensure the record belongs to the calling user
-            RequestError.abortIf(pending.userId !== userId, 'Forbidden', 403);
+            // If in-app flow or if auth provided with token flow, ensure the record belongs to the calling user
+            if (userId) {
+                RequestError.abortIf(pending.userId !== userId, 'Forbidden', 403);
+            }
 
             // Remove the pending-deletion record
             await prisma.pendingDeletion.delete({ where: { userId: pending.userId } });
@@ -345,12 +351,12 @@ export default class extends BaseController {
             // Queue cancellation confirmation email
             // e.g. emailQueue.enqueue({ type: 'DELETION_CANCELLED', userId: pending.userId })
 
-            await logAuditEvent(userId, 'DATA_DELETE', {
+            await logAuditEvent(pending.userId, 'DATA_DELETE', {
                 req,
                 entityType: 'User',
-                entityId: userId,
+                entityId: pending.userId,
                 statusCode: 200,
-                metadata: { action: 'cancel_deletion' },
+                metadata: { action: 'cancel_deletion', method: token ? 'email_link' : 'in_app' },
             });
 
             return res.json({
