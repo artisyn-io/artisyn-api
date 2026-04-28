@@ -201,6 +201,76 @@ export default class extends BaseController {
     };
 
     /**
+     * Retry a failed export request.
+     *
+     * Resets the request back to `pending` and re-enqueues it.  Ownership,
+     * the 24-hour active-request cooldown, and idempotency are all enforced:
+     * - Only the owning user may retry.
+     * - Only `failed` requests may be retried (not pending/processing/ready/expired).
+     * - If the user already has an active (non-expired) request other than this
+     *   one, the retry is rejected with 429.
+     */
+    retryExport = async (req: Request, res: Response) => {
+        try {
+            const userId = req.user?.id!;
+            const requestId = req.params.requestId as string;
+
+            RequestError.assertFound(requestId, 'Request ID required', 400);
+
+            const exportRequest = await prisma.dataExportRequest.findFirst({
+                where: { id: requestId, userId },
+            });
+
+            RequestError.assertFound(exportRequest, 'Export request not found', 404);
+            RequestError.abortIf(
+                exportRequest.status !== 'failed',
+                'Only failed export requests can be retried',
+                400,
+            );
+
+            // Enforce 24-hour cooldown: reject if another active request exists
+            const otherActive = await prisma.dataExportRequest.findFirst({
+                where: {
+                    userId,
+                    id: { not: requestId },
+                    createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+                    status: { not: 'expired' },
+                },
+            });
+
+            RequestError.abortIf(
+                !!otherActive,
+                'You already have an active export request. Please wait 24 hours before retrying.',
+                429,
+            );
+
+            const updated = await prisma.dataExportRequest.update({
+                where: { id: requestId },
+                data: { status: 'pending', errorMessage: null },
+            });
+
+            await logAuditEvent(userId, 'DATA_EXPORT', {
+                req,
+                entityType: 'DataExportRequest',
+                entityId: requestId,
+                statusCode: 202,
+                metadata: { action: 'retry' },
+            });
+
+            dataExportQueue.enqueue(requestId);
+
+            return res.status(202).json({
+                status: 'success',
+                message: 'Export request requeued. You will receive a download link via email.',
+                code: 202,
+                data: updated,
+            });
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    /**
      * Cancel export request
      */
     cancelExport = async (req: Request, res: Response) => {

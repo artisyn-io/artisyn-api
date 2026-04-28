@@ -215,6 +215,46 @@ export class DataExportService {
         };
     }
 
+    /**
+     * Purge export files and mark requests as expired once their download TTL
+     * has passed.  Intended to be called by a scheduled job (e.g. nightly cron).
+     *
+     * Returns the number of requests cleaned up.
+     */
+    async purgeExpiredExports(): Promise<number> {
+        const expired = await prisma.dataExportRequest.findMany({
+            where: {
+                status: { in: ['ready', 'failed'] },
+                OR: [
+                    // TTL elapsed
+                    { expiresAt: { lt: new Date() } },
+                    // No expiry set but older than the download TTL window
+                    {
+                        expiresAt: null,
+                        createdAt: { lt: new Date(Date.now() - DataExportService.downloadTtlMs) },
+                    },
+                ],
+            },
+            select: { id: true, format: true },
+        });
+
+        let purged = 0;
+
+        for (const { id, format } of expired) {
+            const filePath = DataExportService.getExportFilePath(id, format);
+            await fs.unlink(filePath).catch(() => undefined);
+
+            await prisma.dataExportRequest.update({
+                where: { id },
+                data: { status: 'expired' },
+            });
+
+            purged++;
+        }
+
+        return purged;
+    }
+
     buildCsv(payload: Record<string, unknown>): string {
         const rows: string[][] = [['section', 'id', 'payload']];
 
