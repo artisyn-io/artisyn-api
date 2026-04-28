@@ -9,6 +9,7 @@ import { logAuditEvent } from 'src/utils/auditLogger';
 import { prisma } from 'src/db';
 import { normalizeSocialLinks, profileValidationRules } from 'src/utils/profileValidators';
 import { PrivacyService } from 'src/services/PrivacyService';
+import { PrivacyGuard } from 'src/services/PrivacyGuard';
 
 /**
  * UserProfileController - Manages user profile CRUD operations
@@ -267,6 +268,10 @@ export default class extends BaseController {
                     isPublicView: true,
                 },
             });
+
+            // Enforce searchEngineIndexing: tell crawlers whether to index this profile
+            const robotsDirective = await PrivacyGuard.getRobotsDirective(String(targetUserId));
+            res.setHeader('X-Robots-Tag', robotsDirective);
 
             res.status(200).json({
                 status: 'success',
