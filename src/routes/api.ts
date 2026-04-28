@@ -10,6 +10,7 @@ import ProfileController from 'src/controllers/ProfileController';
 import ReviewController from "src/controllers/ReviewController";
 import SearchController from "src/controllers/SearchController";
 import { authenticateOptionalToken, authenticateToken } from "src/utils/helpers";
+import { accountLinkingRateLimiter, privacyRateLimiter } from "src/middleware/rateLimiter";
 
 const router = Router();
 const reviewController = new ReviewController();
@@ -60,23 +61,20 @@ router.post('/preferences/notifications', authenticateToken, new PreferencesCont
 router.post('/preferences/two-factor/toggle', authenticateToken, new PreferencesController().toggleTwoFactor);
 router.post('/preferences/reset', authenticateToken, new PreferencesController().resetPreferences);
 
-// Privacy Settings routes
-router.get('/privacy', authenticateToken, new PrivacySettingsController().getPrivacySettings);
-router.post('/privacy', authenticateToken, new PrivacySettingsController().updatePrivacySettings);
-router.post('/privacy/visibility', authenticateToken, new PrivacySettingsController().updateProfileVisibility);
-router.post('/privacy/block', authenticateToken, new PrivacySettingsController().blockUser);
-router.post('/privacy/unblock', authenticateToken, new PrivacySettingsController().unblockUser);
-router.get('/privacy/blocklist', authenticateToken, new PrivacySettingsController().getBlockList);
-router.post('/privacy/retention', authenticateToken, new PrivacySettingsController().updateDataRetention);
-
-// Restricted list management
-router.post('/privacy/restrict', authenticateToken, new PrivacySettingsController().addToRestrictedList);
-router.post('/privacy/unrestrict', authenticateToken, new PrivacySettingsController().removeFromRestrictedList);
-router.get('/privacy/restricted-list', authenticateToken, new PrivacySettingsController().getRestrictedList);
-
-// Custom privacy rules management
-router.post('/privacy/custom-rules', authenticateToken, new PrivacySettingsController().updateCustomPrivacyRules);
-router.get('/privacy/custom-rules/default', authenticateToken, new PrivacySettingsController().getDefaultCustomRules);
+// Privacy Settings routes (writes are limited to 20 per hour per user)
+const privacyController = new PrivacySettingsController();
+router.get('/privacy', authenticateToken, privacyController.getPrivacySettings);
+router.post('/privacy', authenticateToken, privacyRateLimiter, privacyController.updatePrivacySettings);
+router.post('/privacy/visibility', authenticateToken, privacyRateLimiter, privacyController.updateProfileVisibility);
+router.post('/privacy/block', authenticateToken, privacyRateLimiter, privacyController.blockUser);
+router.post('/privacy/unblock', authenticateToken, privacyRateLimiter, privacyController.unblockUser);
+router.get('/privacy/blocklist', authenticateToken, privacyController.getBlockList);
+router.post('/privacy/retention', authenticateToken, privacyRateLimiter, privacyController.updateDataRetention);
+router.post('/privacy/restrict', authenticateToken, privacyRateLimiter, privacyController.addToRestrictedList);
+router.post('/privacy/unrestrict', authenticateToken, privacyRateLimiter, privacyController.removeFromRestrictedList);
+router.get('/privacy/restricted-list', authenticateToken, privacyController.getRestrictedList);
+router.post('/privacy/custom-rules', authenticateToken, privacyRateLimiter, privacyController.updateCustomPrivacyRules);
+router.get('/privacy/custom-rules/default', authenticateToken, privacyController.getDefaultCustomRules);
 
 // Friendship management routes
 router.get('/friends', authenticateToken, new FriendshipController().getFriends);
@@ -90,13 +88,14 @@ router.post('/friends/block', authenticateToken, new FriendshipController().bloc
 router.post('/friends/unblock', authenticateToken, new FriendshipController().unblockUser);
 router.get('/friends/blocked', authenticateToken, new FriendshipController().getBlockedUsers);
 
-// Account Linking routes
-router.get('/account-links', authenticateToken, new AccountLinkingController().getLinkedAccounts);
-router.post('/account-links', authenticateToken, new AccountLinkingController().linkAccount);
-router.post('/account-links/check-availability', authenticateToken, new AccountLinkingController().checkAvailability);
-router.post('/account-links/verify', authenticateToken, new AccountLinkingController().verifyAccountLink);
-router.get('/account-links/:provider', authenticateToken, new AccountLinkingController().checkProviderLinked);
-router.delete('/account-links/:provider', authenticateToken, new AccountLinkingController().unlinkAccount);
+// Account Linking routes (writes are limited to 10 per hour per user)
+const accountLinkingController = new AccountLinkingController();
+router.get('/account-links', authenticateToken, accountLinkingController.getLinkedAccounts);
+router.post('/account-links', authenticateToken, accountLinkingRateLimiter, accountLinkingController.linkAccount);
+router.post('/account-links/check-availability', authenticateToken, accountLinkingRateLimiter, accountLinkingController.checkAvailability);
+router.post('/account-links/verify', authenticateToken, accountLinkingRateLimiter, accountLinkingController.verifyAccountLink);
+router.get('/account-links/:provider', authenticateToken, accountLinkingController.checkProviderLinked);
+router.delete('/account-links/:provider', authenticateToken, accountLinkingRateLimiter, accountLinkingController.unlinkAccount);
 
 // Data Export routes (GDPR compliance)
 router.post('/data-export/request', authenticateToken, new DataExportController().requestDataExport);

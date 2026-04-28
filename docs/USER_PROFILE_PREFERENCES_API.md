@@ -247,7 +247,7 @@ Updates all user preferences.
 - `digestFrequency`: must be one of `daily`, `weekly`, `monthly`, `never`
 - `theme`: must be one of `light`, `dark`, `system`
 - `language`: must be a valid BCP 47 language code
-- `currencyPreference`: must be 3-character currency code
+- `currencyPreference`: must be a valid ISO 4217 currency code (exactly 3 uppercase letters, e.g. `USD`, `EUR`, `GBP`)
 
 **Response (200):**
 ```json

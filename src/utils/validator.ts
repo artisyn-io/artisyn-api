@@ -45,11 +45,13 @@ setTranslationObject({
         exists: 'The selected :attribute does not exist.',
         bcp47: 'The :attribute must be a valid BCP 47 language code.',
         ianaTimezone: 'The :attribute must be a valid IANA time zone identifier.',
+        iso4217: 'The :attribute must be a valid ISO 4217 currency code (3 uppercase letters, e.g. USD).',
     }
 });
 
 export const BCP47_REGEX = /^[a-z]{2,3}(?:-[a-z]{3})?(?:-(?:[a-z]{4}|[a-z]{2}|[0-9]{3}))?(?:-(?:[a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*$/i;
 export const IANA_TIMEZONE_REGEX = /^[A-Za-z][A-Za-z0-9_\/-]*$/;
+export const ISO4217_REGEX = /^[A-Z]{3}$/;
 
 register('unique', async function (value, parameters, attribute) {
     const [modelName, field, except, exceptField] = parameters ?? [];
@@ -67,6 +69,14 @@ register('bcp47', function (value) {
     }
 
     return BCP47_REGEX.test(value);
+});
+
+register('iso4217', function (value) {
+    if (typeof value !== 'string' || !value.trim()) {
+        return false;
+    }
+
+    return ISO4217_REGEX.test(value);
 });
 
 register('ianaTimezone', function (value) {
