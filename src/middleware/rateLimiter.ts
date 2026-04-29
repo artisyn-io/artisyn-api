@@ -6,7 +6,7 @@ import { env } from '../utils/helpers';
  * In-memory store for rate limiting
  * Structure: { key: { count: number, resetTime: number } }
  */
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+export const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 /**
  * Set of authorized bypass tokens (hashed)
@@ -88,6 +88,16 @@ export const rateLimitConfigs = {
   search: {
     windowMs: 1 * 60 * 1000, // 1 minute
     maxRequests: 30,
+  },
+  // Account linking operations: 10 per hour (documented contract)
+  accountLinking: {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 10,
+  },
+  // Privacy update operations: 20 per hour (documented contract)
+  privacyUpdates: {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 20,
   },
 };
 
@@ -246,6 +256,24 @@ export const getRequestRateLimitKey = (req: Request): string => {
 
   return `ip-${req.ip}`;
 };
+
+/**
+ * Rate limiter for account-linking write operations (10 per hour per user)
+ */
+export const accountLinkingRateLimiter = createRateLimiter({
+  windowMs: rateLimitConfigs.accountLinking.windowMs,
+  maxRequests: rateLimitConfigs.accountLinking.maxRequests,
+  keyGenerator: getRequestRateLimitKey,
+});
+
+/**
+ * Rate limiter for privacy update operations (20 per hour per user)
+ */
+export const privacyRateLimiter = createRateLimiter({
+  windowMs: rateLimitConfigs.privacyUpdates.windowMs,
+  maxRequests: rateLimitConfigs.privacyUpdates.maxRequests,
+  keyGenerator: getRequestRateLimitKey,
+});
 
 /**
  * Middleware to apply rate limiting with automatic cleanup

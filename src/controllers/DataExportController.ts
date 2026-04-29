@@ -43,7 +43,7 @@ export default class extends BaseController {
                     createdAt: {
                         gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
                     },
-                    status: { not: 'expired' },
+                    status: { notIn: ['expired', 'cancelled'] },
                 },
             });
 
@@ -137,7 +137,7 @@ export default class extends BaseController {
                 message: 'Export requests retrieved',
                 code: 200,
                 data: requests,
-                pagination: meta(total, requests.length),
+                meta: { pagination: meta(total, requests.length) },
             });
         } catch (error) {
             throw error;
@@ -287,14 +287,16 @@ export default class extends BaseController {
 
             RequestError.assertFound(exportRequest, 'Export request not found', 404);
             RequestError.abortIf(
-                exportRequest.status === 'ready' || exportRequest.status === 'expired',
+                exportRequest.status === 'ready' ||
+                    exportRequest.status === 'expired' ||
+                    exportRequest.status === 'cancelled',
                 'Cannot cancel this export request',
                 400,
             );
 
             const updated = await prisma.dataExportRequest.update({
                 where: { id: requestId },
-                data: { status: 'expired' },
+                data: { status: 'cancelled' },
             });
 
             await logAuditEvent(userId, 'DATA_EXPORT', {

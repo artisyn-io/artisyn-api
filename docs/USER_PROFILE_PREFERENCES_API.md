@@ -802,8 +802,9 @@ Checks the status of a specific export request.
 - `pending`: Waiting to be processed
 - `processing`: Currently generating export file
 - `ready`: Ready for download
-- `expired`: Download link expired
-- `failed`: Export failed
+- `expired`: Download link TTL elapsed — the file is no longer available
+- `failed`: Export generation failed
+- `cancelled`: User explicitly cancelled the request before it completed
 
 ---
 

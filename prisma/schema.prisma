@@ -24,6 +24,7 @@ enum DataExportRequestStatus {
   ready
   expired
   failed
+  cancelled
 }
 
 // Enum for curator verification status

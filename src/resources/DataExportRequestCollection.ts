@@ -11,12 +11,13 @@ export default class extends JsonResource {
      * @returns this
      */
     data () {
-        const data = Array.isArray(this.resource) ? this.resource : this.resource.data
+        const source = Array.isArray(this.resource) ? this.resource : this.resource.data
 
         return {
-            data: data.map(
+            data: source.map(
                 (e: Resource) => new DataExportRequestResource(this.request, this.response, e).data()
-            )
+            ),
+            pagination: Array.isArray(this.resource) ? undefined : this.resource.pagination,
         }
     }
 }

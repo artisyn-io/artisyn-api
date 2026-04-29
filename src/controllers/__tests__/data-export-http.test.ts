@@ -188,8 +188,8 @@ describe('Data Export & Account Deletion — HTTP integration', () => {
             expect(res.body.status).toBe('success');
             expect(Array.isArray(res.body.data)).toBe(true);
             expect(res.body.data.length).toBeGreaterThanOrEqual(2);
-            expect(res.body.pagination).toBeDefined();
-            expect(typeof res.body.pagination.total).toBe('number');
+            expect(res.body.meta.pagination).toBeDefined();
+            expect(typeof res.body.meta.pagination.total).toBe('number');
         });
 
         it('does not return requests belonging to other users', async () => {
@@ -371,7 +371,7 @@ describe('Data Export & Account Deletion — HTTP integration', () => {
                 .set(authHeaders(owner.token));
 
             expect(res.status).toBe(200);
-            expect(res.body.data.status).toBe('expired');
+            expect(res.body.data.status).toBe('cancelled');
         });
 
         it('cancels a processing export and returns 200', async () => {
@@ -413,6 +413,53 @@ describe('Data Export & Account Deletion — HTTP integration', () => {
                 .set(authHeaders(owner.token));
 
             expect(res.status).toBe(400);
+        });
+
+        it('returns 400 when trying to cancel an already-cancelled request', async () => {
+            const exportRequest = await prisma.dataExportRequest.create({
+                data: { userId: owner.user.id, format: 'json', status: 'cancelled' },
+            });
+
+            const res = await request(app)
+                .post(`/api/data-export/${exportRequest.id}/cancel`)
+                .set(authHeaders(owner.token));
+
+            expect(res.status).toBe(400);
+        });
+
+        it('cancelled status is distinct from expired — expired status is not set on cancellation', async () => {
+            const exportRequest = await prisma.dataExportRequest.create({
+                data: { userId: owner.user.id, format: 'json', status: 'pending' },
+            });
+
+            await request(app)
+                .post(`/api/data-export/${exportRequest.id}/cancel`)
+                .set(authHeaders(owner.token))
+                .expect(200);
+
+            const record = await prisma.dataExportRequest.findUnique({
+                where: { id: exportRequest.id },
+            });
+            expect(record!.status).toBe('cancelled');
+            expect(record!.status).not.toBe('expired');
+        });
+
+        it('allows a new export request after cancelling one', async () => {
+            const exportRequest = await prisma.dataExportRequest.create({
+                data: { userId: owner.user.id, format: 'json', status: 'pending' },
+            });
+
+            await request(app)
+                .post(`/api/data-export/${exportRequest.id}/cancel`)
+                .set(authHeaders(owner.token))
+                .expect(200);
+
+            const res = await request(app)
+                .post('/api/data-export/request')
+                .set(authHeaders(owner.token))
+                .send({ format: 'json' });
+
+            expect(res.status).toBe(201);
         });
 
         it('returns 404 when cancelling another user\'s request (authorization)', async () => {

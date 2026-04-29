@@ -134,6 +134,42 @@ describe('Data Export Controller', () => {
     });
   });
 
+  describe('getExportRequests', () => {
+    it('returns meta.pagination matching the documented contract', async () => {
+      await prisma.dataExportRequest.createMany({
+        data: [
+          { userId: testUserId, format: 'json', status: 'pending' },
+          { userId: testUserId, format: 'csv', status: 'pending' },
+        ],
+      });
+
+      const res = await request(app)
+        .get('/api/data-export/requests')
+        .set({ 'Authorization': `Bearer ${userToken}`, 'Advance-Token': env('JWT_SECRET') })
+        .expect(200);
+
+      expect(res.body.meta).toBeDefined();
+      expect(res.body.meta.pagination).toMatchObject({
+        perPage: expect.any(Number),
+        total: 2,
+        from: 1,
+        to: 2,
+      });
+      expect(res.body).not.toHaveProperty('pagination');
+    });
+
+    it('returns an empty data array with zeroed pagination when no requests exist', async () => {
+      const res = await request(app)
+        .get('/api/data-export/requests')
+        .set({ 'Authorization': `Bearer ${userToken}`, 'Advance-Token': env('JWT_SECRET') })
+        .expect(200);
+
+      expect(res.body.data).toEqual([]);
+      expect(res.body.meta.pagination.total).toBe(0);
+      expect(res.body.meta.pagination.from).toBe(0);
+    });
+  });
+
   describe('downloadDataExport', () => {
     it('should download completed export', async () => {
       const exportRequest = await prisma.dataExportRequest.create({

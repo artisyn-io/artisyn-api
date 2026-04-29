@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     retry: 2,
     root: './',
+    setupFiles: ['./testSetup.ts'],
     passWithNoTests: true,
     environment: 'node',
     include: ['**/__tests__/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
