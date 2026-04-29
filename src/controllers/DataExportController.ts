@@ -5,9 +5,11 @@ import { Request, Response } from 'express';
 
 import BaseController from './BaseController';
 import DataExportRequestResource from 'src/resources/DataExportRequestResource';
+import { config } from 'src/config';
 import { prisma } from 'src/db';
 import { dataExportQueue } from 'src/services/DataExportQueue';
 import { DataExportService } from 'src/services/DataExportService';
+import { sendMail } from 'src/mailer/mailer';
 import { logAuditEvent } from 'src/utils/auditLogger';
 import { RequestError } from 'src/utils/errors';
 import argon2 from 'argon2';
@@ -362,9 +364,22 @@ export default class extends BaseController {
                 },
             });
 
-            // 4. Queue confirmation email (wire in your mailer/queue here)
-            // e.g. emailQueue.enqueue({ type: 'DELETION_REQUESTED', userId, scheduledAt, token })
-            void token; // token is passed to the email queue — suppress unused-var lint
+            // 4. Send confirmation email with cancel link
+            const cancelUrl = `${config('app.front_url')}/account/cancel-deletion?token=${token}`;
+            await sendMail({
+                to: user.email,
+                subject: 'Your account deletion has been scheduled',
+                text:
+                    `You requested deletion of your Artisyn account.\n\n` +
+                    `Your account will be permanently deleted on ${scheduledAt.toDateString()}.\n\n` +
+                    `If you change your mind, cancel before that date:\n${cancelUrl}`,
+                temp: 'auth',
+                caption: 'Account deletion scheduled',
+                data: {
+                    link: cancelUrl,
+                    linkTitle: 'Cancel Deletion',
+                },
+            });
 
             await logAuditEvent(userId, 'DATA_DELETE', {
                 req,
@@ -407,8 +422,8 @@ export default class extends BaseController {
 
             // Resolve record by token (email-link flow) or userId (in-app flow)
             const pending = token
-                ? await prisma.pendingDeletion.findUnique({ where: { token } })
-                : await prisma.pendingDeletion.findUnique({ where: { userId } });
+                ? await prisma.pendingDeletion.findUnique({ where: { token }, include: { user: true } })
+                : await prisma.pendingDeletion.findUnique({ where: { userId }, include: { user: true } });
 
             RequestError.assertFound(pending, 'No pending deletion request found', 404);
 
@@ -420,8 +435,13 @@ export default class extends BaseController {
             // Remove the pending-deletion record
             await prisma.pendingDeletion.delete({ where: { userId: pending.userId } });
 
-            // Queue cancellation confirmation email
-            // e.g. emailQueue.enqueue({ type: 'DELETION_CANCELLED', userId: pending.userId })
+            await sendMail({
+                to: pending.user.email,
+                subject: 'Your account deletion has been cancelled',
+                text: 'Your account deletion request has been cancelled. Your Artisyn account is safe and will not be deleted.',
+                temp: 'auth',
+                caption: 'Account deletion cancelled',
+            });
 
             await logAuditEvent(pending.userId, 'DATA_DELETE', {
                 req,

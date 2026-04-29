@@ -16,7 +16,7 @@
 
 import fs from 'node:fs/promises';
 
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import argon2 from 'argon2';
 import { faker } from '@faker-js/faker';
@@ -625,6 +625,96 @@ describe('Data Export & Account Deletion — HTTP integration', () => {
                 where: { userId: intruder.user.id },
             });
             expect(stillPending).not.toBeNull();
+        });
+    });
+
+    // =======================================================================
+    // Email notifications
+    // =======================================================================
+
+    describe('Email notifications', () => {
+        beforeEach(() => {
+            vi.clearAllMocks();
+            // Re-apply the mock after clearAllMocks resets it
+            vi.spyOn(mailer, 'sendMail').mockResolvedValue(null);
+        });
+
+        it('sends a confirmation email to the user when deletion is requested', async () => {
+            await request(app)
+                .post('/api/account/deletion-request')
+                .set(authHeaders(owner.token))
+                .send({ password: owner.plainPassword })
+                .expect(202);
+
+            expect(mailer.sendMail).toHaveBeenCalledOnce();
+            const [call] = (mailer.sendMail as ReturnType<typeof vi.fn>).mock.calls;
+            const mailArgs = call[0];
+
+            expect(mailArgs.to).toBe(owner.user.email);
+            expect(mailArgs.subject).toMatch(/deletion/i);
+            // Body must mention the cancel link and deletion window
+            expect(mailArgs.text).toMatch(/cancel/i);
+            expect(mailArgs.data?.linkTitle).toMatch(/cancel/i);
+        });
+
+        it('sends a cancellation email after a deletion is cancelled in-app', async () => {
+            await request(app)
+                .post('/api/account/deletion-request')
+                .set(authHeaders(owner.token))
+                .send({ password: owner.plainPassword })
+                .expect(202);
+
+            vi.clearAllMocks();
+            vi.spyOn(mailer, 'sendMail').mockResolvedValue(null);
+
+            await request(app)
+                .post('/api/account/cancel-deletion')
+                .set(authHeaders(owner.token))
+                .send({})
+                .expect(200);
+
+            expect(mailer.sendMail).toHaveBeenCalledOnce();
+            const [call] = (mailer.sendMail as ReturnType<typeof vi.fn>).mock.calls;
+            const mailArgs = call[0];
+
+            expect(mailArgs.to).toBe(owner.user.email);
+            expect(mailArgs.subject).toMatch(/cancelled/i);
+        });
+
+        it('sends a cancellation email after a deletion is cancelled via email token', async () => {
+            await request(app)
+                .post('/api/account/deletion-request')
+                .set(authHeaders(owner.token))
+                .send({ password: owner.plainPassword })
+                .expect(202);
+
+            const record = await prisma.pendingDeletion.findUnique({
+                where: { userId: owner.user.id },
+            });
+
+            vi.clearAllMocks();
+            vi.spyOn(mailer, 'sendMail').mockResolvedValue(null);
+
+            await request(app)
+                .post('/api/account/cancel-deletion')
+                .set(authHeaders(owner.token))
+                .send({ token: record!.token })
+                .expect(200);
+
+            expect(mailer.sendMail).toHaveBeenCalledOnce();
+            const mailArgs = (mailer.sendMail as ReturnType<typeof vi.fn>).mock.calls[0][0];
+            expect(mailArgs.to).toBe(owner.user.email);
+            expect(mailArgs.subject).toMatch(/cancelled/i);
+        });
+
+        it('does not send an email when deletion request fails (wrong password)', async () => {
+            await request(app)
+                .post('/api/account/deletion-request')
+                .set(authHeaders(owner.token))
+                .send({ password: 'WrongPassword!' })
+                .expect(401);
+
+            expect(mailer.sendMail).not.toHaveBeenCalled();
         });
     });
 });
