@@ -16,7 +16,7 @@
 
 import fs from 'node:fs/promises';
 
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import argon2 from 'argon2';
 import { faker } from '@faker-js/faker';
