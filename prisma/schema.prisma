@@ -56,6 +56,11 @@ model User {
   facebookId            String?   @db.VarChar(255)
   emailVerifiedAt       DateTime?
   emailVerificationCode String?   @db.VarChar(64)
+     emailVerificationExpiresAt    DateTime?
+   emailVerificationAttemptCount Int       @default(0)
+   emailVerificationConsumedAt   DateTime?
+   emailVerificationRevokedAt    DateTime?
+   emailVerificationResendAt     DateTime?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   deletionRequestedAt   DateTime?
@@ -150,16 +155,24 @@ model PersonalAccessToken {
 
 // User password resets model
 model PasswordCodeResets {
-  id        String   @id @default(uuid())
-  email     String?
-  phone     String?
-  code      String   @db.VarChar(64)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(uuid())
+  email        String?
+  phone        String?
+  code         String    @db.VarChar(64)
+  expiresAt    DateTime?
+  attemptCount Int       @default(0)
+  consumedAt   DateTime?
+  revokedAt    DateTime?
+  purpose      String?   @default("password_reset")
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([email])
   @@map("password_code_resets")
 }
+  
+
 
 model PendingDeletion {
   id          String   @id @default(cuid())

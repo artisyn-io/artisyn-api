@@ -265,6 +265,23 @@ export const secureOtp = (length = 6) => {
   return otp;
 };
 
+export const hashOtp = (otp: string): string => {
+  const secret = env("JWT_SECRET", "artisyn-otp-secret");
+  return crypto.createHmac("sha256", secret).update(String(otp).trim()).digest("hex");
+};
+
+export const verifyOtpHash = (candidate: string, storedHash: string): boolean => {
+  try {
+    const candidateHash = hashOtp(candidate);
+    const bufA = Buffer.from(candidateHash, "hex");
+    const bufB = Buffer.from(storedHash, "hex");
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+};
+
 /**
  *
  * @param str String to truncate

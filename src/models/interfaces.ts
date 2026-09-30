@@ -71,6 +71,11 @@ export interface IUser {
   locationId: string | null;
   emailVerifiedAt: Date | string | null;
   emailVerificationCode: string | null;
+  emailVerificationExpiresAt: Date | string | null;
+  emailVerificationAttemptCount: number;
+  emailVerificationConsumedAt: Date | string | null;
+  emailVerificationRevokedAt: Date | string | null;
+  emailVerificationResendAt: Date | string | null;
 
   // Relations
   curator: ICurator | null;
