@@ -8,6 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // Enum for user roles
@@ -96,6 +97,7 @@ model User {
   supportTickets       SupportTicket[]       @relation("SupportTicketRequester")
   supportMessages      SupportTicketMessage[] @relation("SupportTicketAuthor")
   locationId           String?
+  earnings             ArtisanEarning[]
 
   @@index([email])
   @@index([walletAddress])
@@ -121,6 +123,7 @@ model Media {
   // Relations
   user                        User?                         @relation(fields: [userId], references: [id], onDelete: SetNull)
   verificationApplicationDocs CuratorVerificationDocument[]
+  earnings                    ArtisanEarning[]
 
   @@index([userId])
   @@index([provider])
@@ -385,6 +388,7 @@ model Tip {
   sender   User     @relation("TipSender", fields: [senderId], references: [id], onDelete: Cascade)
   receiver User     @relation("TipReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
   artisan  Artisan? @relation(fields: [artisanId], references: [id], onDelete: SetNull)
+  earning  ArtisanEarning?
 
   @@index([senderId])
   @@index([receiverId])
@@ -443,6 +447,7 @@ model Job {
   listing     Artisan     @relation(fields: [listingId], references: [id], onDelete: Cascade)
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   applicant   User        @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  earnings    ArtisanEarning[]
 
   @@index([listingId])
   @@index([applicationId])
@@ -1062,4 +1067,52 @@ model SupportTicketMessage {
 
   @@index([ticketId])
   @@map("support_ticket_messages")
+}
+
+// ============================================================================
+// Artisan earnings ledger
+// ============================================================================
+
+enum EarningType {
+  JOB_PAYOUT
+  TIP
+}
+
+enum EarningStatus {
+  PENDING
+  AVAILABLE
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model ArtisanEarning {
+  id           String        @id @default(uuid())
+  artisanId    String
+  type         EarningType
+  status       EarningStatus @default(PENDING)
+  amountMinor  BigInt
+  currency     String        @default("USD")
+  description  String?
+  jobId        String?
+  tipId        String?       @unique
+  mediaId      String?
+  occurredAt   DateTime      @default(now())
+  availableAt  DateTime?
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  artisan User  @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  job     Job?  @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  tip     Tip?  @relation(fields: [tipId], references: [id], onDelete: SetNull)
+  media   Media? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+
+  @@index([artisanId, occurredAt])
+  @@index([artisanId, type, occurredAt])
+  @@index([artisanId, status, occurredAt])
+  @@index([artisanId, currency, occurredAt])
+  @@index([jobId])
+  @@index([tipId])
+  @@map("artisan_earnings")
 }

@@ -1,4 +1,4 @@
-import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason, ApplicationStatus, JobStatus } from './interfaces';
+import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason, ApplicationStatus, JobStatus, EarningsPeriod, EarningsTransactionType, EarningsTransactionStatus } from './interfaces';
 import { body, param, query } from 'express-validator';
 import { JobRequestStatus, JobRequestUrgency, SupportTicketCategory, SupportTicketPriority, SupportTicketStatus } from '@prisma/client';
 
@@ -278,6 +278,20 @@ export const tipValidation = {
   ],
   delete: [
     param('id').isUUID().withMessage('Valid tip ID is required'),
+  ],
+};
+
+// Artisan earnings validation
+export const earningsValidation = {
+  summary: [
+    query('period').optional().customSanitizer(toUpper).isIn(Object.values(EarningsPeriod)).withMessage('Invalid earnings period'),
+  ],
+  transactions: [
+    query('period').optional().customSanitizer(toUpper).isIn(Object.values(EarningsPeriod)).withMessage('Invalid earnings period'),
+    query('type').optional().customSanitizer(toUpper).isIn(Object.values(EarningsTransactionType)).withMessage('Invalid transaction type'),
+    query('status').optional().customSanitizer(toUpper).isIn(Object.values(EarningsTransactionStatus)).withMessage('Invalid transaction status'),
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('Page size must be between 1 and 100'),
   ],
 };
 
