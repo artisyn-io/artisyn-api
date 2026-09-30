@@ -42,30 +42,35 @@ enum ArtisanType {
 
 // User model for both regular users and curators
 model User {
-  id                    String    @id @default(uuid())
-  email                 String    @unique
-  password              String
-  walletAddress         String?   @unique
-  firstName             String
-  lastName              String
-  role                  UserRole  @default(USER)
-  avatar                String?
-  bio                   String?
-  phone                 String?
-  googleId              String?   @db.VarChar(255)
-  facebookId            String?   @db.VarChar(255)
-  emailVerifiedAt       DateTime?
-  emailVerificationCode String?   @db.VarChar(64)
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  deletionRequestedAt   DateTime?
-  deletionScheduledAt   DateTime?
-  twoFactorEnabled      Boolean   @default(false)
-  twoFactorSecret       String?   @db.Text // AES-256-GCM encrypted TOTP secret
-  twoFactorConfirmedAt  DateTime?
-  twoFactorLastStep     Int? // Last accepted TOTP time step (replay protection)
-  dataExportRequests   DataExportRequest[]   @relation("DataExportRequests")
-  pendingDeletion      PendingDeletion?       // ← ADD THIS
+  id                            String    @id @default(uuid())
+  email                         String    @unique
+  password                      String
+  walletAddress                 String?   @unique
+  firstName                     String
+  lastName                      String
+  role                          UserRole  @default(USER)
+  avatar                        String?
+  bio                           String?
+  phone                         String?
+  googleId                      String?   @db.VarChar(255)
+  facebookId                    String?   @db.VarChar(255)
+  emailVerifiedAt               DateTime?
+  emailVerificationCode         String?   @db.VarChar(128)
+  emailVerificationExpiresAt    DateTime?
+  emailVerificationAttemptCount Int       @default(0)
+  emailVerificationConsumedAt   DateTime?
+  emailVerificationRevokedAt    DateTime?
+  emailVerificationResendAt     DateTime?
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
+  deletionRequestedAt           DateTime?
+  deletionScheduledAt           DateTime?
+  twoFactorEnabled              Boolean   @default(false)
+  twoFactorSecret               String?   @db.Text // AES-256-GCM encrypted TOTP secret
+  twoFactorConfirmedAt          DateTime?
+  twoFactorLastStep             Int? // Last accepted TOTP time step (replay protection)
+  dataExportRequests           DataExportRequest[]   @relation("DataExportRequests")
+  pendingDeletion              PendingDeletion?       // ← ADD THIS
   applications         Application[]         @relation("Applications")
 
   // Relations
@@ -150,12 +155,18 @@ model PersonalAccessToken {
 
 // User password resets model
 model PasswordCodeResets {
-  id        String   @id @default(uuid())
-  email     String?
-  phone     String?
-  code      String   @db.VarChar(64)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(uuid())
+  email        String?
+  phone        String?
+  code         String    @db.VarChar(128)
+  expiresAt    DateTime?
+  attemptCount Int       @default(0)
+  consumedAt   DateTime?
+  revokedAt    DateTime?
+  purpose      String?   @default("password_reset")
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([email])
   @@map("password_code_resets")
@@ -201,14 +212,12 @@ model Category {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?
-  icon        String? // URL to category icon
+  icon        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
   subcategories Subcategory[]
   artisans      Artisan[]
-  jobRequests   JobRequest[]
 
   @@index([name])
 }
@@ -222,67 +231,25 @@ model Subcategory {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
   category Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   artisans Artisan[]
 
-  @@unique([name, categoryId])
   @@index([categoryId])
 }
 
-// Artisan model
-model Artisan {
-  id            String      @id @default(uuid())
-  name          String
-  email         String?
-  phone         String?
-  avatar        String?
-  type          ArtisanType @default(PERSON)
-  description   String
-  price         Float? // Optional price if fixed
-  priceRange    Json? // Min and max price if variable
-  images        String[] // URLs to artisan images
-  curatorId     String // User ID of the curator
-  categoryId    String
-  subcategoryId String?
-  locationId    String
-  isActive      Boolean     @default(true)
-  isVerified    Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  archivedAt    DateTime?
-
-  // Relations
-  curator     User         @relation(fields: [curatorId], references: [id], onDelete: Cascade)
-  category    Category     @relation(fields: [categoryId], references: [id])
-  subcategory Subcategory? @relation(fields: [subcategoryId], references: [id])
-  location    Location     @relation(fields: [locationId], references: [id])
-  reviews     Review[]
-  tips        Tip[]
-  applications Application[]
-  jobs         Job[]
-
-  @@index([curatorId])
-  @@index([categoryId])
-  @@index([subcategoryId])
-  @@index([locationId])
-  @@index([isActive])
-}
-
-// Location model for geospatial data
+// Location model
 model Location {
-  id         String   @id @default(uuid())
-  address    String?
-  city       String
-  state      String
-  country    String
-  postalCode String?
-  latitude   Float
-  longitude  Float
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(uuid())
+  address     String?
+  city        String
+  state       String
+  country     String
+  postalCode  String?
+  latitude    Float
+  longitude   Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  // Relations
   users    User[]
   artisans Artisan[]
 
@@ -292,64 +259,100 @@ model Location {
   @@index([latitude, longitude])
 }
 
+// Artisan model
+model Artisan {
+  id           String      @id @default(uuid())
+  name         String
+  email        String?
+  phone        String?
+  avatar       String?
+  type         ArtisanType @default(PERSON)
+  description  String
+  price        Float?
+  priceRange   Json? // { min: number, max: number }
+  images       String[]
+  curatorId    String
+  categoryId   String
+  subcategoryId String?
+  locationId   String
+  isActive     Boolean     @default(true)
+  isVerified   Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relations
+  curator     Curator     @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  subcategory Subcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+  location    Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  reviews     Review[]
+  tips        Tip[]
+  listings    Listing[]
+  jobRequests JobRequest[]  @relation("ArtisanJobRequests")
+
+  @@index([curatorId])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([locationId])
+  @@index([isActive])
+  @@index([isVerified])
+}
+
 // Review model
 model Review {
   id          String       @id @default(uuid())
-  rating      Int // 1-5 star rating
-  comment     String?
-  authorId    String // User who wrote the review
-  targetId    String // User who received the review (curator)
-  artisanId   String? // Optional artisan reference
+  rating      Int          // 1-5
+  comment     String?      @db.Text
+  authorId    String
+  targetId    String       // User being reviewed
+  artisanId   String?      // Optional specific artisan being reviewed
   status      ReviewStatus @default(PENDING)
-  moderatedBy String? // Admin who moderated the review
+  moderatedBy String?
   moderatedAt DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   // Relations
-  author   User            @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  target   User            @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
-  artisan  Artisan?        @relation(fields: [artisanId], references: [id], onDelete: SetNull)
-  response ReviewResponse?
-  reports  ReviewReport[]
+  author    User           @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  target    User           @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  artisan   Artisan?       @relation(fields: [artisanId], references: [id], onDelete: SetNull)
+  response  ReviewResponse?
+  reports   ReviewReport[]
 
   @@index([authorId])
   @@index([targetId])
   @@index([artisanId])
-  @@index([rating])
   @@index([status])
 }
 
-// Review Response model (curator replies to reviews)
+// Review Response model
 model ReviewResponse {
   id        String   @id @default(uuid())
-  reviewId  String   @unique // One response per review
-  content   String
+  reviewId  String   @unique
+  content   String   @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@index([reviewId])
   @@map("review_responses")
 }
 
-// Review Report model (abuse detection and reporting)
+// Review Report model
 model ReviewReport {
   id         String       @id @default(uuid())
   reviewId   String
-  reporterId String // User who reported
+  reporterId String
   reason     ReportReason
-  details    String? // Additional details
+  details    String?      @db.Text
   status     ReportStatus @default(PENDING)
-  resolvedBy String? // Admin who resolved
+  resolvedBy String?
   resolvedAt DateTime?
-  resolution String? // Resolution notes
+  resolution String?      @db.Text
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
-  // Relations
   review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   reporter User   @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
 
@@ -359,27 +362,19 @@ model ReviewReport {
   @@map("review_reports")
 }
 
-// Enum for tip status
-enum TipStatus {
-  PENDING
-  COMPLETED
-  CANCELLED
-  REFUNDED
-}
-
-// Tip model for payments between users
+// Tip model for user/artisan tipping
 model Tip {
-  id         String    @id @default(uuid())
+  id         String     @id @default(uuid())
   amount     Float
-  currency   String    @default("ETH")
-  message    String?
-  status     TipStatus @default(PENDING)
-  senderId   String // User who sent the tip
-  receiverId String // User who received the tip
-  artisanId  String? // Optional artisan reference
-  txHash     String? // Transaction hash on blockchain
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  currency   String     @default("USDC")
+  message    String?    @db.Text
+  status     TipStatus  @default(PENDING)
+  senderId   String
+  receiverId String
+  artisanId  String?
+  txHash     String?    @unique
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   // Relations
   sender   User     @relation("TipSender", fields: [senderId], references: [id], onDelete: Cascade)
@@ -390,169 +385,7 @@ model Tip {
   @@index([receiverId])
   @@index([artisanId])
   @@index([status])
-  @@index([txHash])
-}
-
-enum ApplicationStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-  WITHDRAWN
-}
-
-enum JobStatus {
-  ACTIVE
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-  DISPUTED
-}
-
-// Application model for listing applications
-model Application {
-  id          String            @id @default(uuid())
-  listingId   String            // Artisan ID that was applied to
-  applicantId String            // User who applied
-  status      ApplicationStatus @default(PENDING)
-  message     String?           @db.Text // Optional message from applicant
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  // Relations
-  listing   Artisan @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  applicant User    @relation("Applications", fields: [applicantId], references: [id], onDelete: Cascade)
-  job       Job?
-
-  @@index([listingId])
-  @@index([applicantId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("applications")
-}
-
-// Jobs model representing accepted applications turned into engagements
-model Job {
-  id            String     @id @default(uuid())
-  listingId     String
-  applicationId String     @unique
-  applicantId   String
-  status        JobStatus  @default(ACTIVE)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-
-  listing     Artisan     @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicant   User        @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-
-  @@index([listingId])
-  @@index([applicationId])
-  @@index([applicantId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-// Enum for review moderation status
-enum ReviewStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-// Enum for review report status
-enum ReportStatus {
-  PENDING
-  REVIEWED
-  DISMISSED
-  ACTION_TAKEN
-}
-
-// Enum for report reason
-enum ReportReason {
-  SPAM
-  INAPPROPRIATE
-  FAKE
-  HARASSMENT
-  OFF_TOPIC
-  OTHER
-}
-
-// Enum for analytics event types
-// Also serves as the activity logging event taxonomy
-enum EventType {
-  API_CALL
-  USER_SIGNUP
-  USER_LOGIN
-  ARTISAN_CREATED
-  ARTISAN_UPDATED
-  ARTISAN_VIEWED
-  CONTACT_INFO_ACCESSED
-  LISTING_ENGAGEMENT
-  REVIEW_CREATED
-  REVIEW_UPDATED
-  REVIEW_APPROVED
-  REVIEW_REJECTED
-  REVIEW_RESPONDED
-  REVIEW_REPORTED
-  TIP_SENT
-  CATEGORY_VIEWED
-  SEARCH_PERFORMED
-  ERROR_OCCURRED
-  // Security / activity-focused events
-  LOGIN_FAILED
-  PASSWORD_RESET_REQUESTED
-  ADMIN_ACTION
-  // Curator verification events
-  CURATOR_VERIFICATION_SUBMITTED
-  CURATOR_VERIFICATION_APPROVED
-  CURATOR_VERIFICATION_REJECTED
-  CURATOR_VERIFICATION_DOCUMENT_UPLOADED
-  CURATOR_VERIFICATION_VIEWED
-}
-
-// Analytics Event model for tracking user interactions and API usage
-model AnalyticsEvent {
-  id               String    @id @default(uuid())
-  eventType        EventType
-  anonymizedUserId String? // Hashed/anonymized user identifier for GDPR compliance
-  endpoint         String? // API endpoint that was called
-  method           String? // HTTP method (GET, POST, etc.)
-  statusCode       Int? // HTTP response status code
-  responseTime     Int? // Response time in milliseconds
-  userAgent        String? // Anonymized user agent info
-  ipHash           String? // Hashed IP address for privacy
-  referrer         String? // Referring URL (anonymized)
-  metadata         Json? // Additional event-specific data
-  createdAt        DateTime  @default(now())
-
-  @@index([eventType])
-  @@index([createdAt])
-  @@index([anonymizedUserId])
-  @@index([endpoint])
-  // Composite indexes to speed up common activity queries
-  @@index([eventType, createdAt])
-  @@index([anonymizedUserId, eventType, createdAt])
-  @@map("analytics_events")
-}
-
-// Analytics Aggregation model for periodic reports
-model AnalyticsAggregation {
-  id              String    @id @default(uuid())
-  periodType      String // 'hourly', 'daily', 'weekly', 'monthly'
-  periodStart     DateTime
-  periodEnd       DateTime
-  eventType       EventType
-  eventCount      Int       @default(0)
-  avgResponseTime Float? // Average response time for API calls
-  uniqueUsers     Int       @default(0)
-  metadata        Json? // Additional aggregated metrics
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@unique([periodType, periodStart, eventType])
-  @@index([periodType])
-  @@index([periodStart])
-  @@index([eventType])
-  @@map("analytics_aggregations")
+  @@map("tips")
 }
 
 // Curator Verification Application model
@@ -562,34 +395,30 @@ model CuratorVerificationApplication {
   status          VerificationStatus @default(PENDING)
   submittedAt     DateTime           @default(now())
   reviewedAt      DateTime?
-  reviewedBy      String? // Admin user ID who reviewed
-  rejectionReason String? // Reason for rejection
-  metadata        Json? // Additional application data
+  reviewedBy      String?
+  rejectionReason String?            @db.Text
+  metadata        Json?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
-  // Relations
   curator   Curator                       @relation(fields: [curatorId], references: [id], onDelete: Cascade)
   documents CuratorVerificationDocument[]
   history   CuratorVerificationHistory[]
 
   @@index([curatorId])
   @@index([status])
-  @@index([submittedAt])
-  @@index([reviewedBy])
   @@map("curator_verification_applications")
 }
 
-// Join table for verification application documents
+// Curator Verification Document model
 model CuratorVerificationDocument {
   id            String   @id @default(uuid())
   applicationId String
   mediaId       String
-  documentType  String // 'government_id', 'professional_certificate', 'other'
-  documentName  String // User-friendly name for the document
+  documentType  String
+  documentName  String
   createdAt     DateTime @default(now())
 
-  // Relations
   application CuratorVerificationApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   media       Media                          @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
@@ -598,292 +427,239 @@ model CuratorVerificationDocument {
   @@map("curator_verification_documents")
 }
 
-// Curator Verification History for audit trail
+// Curator Verification History model
 model CuratorVerificationHistory {
   id            String              @id @default(uuid())
   curatorId     String
   applicationId String?
-  action        String // 'SUBMITTED', 'APPROVED', 'REJECTED', 'DOCUMENT_UPLOADED', 'VIEWED'
-  status        VerificationStatus? // Status after this action
-  performedBy   String? // User ID who performed the action (admin for approve/reject)
-  notes         String? // Additional notes or rejection reason
-  metadata      Json? // Additional context about the action
+  action        String
+  status        VerificationStatus?
+  performedBy   String?
+  notes         String?             @db.Text
+  metadata      Json?
   createdAt     DateTime            @default(now())
 
-  // Relations
   curator     Curator                         @relation(fields: [curatorId], references: [id], onDelete: Cascade)
   application CuratorVerificationApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
 
   @@index([curatorId])
   @@index([applicationId])
-  @@index([action])
-  @@index([createdAt])
   @@map("curator_verification_history")
 }
 
-// Enum for account link providers
-enum AccountLinkProvider {
-  GOOGLE
-  FACEBOOK
-  GITHUB
-  APPLE
-  TWITTER
-  LINKEDIN
+// Listing model
+model Listing {
+  id           String   @id @default(uuid())
+  title        String
+  description  String   @db.Text
+  price        Float
+  currency     String   @default("USD")
+  artisanId    String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  artisan      Artisan       @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([artisanId])
+  @@index([isActive])
 }
 
-// Enum for privacy levels
-enum PrivacyLevel {
-  PUBLIC
-  PRIVATE
-  FRIENDS_ONLY
-  CUSTOM
+// Application model
+model Application {
+  id          String            @id @default(uuid())
+  listingId   String
+  applicantId String            // User applying
+  status      ApplicationStatus @default(PENDING)
+  message     String?           @db.Text
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  applicant User    @relation("Applications", fields: [applicantId], references: [id], onDelete: Cascade)
+  job       Job?
+
+  @@index([listingId])
+  @@index([applicantId])
+  @@index([status])
 }
 
-// Enum for friendship status
-enum FriendshipStatus {
-  PENDING
-  ACCEPTED
-  BLOCKED
-}
-
-// Enum for API key status
-enum APIKeyStatus {
-  active
-  revoked
-  expired
-}
-
-// Enum for audit action types
-enum AuditAction {
-  LOGIN
-  LOGOUT
-  PROFILE_UPDATE
-  PROFILE_VIEW
-  PRIVACY_CHANGE
-  ACCOUNT_LINK
-  ACCOUNT_UNLINK
-  DATA_EXPORT
-  DATA_DELETE
-  PASSWORD_CHANGE
-  EMAIL_VERIFY
-  SESSION_START
-  SESSION_END
-  TWO_FACTOR_ENABLE
-  TWO_FACTOR_DISABLE
-  SESSION_REVOKE
-  SUPPORT_TICKET_UPDATE
-}
-
-// User Profile model - extends user with additional profile information
-model UserProfile {
-  id                          String    @id @default(uuid())
-  userId                      String    @unique
-  bio                         String?   @db.Text
-  dateOfBirth                 DateTime?
-  gender                      String? // MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
-  profilePictureUrl           String?
-  coverPhotoUrl               String?
-  website                     String?
-  socialLinks                 Json? // {twitter, linkedin, instagram, etc.}
-  occupation                  String?
-  companyName                 String?
-  location                    String?
-  timezone                    String?   @default("UTC")
-  language                    String?   @default("en")
-  profileCompletionPercentage Int       @default(0)
-  isPublic                    Boolean   @default(true)
-  isProfessional              Boolean   @default(false)
-  verifiedBadge               Boolean   @default(false)
-  createdAt                   DateTime  @default(now())
-  updatedAt                   DateTime  @updatedAt
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([isPublic])
-  @@index([verifiedBadge])
-  @@map("user_profiles")
-}
-
-// User Preferences model - manages user settings and preferences
+// User Preferences model
 model UserPreferences {
   id                    String   @id @default(uuid())
   userId                String   @unique
+  theme                 String   @default("light")
+  language              String   @default("en")
   emailNotifications    Boolean  @default(true)
   pushNotifications     Boolean  @default(true)
-  smsNotifications      Boolean  @default(false)
-  marketingEmails       Boolean  @default(true)
-  activityEmails        Boolean  @default(true)
-  digestFrequency       String   @default("weekly") // daily, weekly, monthly, never
-  theme                 String   @default("light") // light, dark, system
-  language              String   @default("en")
-  currencyPreference    String   @default("USD")
-  twoFactorEnabled      Boolean  @default(false)
-  dataCollectionConsent Boolean  @default(false)
-  analyticsTracking     Boolean  @default(true)
-  customPreferences     Json? // Additional custom preferences
+  marketingEmails       Boolean  @default(false)
+  twoFactorAuth         Boolean  @default(false)
+  profileVisibility     String   @default("public")
+  showEmail             Boolean  @default(false)
+  showPhone             Boolean  @default(false)
+  activityStatus        String   @default("online")
+  readReceipts          Boolean  @default(true)
+  analyticsConsent      Boolean  @default(true)
+  marketingConsent      Boolean  @default(false)
+  thirdPartySharing     Boolean  @default(false)
+  cookiePreferences     Json?
+  dataSharingPreferences Json?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("user_preferences")
 }
 
-// Privacy Settings model - manages fine-grained privacy controls
-model PrivacySettings {
-  id                    String       @id @default(uuid())
-  userId                String       @unique
-  profileVisibility     PrivacyLevel @default(PUBLIC)
-  showEmail             Boolean      @default(false)
-  showPhone             Boolean      @default(false)
-  showLocation          Boolean      @default(false)
-  showOnlineStatus      Boolean      @default(true)
-  allowDirectMessages   Boolean      @default(true)
-  allowProfileComments  Boolean      @default(true)
-  blockList             String[]     @default([]) // Array of blocked user IDs
-  restrictedList        String[]     @default([]) // Array of restricted user IDs
-  searchEngineIndexing  Boolean      @default(true)
-  dataRetentionMonths   Int          @default(24) // Months to retain data
-  customPrivacyRules    Json? // Additional custom privacy rules
-  lastPrivacyReviewDate DateTime?
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+// User Profile model
+model UserProfile {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  title       String?
+  company     String?
+  website     String?
+  location    String?
+  socialLinks Json?     // { twitter, github, linkedin, etc. }
+  skills      String[]
+  interests   String[]
+  birthDate   DateTime?
+  gender      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_profile")
+}
+
+// Privacy Settings model
+model PrivacySettings {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  profileVisibility   String   @default("public")
+  showEmail           Boolean  @default(false)
+  showPhone           Boolean  @default(false)
+  showLocation        Boolean  @default(true)
+  allowDirectMessages Boolean  @default(true)
+  searchable          Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("privacy_settings")
 }
 
-// Account Link model - for linking social and external accounts
+// Account Link model for OAuth / External Accounts
 model AccountLink {
-  id             String              @id @default(uuid())
-  userId         String
-  provider       AccountLinkProvider
-  providerUserId String
-  providerEmail  String?
-  providerName   String?
-  accessToken    String?             @db.Text
-  refreshToken   String?             @db.Text
-  expiresAt      DateTime?
-  metadata       Json?
-   isVerified     Boolean             @default(false)
-  linkedAt       DateTime            @default(now())
-  unlinkedAt     DateTime?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id           String    @id @default(uuid())
+  userId       String
+  provider     String    // google, github, twitter, etc.
+  providerId   String
+  email        String?
+  displayName  String?
+  avatar       String?
+  accessToken  String?   @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
+  isVerified   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  // Relations
   user User @relation("LinkedAccounts", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, provider])
+  @@unique([provider, providerId])
   @@index([userId])
-  @@index([provider])
   @@map("account_links")
 }
 
-// Audit Log model - for tracking all sensitive operations and GDPR compliance
+// Audit Log model for security and activity tracking
 model AuditLog {
-  id           String      @id @default(uuid())
-  userId       String? // Nullable for deleted users or system actions
-  action       AuditAction
-  entityType   String? // Type of entity being audited (User, Profile, etc)
-  entityId     String? // ID of entity being audited
-  oldValues    Json? // Previous values before change
-  newValues    Json? // New values after change
-  ipAddress    String? // IP address of requester
-  userAgent    String? // User agent string
-  statusCode   Int? // HTTP status code if applicable
-  errorMessage String? // Error message if action failed
-  metadata     Json? // Additional metadata
-  createdAt    DateTime    @default(now())
+  id           String   @id @default(uuid())
+  userId       String?
+  action       String
+  entityType   String?
+  entityId     String?
+  ipAddress    String?
+  userAgent    String?  @db.Text
+  statusCode   Int?
+  errorMessage String?  @db.Text
+  metadata     Json?
+  createdAt    DateTime @default(now())
 
-  // Relations
   user User? @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([action])
-  @@index([entityType])
   @@index([createdAt])
   @@map("audit_logs")
 }
 
-// Friendship model - for friend relationships and friend-based privacy
-model Friendship {
-  id            String             @id @default(uuid())
-  userId        String             // User who initiated the friend request
-  friendId      String             // User who received the friend request
-  status        FriendshipStatus   @default(PENDING)
-  requestedAt   DateTime           @default(now())
-  acceptedAt    DateTime?
-  blockedAt     DateTime?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+// Job model for accepted applications
+model Job {
+  id            String    @id @default(uuid())
+  listingId     String
+  applicationId String    @unique
+  applicantId   String
+  status        JobStatus @default(ACTIVE)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  // Relations
-  user          User               @relation("UserFriendRequests", fields: [userId], references: [id], onDelete: Cascade)
-  friend        User               @relation("FriendOf", fields: [friendId], references: [id], onDelete: Cascade)
+  listing     Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicant   User        @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([applicantId])
+  @@index([status])
+  @@map("jobs")
+}
+
+// Enum for Job Status
+enum JobStatus {
+  ACTIVE
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+// Friendship model for user connections
+model Friendship {
+  id          String           @id @default(uuid())
+  userId      String
+  friendId    String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user        User             @relation("UserFriendRequests", fields: [userId], references: [id], onDelete: Cascade)
+  friend      User             @relation("FriendOf", fields: [friendId], references: [id], onDelete: Cascade)
 
   @@unique([userId, friendId])
-  @@index([userId, status])
-  @@index([friendId, status])
+  @@index([userId])
+  @@index([friendId])
   @@index([status])
   @@map("friendships")
 }
 
-// API Key model for persistent API key management
-model APIKey {
-  id               String       @id @default(uuid())
-  key              String       @unique // Hashed key
-  name             String
-  description      String?
-  userId           String?
-  status           APIKeyStatus @default(active)
-  rateLimit        Int          @default(1000)
-  expiresAt        DateTime?
-  lastUsedAt       DateTime?
-  ipWhitelist      String[]     @default([])
-  allowedEndpoints String[]     @default([])
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-
-  @@index([key])
-  @@index([userId])
-  @@index([status])
-  @@map("api_keys")
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  BLOCKED
 }
 
-// Data Export Request model - for GDPR data export functionality
-model DataExportRequest {
-  id           String                  @id @default(uuid())
-  userId       String
-  status       DataExportRequestStatus @default(pending)
-  format       String                  @default("json") // json, csv, etc
-  downloadUrl  String? // Presigned URL for download
-  expiresAt    DateTime?
-  fileSize     Int?
-  errorMessage String?
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
-
-  // Relations
-  user User @relation("DataExportRequests", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("data_export_requests")
-}
-
+// Two-Factor Recovery Codes model
 model TwoFactorRecoveryCode {
   id        String    @id @default(uuid())
   userId    String
-  codeHash  String
+  codeHash  String    @unique
   usedAt    DateTime?
   createdAt DateTime  @default(now())
 
@@ -893,173 +669,144 @@ model TwoFactorRecoveryCode {
   @@map("two_factor_recovery_codes")
 }
 
-// ============================================================================
-// Client job requests & artisan proposals (demand-side marketplace)
-// ============================================================================
+// Job Request model
+model JobRequest {
+  id          String           @id @default(uuid())
+  clientId    String
+  artisanId   String
+  title       String
+  description String           @db.Text
+  budget      Float?
+  status      JobRequestStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  client      User             @relation("ClientJobRequests", fields: [clientId], references: [id], onDelete: Cascade)
+  artisan     Artisan          @relation("ArtisanJobRequests", fields: [artisanId], references: [id], onDelete: Cascade)
+  proposals   Proposal[]
+
+  @@index([clientId])
+  @@index([artisanId])
+  @@index([status])
+  @@map("job_requests")
+}
 
 enum JobRequestStatus {
-  DRAFT
-  OPEN
-  CLOSED
-  AWARDED
-}
-
-enum JobRequestUrgency {
-  LOW
-  NORMAL
-  HIGH
-  URGENT
-}
-
-enum ProposalStatus {
   PENDING
   ACCEPTED
-  REJECTED
-  WITHDRAWN
-}
-
-enum EngagementStatus {
-  ACTIVE
+  DECLINED
   COMPLETED
   CANCELLED
 }
 
-model JobRequest {
-  id          String            @id @default(uuid())
-  clientId    String
-  categoryId  String?
-  title       String
-  description String            @db.Text
-  budgetMin   Float?
-  budgetMax   Float?
-  currency    String            @default("USD")
-  location    String?
-  urgency     JobRequestUrgency @default(NORMAL)
-  status      JobRequestStatus  @default(DRAFT)
-  publishedAt DateTime?
-  closedAt    DateTime?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  client     User        @relation("ClientJobRequests", fields: [clientId], references: [id], onDelete: Cascade)
-  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  proposals  Proposal[]
-  engagement Engagement?
-
-  @@index([clientId])
-  @@index([categoryId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("job_requests")
-}
-
+// Proposal model
 model Proposal {
-  id                String         @id @default(uuid())
-  jobRequestId      String
-  artisanId         String
-  message           String         @db.Text
-  proposedAmount    Float?
-  estimatedDuration String?
-  status            ProposalStatus @default(PENDING)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id           String         @id @default(uuid())
+  jobRequestId String
+  artisanId    String
+  price        Float
+  message      String         @db.Text
+  status       ProposalStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  jobRequest JobRequest  @relation(fields: [jobRequestId], references: [id], onDelete: Cascade)
-  artisan    User        @relation("ArtisanProposals", fields: [artisanId], references: [id], onDelete: Cascade)
-  engagement Engagement?
+  jobRequest   JobRequest     @relation(fields: [jobRequestId], references: [id], onDelete: Cascade)
+  artisan      User           @relation("ArtisanProposals", fields: [artisanId], references: [id], onDelete: Cascade)
 
-  @@unique([jobRequestId, artisanId])
+  @@index([jobRequestId])
   @@index([artisanId])
   @@index([status])
   @@map("proposals")
 }
 
-model Engagement {
-  id           String           @id @default(uuid())
-  jobRequestId String           @unique
-  proposalId   String           @unique
-  clientId     String
-  artisanId    String
-  agreedAmount Float?
-  status       EngagementStatus @default(ACTIVE)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+enum ProposalStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  COMPLETED
+  CANCELLED
+}
 
-  jobRequest JobRequest @relation(fields: [jobRequestId], references: [id], onDelete: Cascade)
-  proposal   Proposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  client     User       @relation("ClientEngagements", fields: [clientId], references: [id], onDelete: Cascade)
-  artisan    User       @relation("ArtisanEngagements", fields: [artisanId], references: [id], onDelete: Cascade)
+// Engagement model
+model Engagement {
+  id         String   @id @default(uuid())
+  clientId   String
+  userId     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  client     User     @relation("ClientEngagements", fields: [clientId], references: [id], onDelete: Cascade)
+  artisan    User     @relation("ArtisanEngagements", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
-  @@index([artisanId])
-  @@index([status])
+  @@index([userId])
   @@map("engagements")
 }
 
-// ============================================================================
-// Support tickets
-// ============================================================================
+// Support Ticket model
+model SupportTicket {
+  id          String              @id @default(uuid())
+  requesterId String
+  subject     String
+  status      SupportTicketStatus @default(OPEN)
+  priority    SupportTicketPriority @default(MEDIUM)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 
-enum SupportTicketCategory {
-  GENERAL
-  ACCOUNT
-  JOB
-  BILLING
-  TECHNICAL
-  OTHER
-}
+  requester   User                @relation("SupportTicketRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  messages    SupportTicketMessage[]
 
-enum SupportTicketPriority {
-  LOW
-  NORMAL
-  HIGH
-  URGENT
+  @@index([requesterId])
+  @@index([status])
+  @@map("support_tickets")
 }
 
 enum SupportTicketStatus {
   OPEN
-  IN_PROGRESS
-  AWAITING_USER
+  IN_RESP_PENDING
   RESOLVED
   CLOSED
 }
 
-model SupportTicket {
-  id          String                @id @default(uuid())
-  reference   String                @unique
-  requesterId String?
-  name        String?
-  email       String
-  subject     String
-  category    SupportTicketCategory @default(GENERAL)
-  priority    SupportTicketPriority @default(NORMAL)
-  status      SupportTicketStatus   @default(OPEN)
-  source      String                @default("app") // "contact" | "app"
-  jobId       String?
-  listingId   String?
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-
-  requester User?                  @relation("SupportTicketRequester", fields: [requesterId], references: [id], onDelete: SetNull)
-  messages  SupportTicketMessage[]
-
-  @@index([requesterId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("support_tickets")
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }
 
+// Support Ticket Message model
 model SupportTicketMessage {
   id        String   @id @default(uuid())
   ticketId  String
-  authorId  String?
-  body      String   @db.Text
-  isStaff   Boolean  @default(false)
+  authorId  String
+  message   String   @db.Text
   createdAt DateTime @default(now())
 
-  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  author User?         @relation("SupportTicketAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User          @relation("SupportTicketAuthor", fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
+  @@index([authorId])
   @@map("support_ticket_messages")
+}
+
+// Data Export Request model
+model DataExportRequest {
+  id           String                  @id @default(uuid())
+  userId       String
+  format       String                  @default("json")
+  status       DataExportRequestStatus @default(pending)
+  downloadUrl  String?
+  fileSize     Int?
+  expiresAt    DateTime?
+  errorMessage String?                 @db.Text
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  user User @relation("DataExportRequests", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("data_export_request")
 }

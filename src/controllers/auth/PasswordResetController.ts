@@ -10,41 +10,37 @@ import { ValidationError } from "src/utils/errors";
 import argon2 from 'argon2';
 import base64url from "base64url";
 import { config } from "src/config";
-import { differenceInMinutes } from "date-fns";
+import { addMinutes } from "date-fns";
 import { prisma } from 'src/db';
-import { secureOtp } from "src/utils/helpers";
+import { secureOtp, hashOtp, verifyOtpHash } from "src/utils/helpers";
 import { sendMail } from "src/mailer/mailer";
 import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
 
 /**
- * RegisterController
+ * PasswordResetController
  */
 export default class extends BaseController {
-    /**
-     * Create a new resource in the database
-     * 
-     * The calling route must recieve a multer.RequestHandler instance
-     * 
-     * @example router.post('/users', upload.none(), new AdminController().create);
-     * 
-     * @param req 
-     * @param res 
-     */
     create = async (req: Request, res: Response) => {
         const { email } = this.validate(req, {
             email: 'required|string',
         });
 
-        const code = secureOtp();
-
         const user = await prisma.user.findFirst({
             where: { email }
-        })
+        });
 
         if (!user) {
-            throw new ValidationError("Account Not Found", {
-                email: ['We were unable to find your account.']
-            });
+            // Timing defense to prevent email enumeration via timing side-channels
+            await argon2.hash('dummy-password-timing-defense-string');
+
+            // Return the exact same success response shape as when user exists
+            return Resource(req, res, {}).json()
+                .status(201)
+                .additional({
+                    status: 'success',
+                    message: 'We have sent instructions to help recover your account to your email address.',
+                    code: 201,
+                });
         }
 
         // Track password reset request
@@ -52,21 +48,38 @@ export default class extends BaseController {
             via: 'email',
         });
 
-        await prisma.passwordCodeResets.deleteMany({
-            where: { OR: [{ email }, { phone: email }] }
-        })
+        // Invalidate/revoke prior active password reset codes transactionally
+        await prisma.passwordCodeResets.updateMany({
+            where: { 
+                OR: [{ email }, { phone: email }],
+                consumedAt: null,
+                revokedAt: null
+            },
+            data: { revokedAt: new Date() }
+        });
+
+        const otp = secureOtp();
+        const codeHash = hashOtp(otp);
+        const expiresAt = addMinutes(new Date(), 15);
 
         await prisma.passwordCodeResets.create({
-            data: { code, email }
-        })
+            data: {
+                code: codeHash,
+                email,
+                purpose: 'password_reset',
+                expiresAt,
+                attemptCount: 0,
+                ipAddress: req.ip,
+            }
+        });
 
-        await this.#sendMail(code, user)
+        await this.#sendMail(otp, user);
 
         Resource(req, res, {}).json()
             .status(201)
             .additional({
                 status: 'success',
-                message: 'We have sent intructions to help recover your account to your email address.',
+                message: 'We have sent instructions to help recover your account to your email address.',
                 code: 201,
             });
     }
@@ -75,7 +88,7 @@ export default class extends BaseController {
         const { code, email, password } = this.validate(req, {
             email: 'required|string',
             code: 'required|string',
-            password: [Password.create().min(8).letters().numbers().symbols(1).mixedCase(1).rules(['required', 'confirmed'])]
+            password: ['nullable', Password.create().min(8).letters().numbers().symbols(1).mixedCase(1).rules(['required', 'confirmed'])]
         });
 
         const check = await prisma.passwordCodeResets.findFirst({
@@ -83,28 +96,71 @@ export default class extends BaseController {
                 OR: [
                     { email },
                     { phone: email },
-                ]
-            }
-        })
+                ],
+                purpose: 'password_reset',
+                consumedAt: null,
+                revokedAt: null
+            },
+            orderBy: { createdAt: 'desc' }
+        });
 
         if (!check) {
-            throw new ValidationError("Something went wrong", {
-                email: ['We were unable to find your account.']
+            throw new ValidationError("Verification failed", {
+                code: ['The verification code you provided is invalid or has expired.']
             });
         }
 
-        let valid = false
-
-        try {
-            valid = await argon2.verify(base64url.decode(code), check.code)
-        } catch { }
-
-        if (
-            differenceInMinutes(new Date(), check.createdAt!) > 5 ||
-            (code !== check.code && !valid)
-        ) {
+        // Check if expired
+        if (check.expiresAt && new Date() > check.expiresAt) {
+            await prisma.passwordCodeResets.update({
+                where: { id: check.id },
+                data: { revokedAt: new Date() }
+            });
             throw new ValidationError("Verification failed", {
-                code: ['The verification code you provided may have expired.']
+                code: ['The verification code you provided has expired.']
+            });
+        }
+
+        // Check max attempts
+        if (check.attemptCount >= 5) {
+            await prisma.passwordCodeResets.update({
+                where: { id: check.id },
+                data: { revokedAt: new Date() }
+            });
+            throw new ValidationError("Verification failed", {
+                code: ['Too many failed attempts. Please request a new code.']
+            });
+        }
+
+        // Verify candidate code using constant-time comparison
+        const valid = verifyOtpHash(code, check.code);
+
+        if (!valid) {
+            await prisma.passwordCodeResets.update({
+                where: { id: check.id },
+                data: { attemptCount: { increment: 1 } }
+            });
+            throw new ValidationError("Verification failed", {
+                code: ['The verification code you provided is invalid.']
+            });
+        }
+
+        // Consume the code atomically / transactionally (single use enforcement)
+        const consumeResult = await prisma.passwordCodeResets.updateMany({
+            where: {
+                id: check.id,
+                consumedAt: null,
+                revokedAt: null
+            },
+            data: {
+                consumedAt: new Date(),
+                revokedAt: new Date()
+            }
+        });
+
+        if (consumeResult.count === 0) {
+            throw new ValidationError("Verification failed", {
+                code: ['This verification code has already been used.']
             });
         }
 
@@ -112,13 +168,18 @@ export default class extends BaseController {
             const data = await prisma.user.update({
                 where: { email },
                 data: { password: await argon2.hash(password) },
-            })
+            });
 
-            await prisma.passwordCodeResets.deleteMany({
-                where: { OR: [{ email }, { phone: email }] }
-            })
+            // Invalidate any other active codes for this email
+            await prisma.passwordCodeResets.updateMany({
+                where: {
+                    OR: [{ email }, { phone: email }],
+                    consumedAt: null
+                },
+                data: { consumedAt: new Date(), revokedAt: new Date() }
+            });
 
-            new UserResource(req, res, data).json()
+            return new UserResource(req, res, data).json()
                 .status(202)
                 .additional({
                     status: 'success',

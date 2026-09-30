@@ -1,0 +1,16 @@
+-- AlterTable User
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerificationCode" VARCHAR(128),
+ADD COLUMN IF NOT EXISTS "emailVerificationExpiresAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "emailVerificationAttemptCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS "emailVerificationConsumedAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "emailVerificationRevokedAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "emailVerificationResendAt" TIMESTAMP(3);
+
+-- AlterTable PasswordCodeResets
+ALTER TABLE "password_code_resets" ADD COLUMN IF NOT EXISTS "code" VARCHAR(128),
+ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "attemptCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS "consumedAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "revokedAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "purpose" TEXT DEFAULT 'password_reset',
+ADD COLUMN IF NOT EXISTS "ipAddress" TEXT;
