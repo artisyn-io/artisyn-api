@@ -20,11 +20,13 @@ export default class extends JsonResource {
                 applicantId: application.applicantId,
                 status: application.status,
                 message: application.message,
+                jobId: application.job?.id ?? null,
                 createdAt: application.createdAt,
                 updatedAt: application.updatedAt,
                 listing: application.listing ? {
                     id: application.listing.id,
                     name: application.listing.name,
+                    title: application.listing.name,
                     description: application.listing.description,
                     curatorId: application.listing.curatorId
                 } : undefined,

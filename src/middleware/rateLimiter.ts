@@ -99,6 +99,16 @@ export const rateLimitConfigs = {
     windowMs: 60 * 60 * 1000, // 1 hour
     maxRequests: 20,
   },
+  // Sensitive account security operations: 10 per hour
+  accountSecurity: {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 10,
+  },
+  // Anonymous contact form submissions: 5 per hour per IP
+  contact: {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 5,
+  },
 };
 
 /**
@@ -273,6 +283,24 @@ export const privacyRateLimiter = createRateLimiter({
   windowMs: rateLimitConfigs.privacyUpdates.windowMs,
   maxRequests: rateLimitConfigs.privacyUpdates.maxRequests,
   keyGenerator: getRequestRateLimitKey,
+});
+
+/**
+ * Rate limiter for sensitive account security operations (10 per hour per user)
+ */
+export const accountSecurityRateLimiter = createRateLimiter({
+  windowMs: rateLimitConfigs.accountSecurity.windowMs,
+  maxRequests: rateLimitConfigs.accountSecurity.maxRequests,
+  keyGenerator: (req) => `security-${getRequestRateLimitKey(req)}`,
+});
+
+/**
+ * Rate limiter for anonymous contact submissions (5 per hour per IP)
+ */
+export const contactRateLimiter = createRateLimiter({
+  windowMs: rateLimitConfigs.contact.windowMs,
+  maxRequests: rateLimitConfigs.contact.maxRequests,
+  keyGenerator: (req) => `contact-ip-${req.ip}`,
 });
 
 /**

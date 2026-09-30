@@ -1,5 +1,8 @@
 import { TipStatus, UserRole, VerificationStatus, ReviewStatus, ReportStatus, ReportReason, ApplicationStatus, JobStatus } from './interfaces';
 import { body, param, query } from 'express-validator';
+import { JobRequestStatus, JobRequestUrgency, SupportTicketCategory, SupportTicketPriority, SupportTicketStatus } from '@prisma/client';
+
+const toUpper = (value: unknown) => typeof value === 'string' ? value.toUpperCase() : value;
 
 // User validation
 export const userValidation = {
@@ -280,13 +283,20 @@ export const tipValidation = {
 
 // Application validation (merged for listings and generic application routes)
 export const applicationValidation = {
+  list: [
+    query('scope').optional().isIn(['mine', 'received', 'all']).withMessage('Scope must be one of: mine, received, all'),
+    query('status').optional().customSanitizer(toUpper).isIn(Object.values(ApplicationStatus)).withMessage('Invalid application status'),
+    query('listingId').optional().isUUID().withMessage('Valid listing ID is required'),
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  ],
   listByListing: [
     param('listingId').isUUID().withMessage('Valid listing ID is required'),
-    query('status').optional().isIn(Object.values(ApplicationStatus)).withMessage('Invalid application status')
+    query('status').optional().customSanitizer(toUpper).isIn(Object.values(ApplicationStatus)).withMessage('Invalid application status')
   ],
   updateStatus: [
     param('id').isUUID().withMessage('Valid application ID is required'),
-    body('status').isIn(Object.values(ApplicationStatus)).withMessage('Invalid application status')
+    body('status').customSanitizer(toUpper).isIn(Object.values(ApplicationStatus)).withMessage('Invalid application status')
   ],
   create: [
     body('listingId').isUUID().withMessage('Valid listing ID is required'),
@@ -388,5 +398,118 @@ export const mediaValidation = {
   ],
   delete: [
     param('id').isUUID().withMessage('Valid media ID is required'),
+  ],
+};
+
+const strongPassword = (field: string) =>
+  body(field)
+    .isStrongPassword({ minLength: 8, minLowercase: 1, minUppercase: 1, minNumbers: 1, minSymbols: 0 })
+    .withMessage('Password must be at least 8 characters and include upper, lower case letters and a number');
+
+// Account security validation
+export const accountSecurityValidation = {
+  changePassword: [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    strongPassword('password'),
+    body('password').custom((value, { req }) => value !== req.body.currentPassword)
+      .withMessage('New password must be different from the current password'),
+    body('passwordConfirmation').custom((value, { req }) => value === req.body.password)
+      .withMessage('Password confirmation does not match'),
+  ],
+  confirmTwoFactor: [
+    body('code').matches(/^\d{6}$/).withMessage('A 6-digit authentication code is required'),
+  ],
+  disableTwoFactor: [
+    body('password').notEmpty().withMessage('Password is required'),
+    body('otp').optional().matches(/^\d{6}$/).withMessage('Authentication code must be 6 digits'),
+    body('recoveryCode').optional().isString(),
+    body().custom((value) => !!(value?.otp || value?.recoveryCode))
+      .withMessage('An authentication code or recovery code is required'),
+  ],
+  revokeSession: [
+    param('id').isUUID().withMessage('Valid session ID is required'),
+  ],
+};
+
+// Job request validation
+const jobRequestFields = (optional: boolean) => {
+  const field = (name: string) => optional ? body(name).optional() : body(name);
+  return [
+    field('title').isString().trim().isLength({ min: 3, max: 150 }).withMessage('Title must be 3-150 characters'),
+    field('description').isString().trim().isLength({ min: 10, max: 5000 }).withMessage('Description must be 10-5000 characters'),
+    body('categoryId').optional({ values: 'null' }).isUUID().withMessage('Valid category ID is required'),
+    body('budgetMin').optional({ values: 'null' }).isFloat({ min: 0 }).toFloat().withMessage('Minimum budget must be a positive number'),
+    body('budgetMax').optional({ values: 'null' }).isFloat({ min: 0 }).toFloat().withMessage('Maximum budget must be a positive number')
+      .custom((value, { req }) => req.body.budgetMin == null || value >= Number(req.body.budgetMin))
+      .withMessage('Maximum budget must be greater than or equal to minimum budget'),
+    body('currency').optional().isISO4217().withMessage('Currency must be a valid ISO 4217 code'),
+    body('location').optional({ values: 'null' }).isString().isLength({ max: 255 }).withMessage('Location must be at most 255 characters'),
+    body('urgency').optional().customSanitizer(toUpper).isIn(Object.values(JobRequestUrgency)).withMessage('Invalid urgency'),
+    body('status').optional().customSanitizer(toUpper).isIn([JobRequestStatus.DRAFT, JobRequestStatus.OPEN, JobRequestStatus.CLOSED])
+      .withMessage('Status must be one of: DRAFT, OPEN, CLOSED'),
+  ];
+};
+
+export const jobRequestValidation = {
+  create: jobRequestFields(false),
+  update: [param('id').isUUID().withMessage('Valid job request ID is required'), ...jobRequestFields(true)],
+  getOne: [param('id').isUUID().withMessage('Valid job request ID is required')],
+  list: [
+    query('status').optional().customSanitizer(toUpper).isIn(Object.values(JobRequestStatus)).withMessage('Invalid status'),
+    query('categoryId').optional().isUUID().withMessage('Valid category ID is required'),
+    query('location').optional().isString(),
+    query('urgency').optional().customSanitizer(toUpper).isIn(Object.values(JobRequestUrgency)).withMessage('Invalid urgency'),
+    query('minBudget').optional().isFloat({ min: 0 }).withMessage('Minimum budget must be a positive number'),
+    query('maxBudget').optional().isFloat({ min: 0 }).withMessage('Maximum budget must be a positive number'),
+    query('sort').optional().isIn(['newest', 'oldest', 'budget_high', 'budget_low']).withMessage('Invalid sort'),
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  ],
+  createProposal: [
+    param('id').isUUID().withMessage('Valid job request ID is required'),
+    body('message').isString().trim().isLength({ min: 10, max: 2000 }).withMessage('Message must be 10-2000 characters'),
+    body('proposedAmount').optional({ values: 'null' }).isFloat({ min: 0 }).toFloat().withMessage('Proposed amount must be a positive number'),
+    body('estimatedDuration').optional({ values: 'null' }).isString().isLength({ max: 100 }),
+  ],
+  proposal: [
+    param('id').isUUID().withMessage('Valid job request ID is required'),
+    param('proposalId').isUUID().withMessage('Valid proposal ID is required'),
+  ],
+};
+
+// Support ticket validation
+const supportTicketFields = [
+  body('subject').isString().trim().isLength({ min: 3, max: 150 }).withMessage('Subject must be 3-150 characters'),
+  body('message').isString().trim().isLength({ min: 10, max: 5000 }).withMessage('Message must be 10-5000 characters'),
+  body('category').optional().customSanitizer(toUpper).isIn(Object.values(SupportTicketCategory)).withMessage('Invalid category'),
+];
+
+export const supportValidation = {
+  contact: [
+    body('name').isString().trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 characters'),
+    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    ...supportTicketFields,
+    // Honeypot: must be left empty by humans
+    body('website').optional().isEmpty().withMessage('Invalid submission'),
+  ],
+  create: [
+    ...supportTicketFields,
+    body('jobId').optional().isUUID().withMessage('Valid job ID is required'),
+    body('listingId').optional().isUUID().withMessage('Valid listing ID is required'),
+  ],
+  list: [
+    query('status').optional().customSanitizer(toUpper).isIn(Object.values(SupportTicketStatus)).withMessage('Invalid status'),
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  ],
+  getOne: [param('id').isUUID().withMessage('Valid ticket ID is required')],
+  reply: [
+    param('id').isUUID().withMessage('Valid ticket ID is required'),
+    body('message').isString().trim().isLength({ min: 1, max: 5000 }).withMessage('Message must be 1-5000 characters'),
+  ],
+  triage: [
+    param('id').isUUID().withMessage('Valid ticket ID is required'),
+    body('status').optional().customSanitizer(toUpper).isIn(Object.values(SupportTicketStatus)).withMessage('Invalid status'),
+    body('priority').optional().customSanitizer(toUpper).isIn(Object.values(SupportTicketPriority)).withMessage('Invalid priority'),
   ],
 };

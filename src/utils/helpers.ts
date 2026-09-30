@@ -117,6 +117,12 @@ export const authenticateToken = (
         req.user = user as never;
         req.authToken = accessToken?.token;
 
+        if (accessToken) {
+          prisma.personalAccessToken
+            .update({ where: { id: accessToken.id }, data: { lastUsedAt: new Date() } })
+            .catch(() => undefined);
+        }
+
         next();
       },
     );

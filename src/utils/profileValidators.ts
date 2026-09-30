@@ -50,7 +50,6 @@ export const preferencesValidationRules: InitialRules = {
     theme: ['string', 'in:light,dark,system'],
     language: ['string', 'bcp47'],
     currencyPreference: ['string', 'iso4217'],
-    twoFactorEnabled: ['boolean'],
     dataCollectionConsent: ['boolean'],
     analyticsTracking: ['boolean'],
     customPreferences: ['nullable'],

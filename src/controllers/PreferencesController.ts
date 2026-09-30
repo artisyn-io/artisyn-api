@@ -124,46 +124,20 @@ export default class extends BaseController {
 
     /**
      * Toggle two-factor authentication
+     *
+     * @deprecated A preference flag is not 2FA. Use the TOTP enrollment
+     * endpoints under /api/account/2fa; `twoFactorEnabled` now reflects
+     * confirmed enrollment only.
      */
     toggleTwoFactor = async (req: Request, res: Response) => {
-        const userId = req.user?.id!;
-        RequestError.assertFound(userId, 'Unauthorized', 401);
+        RequestError.assertFound(req.user?.id, 'Unauthorized', 401);
 
-        let preferences = await prisma.userPreferences.findFirst({
-            where: { userId },
+        res.status(410).json({
+            data: {},
+            status: 'error',
+            message: 'This endpoint is deprecated. Use POST /api/account/2fa/setup and /api/account/2fa/confirm.',
+            code: 410,
         });
-
-        if (!preferences) {
-            preferences = await prisma.userPreferences.create({
-                data: { userId },
-            });
-        }
-
-        const newStatus = !preferences.twoFactorEnabled;
-
-        const updated = await prisma.userPreferences.update({
-            where: { id: preferences.id },
-            data: { twoFactorEnabled: newStatus },
-        });
-
-        // Log 2FA toggle
-        await logAuditEvent(userId, 'PROFILE_UPDATE', {
-            req,
-            entityType: 'UserPreferences',
-            entityId: updated.id,
-            newValues: { twoFactorEnabled: newStatus },
-            statusCode: 202,
-            metadata: { action: 'toggle_2fa', status: newStatus },
-        });
-
-        new UserPreferencesResource(req, res, { data: updated })
-            .json()
-            .status(202)
-            .additional({
-                status: 'success',
-                message: `Two-factor authentication ${newStatus ? 'enabled' : 'disabled'}`,
-                code: 202,
-            });
     };
 
     /**
@@ -183,7 +157,6 @@ export default class extends BaseController {
             theme: 'light',
             language: 'en',
             currencyPreference: 'USD',
-            twoFactorEnabled: false,
             dataCollectionConsent: false,
             analyticsTracking: true,
         };

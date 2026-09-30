@@ -17,12 +17,14 @@ export default class extends JsonResource {
             applicantId: this.applicantId,
             status: this.resource.status,
             message: this.message,
+            jobId: this.job?.id ?? null,
             createdAt: this.createdAt,
             updatedAt: this.updatedAt,
             // Include relations if available
             listing: this.listing ? {
                 id: this.listing.id,
                 name: this.listing.name,
+                title: this.listing.name,
                 description: this.listing.description,
                 curatorId: this.listing.curatorId
             } : undefined,
