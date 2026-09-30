@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 
-import { ApplicationStatus } from "@prisma/client";
+import { ApplicationStatus, Prisma } from "@prisma/client";
 
 import BaseController from "./BaseController";
 import { RequestError } from "../utils/errors";
@@ -119,6 +119,58 @@ export default class ApplicationController extends BaseController {
       .json()
       .additional({ status: "success", message: "Application deleted successfully", code: 202 })
       .status(202);
+  };
+
+  /**
+   * GET /api/applications
+   * Paginated applications collection scoped by role:
+   * - mine: applications submitted by the caller (default for non-curators)
+   * - received: applications to listings the caller owns (default for curators)
+   * - all: every application (admin only)
+   */
+  list = async (req: Request, res: Response) => {
+    const user = req.user!;
+    const isAdmin = user.role === "ADMIN";
+    const scope = String(req.query.scope ?? (user.role === "CURATOR" ? "received" : "mine"));
+
+    if (scope === "all" && !isAdmin) {
+      throw new RequestError("Only administrators can list all applications", 403);
+    }
+
+    const { take, skip, meta } = this.pagination(req);
+    const where: Prisma.ApplicationWhereInput = {};
+
+    if (scope === "mine") where.applicantId = user.id;
+    if (scope === "received") where.listing = { curatorId: user.id };
+    if (req.query.status) where.status = String(req.query.status).toUpperCase() as ApplicationStatus;
+    if (req.query.listingId) where.listingId = String(req.query.listingId);
+
+    const [data, count] = await prisma.$transaction([
+      prisma.application.findMany({
+        where,
+        take,
+        skip,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        include: {
+          listing: { select: { id: true, name: true, description: true, curatorId: true } },
+          applicant: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, phone: true } },
+          job: { select: { id: true, status: true, createdAt: true, updatedAt: true } }
+        }
+      }),
+      prisma.application.count({ where })
+    ]);
+
+    new ApplicationCollection(req, res, {
+      data,
+      pagination: meta(count, data.length)
+    })
+      .json()
+      .status(200)
+      .additional({
+        status: "success",
+        message: "Applications retrieved successfully",
+        code: 200
+      });
   };
 
   /**
@@ -247,12 +299,13 @@ export default class ApplicationController extends BaseController {
     const isOwner = application.listing.curatorId === userId;
     const isApplicant = application.applicantId === userId;
 
-    if (!isOwner && !isApplicant) {
+    if (!isOwner && !isApplicant && req.user?.role !== "ADMIN") {
       throw new RequestError("Unauthorized access to this application", 403);
     }
 
     new ApplicationResource(req, res, application)
       .json()
+      .additional({ status: "success", message: "Application retrieved successfully", code: 200 })
       .status(200);
   };
 
@@ -267,7 +320,7 @@ export default class ApplicationController extends BaseController {
   updateStatus = async (req: Request, res: Response) => {
     const applicationId = String(req.params.id);
     const userId = req.user?.id;
-    const { status } = req.body;
+    const status = String(req.body.status ?? "").toUpperCase();
 
     if (!userId) {
       throw new RequestError("Unauthenticated", 401);

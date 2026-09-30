@@ -35,6 +35,11 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         if (user && !isPast(constructFrom(accessToken?.expiresAt!, new Date())!)) {
             req.user = user;
             req.authToken = accessToken?.token;
+            // Record session activity for the session management screen
+            prisma.personalAccessToken.update({
+                where: { id: accessToken!.id },
+                data: { lastUsedAt: new Date() },
+            }).catch(() => undefined);
             next();
         } else {
             return ErrorHandler(new RequestError("Unauthenticated", 401), req, res);

@@ -24,6 +24,22 @@ router.post(
 );
 
 /**
+ * GET /api/applications
+ * Paginated applications collection scoped to the caller:
+ * - scope=mine (default for users): applications the caller submitted
+ * - scope=received (default for curators): applications to listings the caller owns
+ * - scope=all (admin only): every application
+ * Filters: status, listingId. Ordered by createdAt desc, id desc.
+ */
+router.get(
+  '/applications',
+  authMiddleware,
+  applicationValidation.list,
+  handleValidation,
+  controller.list
+);
+
+/**
  * GET /api/applications/:id
  * Applicant or listing owner views a specific application
  */
@@ -61,7 +77,9 @@ router.get(
 
 /**
  * PUT /api/applications/:id/status
- * Listing owner may accept/reject; applicant may withdraw
+ * Canonical status mutation (status is case-insensitive).
+ * Allowed transitions: PENDING -> ACCEPTED | REJECTED (listing owner),
+ * PENDING -> WITHDRAWN (applicant). All other statuses are final.
  */
 router.put(
   '/applications/:id/status',

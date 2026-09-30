@@ -1,6 +1,7 @@
 import { Request, Response, Router } from "express";
 
 import AccountLinkingController from 'src/controllers/AccountLinkingController';
+import AccountSecurityController from 'src/controllers/AccountSecurityController';
 import CategoryController from 'src/controllers/CategoryController';
 import DataExportController from 'src/controllers/DataExportController';
 import FriendshipController from 'src/controllers/FriendshipController';
@@ -9,8 +10,11 @@ import PrivacySettingsController from 'src/controllers/PrivacySettingsController
 import ProfileController from 'src/controllers/ProfileController';
 import ReviewController from "src/controllers/ReviewController";
 import SearchController from "src/controllers/SearchController";
+import SupportTicketController from "src/controllers/SupportTicketController";
 import { authenticateOptionalToken, authenticateToken } from "src/utils/helpers";
-import { accountLinkingRateLimiter, privacyRateLimiter } from "src/middleware/rateLimiter";
+import { accountLinkingRateLimiter, accountSecurityRateLimiter, contactRateLimiter, privacyRateLimiter } from "src/middleware/rateLimiter";
+import { handleValidation } from "src/middleware/validate";
+import { accountSecurityValidation, supportValidation } from "src/models/validation";
 
 const router = Router();
 const reviewController = new ReviewController();
@@ -37,6 +41,9 @@ router.get("/categories", new CategoryController().index);
 router.get("/search", searchController.index);
 router.get("/search/suggestions", searchController.suggestions);
 
+
+// Public contact form (5 submissions per hour per IP)
+router.post("/contact", contactRateLimiter, supportValidation.contact, handleValidation, new SupportTicketController().contact);
 
 // Artisan search and listing endpoints
 router.use("/artisans", (await import("./api/artisans")).default);
@@ -106,5 +113,15 @@ router.post('/data-export/:requestId/retry', authenticateToken, new DataExportCo
 router.post('/data-export/:requestId/cancel', authenticateToken, new DataExportController().cancelExport);
 router.post('/account/deletion-request', authenticateToken, new DataExportController().requestAccountDeletion);
 router.post('/account/cancel-deletion', authenticateOptionalToken, new DataExportController().cancelAccountDeletion);
+
+// Account security routes (sensitive writes are limited to 10 per hour per user)
+const accountSecurityController = new AccountSecurityController();
+router.put('/account/password', authenticateToken, accountSecurityRateLimiter, accountSecurityValidation.changePassword, handleValidation, accountSecurityController.changePassword);
+router.post('/account/2fa/setup', authenticateToken, accountSecurityRateLimiter, accountSecurityController.beginTwoFactor);
+router.post('/account/2fa/confirm', authenticateToken, accountSecurityRateLimiter, accountSecurityValidation.confirmTwoFactor, handleValidation, accountSecurityController.confirmTwoFactor);
+router.post('/account/2fa/disable', authenticateToken, accountSecurityRateLimiter, accountSecurityValidation.disableTwoFactor, handleValidation, accountSecurityController.disableTwoFactor);
+router.get('/account/sessions', authenticateToken, accountSecurityController.listSessions);
+router.delete('/account/sessions', authenticateToken, accountSecurityRateLimiter, accountSecurityController.revokeOtherSessions);
+router.delete('/account/sessions/:id', authenticateToken, accountSecurityRateLimiter, accountSecurityValidation.revokeSession, handleValidation, accountSecurityController.revokeSession);
 
 export default router; 

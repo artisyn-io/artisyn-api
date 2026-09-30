@@ -148,3 +148,47 @@ export const dispatchAlert = async (alert: SecurityAlert): Promise<NotificationR
 
   return results;
 };
+
+/**
+ * Send a support-ticket acknowledgement to the requester and, when
+ * SUPPORT_EMAIL is configured, a new-ticket notice to the support team.
+ * Failures are logged and never block the request.
+ */
+export const notifySupportTicket = async (ticket: {
+  reference: string;
+  email: string;
+  name?: string | null;
+  subject: string;
+}): Promise<NotificationResult[]> => {
+  const results: NotificationResult[] = [];
+  const deliveries = [
+    {
+      channel: 'email:requester',
+      to: ticket.email,
+      subject: `We received your request [${ticket.reference}]`,
+      text: `Hi ${ticket.name ?? 'there'},<br/><br/>Thanks for contacting us. Your request "${ticket.subject}" ` +
+        `has been received and our team will get back to you soon.<br/><br/>Reference: <b>${ticket.reference}</b>`,
+    },
+    ...(env('SUPPORT_EMAIL', '')
+      ? [{
+        channel: 'email:support',
+        to: env('SUPPORT_EMAIL', ''),
+        subject: `New support ticket [${ticket.reference}]`,
+        text: `A new support ticket was opened: <b>${ticket.subject}</b> (${ticket.reference}).`,
+      }]
+      : []),
+  ];
+
+  for (const { channel, ...mail } of deliveries) {
+    try {
+      await sendMail(mail);
+      results.push({ channel, success: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`${LOG_PREFIX} Support ticket ${ticket.reference} failed on ${channel}: ${message}`);
+      results.push({ channel, success: false, error: message });
+    }
+  }
+
+  return results;
+};

@@ -10,6 +10,7 @@ import { constructFrom } from "date-fns";
 import { generateAccessToken } from "src/utils/helpers";
 import { prisma } from 'src/db';
 import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
+import { verifySecondFactor } from 'src/services/TwoFactorService';
 
 /**
  * RegisterController
@@ -65,6 +66,29 @@ export default class extends BaseController {
             });
         }
 
+        // Enforce the second factor when TOTP 2FA has been confirmed
+        if (user.twoFactorEnabled) {
+            const { otp, recoveryCode } = req.body ?? {};
+
+            if (!otp && !recoveryCode) {
+                throw new ValidationError("Two-factor authentication required", {
+                    otp: ['An authentication code or recovery code is required'],
+                });
+            }
+
+            if (!(await verifySecondFactor(user, { otp, recoveryCode }))) {
+                await trackBusinessEvent(EventType.LOGIN_FAILED, user.id, {
+                    method: 'email',
+                    email: formData.email,
+                    reason: 'invalid_second_factor',
+                });
+
+                throw new ValidationError("Login failed", {
+                    otp: ['Invalid or expired authentication code'],
+                });
+            }
+        }
+
         const { device, ua } = UAParser(req.headers['user-agent']);
         const { token, jwt } = generateAccessToken({ username: user?.email!, id: user?.id!, index: Math.random() });
         const deviceName = `${device.type ?? ua.split('/').at(0)} ${device.model ?? ua.split('/').at(-1)}`
@@ -74,6 +98,9 @@ export default class extends BaseController {
                 token,
                 name: ['', ' '].includes(deviceName) ? 'Unknown Device' : deviceName,
                 userId: user?.id!,
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent'],
+                lastUsedAt: new Date(),
                 expiresAt: constructFrom(jwt.exp!, new Date),
             }
         })
@@ -109,6 +136,9 @@ export default class extends BaseController {
                 token,
                 name: `${device.type ?? ua.split('/').at(0)} ${device.model ?? ua.split('/').at(-1)}`,
                 userId: req.user?.id!,
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent'],
+                lastUsedAt: new Date(),
                 expiresAt: constructFrom(jwt.exp!, new Date),
             }
         })
