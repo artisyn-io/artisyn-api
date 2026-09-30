@@ -95,6 +95,7 @@ model User {
   artisanEngagements   Engagement[]          @relation("ArtisanEngagements")
   supportTickets       SupportTicket[]       @relation("SupportTicketRequester")
   supportMessages      SupportTicketMessage[] @relation("SupportTicketAuthor")
+  savedArtisans        SavedArtisan[]        @relation("UserSavedArtisans")
   locationId           String?
 
   @@index([email])
@@ -261,6 +262,7 @@ model Artisan {
   tips        Tip[]
   applications Application[]
   jobs         Job[]
+  savedBy      SavedArtisan[] @relation("ArtisanSavedBy")
 
   @@index([curatorId])
   @@index([categoryId])
@@ -1063,3 +1065,23 @@ model SupportTicketMessage {
   @@index([ticketId])
   @@map("support_ticket_messages")
 }
+
+// SavedArtisan model for user shortlisted / saved artisans
+model SavedArtisan {
+  id        String   @id @default(uuid())
+  userId    String
+  artisanId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user    User    @relation("UserSavedArtisans", fields: [userId], references: [id], onDelete: Cascade)
+  artisan Artisan @relation("ArtisanSavedBy", fields: [artisanId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, artisanId])
+  @@index([userId])
+  @@index([artisanId])
+  @@index([createdAt])
+  @@map("saved_artisans")
+}
+
