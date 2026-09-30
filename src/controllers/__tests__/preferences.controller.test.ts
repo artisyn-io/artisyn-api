@@ -246,42 +246,13 @@ describe('Preferences Controller', () => {
             );
         });
 
-        it('should toggle two-factor authentication', async () => {
+        it('should reject the deprecated two-factor toggle', async () => {
             const res = await request(app)
                 .post('/api/preferences/two-factor/toggle')
                 .set('Authorization', `Bearer ${userToken}`)
-                .expect(202)
-                .send({
-                    emailNotifications: false,
-                    theme: 'dark',
-                });
+                .expect(410);
 
-            expect(res.body).toEqual(
-                expect.objectContaining({
-                    status: 'success',
-                    data: expect.objectContaining({
-                        twoFactorEnabled: true,
-                    }),
-                })
-            );
-
-            const res1 = await request(app)
-                .post('/api/preferences/two-factor/toggle')
-                .set('Authorization', `Bearer ${userToken}`)
-                .expect(202)
-                .send({
-                    emailNotifications: false,
-                    theme: 'dark',
-                });
-
-            expect(res1.body).toEqual(
-                expect.objectContaining({
-                    status: 'success',
-                    data: expect.objectContaining({
-                        twoFactorEnabled: false,
-                    }),
-                })
-            );
+            expect(res.body.message).toContain('/api/account/2fa');
         });
 
         it('should accept valid BCP 47 locale codes for preferences', async () => {

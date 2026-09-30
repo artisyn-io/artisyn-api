@@ -60,6 +60,10 @@ model User {
   updatedAt             DateTime  @updatedAt
   deletionRequestedAt   DateTime?
   deletionScheduledAt   DateTime?
+  twoFactorEnabled      Boolean   @default(false)
+  twoFactorSecret       String?   @db.Text // AES-256-GCM encrypted TOTP secret
+  twoFactorConfirmedAt  DateTime?
+  twoFactorLastStep     Int? // Last accepted TOTP time step (replay protection)
   dataExportRequests   DataExportRequest[]   @relation("DataExportRequests")
   pendingDeletion      PendingDeletion?       // ← ADD THIS
   applications         Application[]         @relation("Applications")
@@ -84,6 +88,13 @@ model User {
   // Friendship relations
   friendRequests       Friendship[]          @relation("UserFriendRequests")
   receivedRequests     Friendship[]          @relation("FriendOf")
+  recoveryCodes        TwoFactorRecoveryCode[]
+  jobRequests          JobRequest[]          @relation("ClientJobRequests")
+  proposals            Proposal[]            @relation("ArtisanProposals")
+  clientEngagements    Engagement[]          @relation("ClientEngagements")
+  artisanEngagements   Engagement[]          @relation("ArtisanEngagements")
+  supportTickets       SupportTicket[]       @relation("SupportTicketRequester")
+  supportMessages      SupportTicketMessage[] @relation("SupportTicketAuthor")
   locationId           String?
 
   @@index([email])
@@ -124,6 +135,8 @@ model PersonalAccessToken {
   token      String    @unique @db.Text
   abilities  Json?
   lastUsedAt DateTime?
+  ipAddress  String?
+  userAgent  String?   @db.Text
   expiresAt  DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -195,6 +208,7 @@ model Category {
   // Relations
   subcategories Subcategory[]
   artisans      Artisan[]
+  jobRequests   JobRequest[]
 
   @@index([name])
 }
@@ -654,6 +668,10 @@ enum AuditAction {
   EMAIL_VERIFY
   SESSION_START
   SESSION_END
+  TWO_FACTOR_ENABLE
+  TWO_FACTOR_DISABLE
+  SESSION_REVOKE
+  SUPPORT_TICKET_UPDATE
 }
 
 // User Profile model - extends user with additional profile information
@@ -862,4 +880,186 @@ model DataExportRequest {
   @@map("data_export_requests")
 }
 
+model TwoFactorRecoveryCode {
+  id        String    @id @default(uuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("two_factor_recovery_codes")
+}
+
+// ============================================================================
+// Client job requests & artisan proposals (demand-side marketplace)
+// ============================================================================
+
+enum JobRequestStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  AWARDED
+}
+
+enum JobRequestUrgency {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum EngagementStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model JobRequest {
+  id          String            @id @default(uuid())
+  clientId    String
+  categoryId  String?
+  title       String
+  description String            @db.Text
+  budgetMin   Float?
+  budgetMax   Float?
+  currency    String            @default("USD")
+  location    String?
+  urgency     JobRequestUrgency @default(NORMAL)
+  status      JobRequestStatus  @default(DRAFT)
+  publishedAt DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  client     User        @relation("ClientJobRequests", fields: [clientId], references: [id], onDelete: Cascade)
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  proposals  Proposal[]
+  engagement Engagement?
+
+  @@index([clientId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("job_requests")
+}
+
+model Proposal {
+  id                String         @id @default(uuid())
+  jobRequestId      String
+  artisanId         String
+  message           String         @db.Text
+  proposedAmount    Float?
+  estimatedDuration String?
+  status            ProposalStatus @default(PENDING)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  jobRequest JobRequest  @relation(fields: [jobRequestId], references: [id], onDelete: Cascade)
+  artisan    User        @relation("ArtisanProposals", fields: [artisanId], references: [id], onDelete: Cascade)
+  engagement Engagement?
+
+  @@unique([jobRequestId, artisanId])
+  @@index([artisanId])
+  @@index([status])
+  @@map("proposals")
+}
+
+model Engagement {
+  id           String           @id @default(uuid())
+  jobRequestId String           @unique
+  proposalId   String           @unique
+  clientId     String
+  artisanId    String
+  agreedAmount Float?
+  status       EngagementStatus @default(ACTIVE)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  jobRequest JobRequest @relation(fields: [jobRequestId], references: [id], onDelete: Cascade)
+  proposal   Proposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  client     User       @relation("ClientEngagements", fields: [clientId], references: [id], onDelete: Cascade)
+  artisan    User       @relation("ArtisanEngagements", fields: [artisanId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([artisanId])
+  @@index([status])
+  @@map("engagements")
+}
+
+// ============================================================================
+// Support tickets
+// ============================================================================
+
+enum SupportTicketCategory {
+  GENERAL
+  ACCOUNT
+  JOB
+  BILLING
+  TECHNICAL
+  OTHER
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_USER
+  RESOLVED
+  CLOSED
+}
+
+model SupportTicket {
+  id          String                @id @default(uuid())
+  reference   String                @unique
+  requesterId String?
+  name        String?
+  email       String
+  subject     String
+  category    SupportTicketCategory @default(GENERAL)
+  priority    SupportTicketPriority @default(NORMAL)
+  status      SupportTicketStatus   @default(OPEN)
+  source      String                @default("app") // "contact" | "app"
+  jobId       String?
+  listingId   String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  requester User?                  @relation("SupportTicketRequester", fields: [requesterId], references: [id], onDelete: SetNull)
+  messages  SupportTicketMessage[]
+
+  @@index([requesterId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id        String   @id @default(uuid())
+  ticketId  String
+  authorId  String?
+  body      String   @db.Text
+  isStaff   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User?         @relation("SupportTicketAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@map("support_ticket_messages")
+}
