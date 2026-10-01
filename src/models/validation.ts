@@ -527,3 +527,27 @@ export const supportValidation = {
     body('priority').optional().customSanitizer(toUpper).isIn(Object.values(SupportTicketPriority)).withMessage('Invalid priority'),
   ],
 };
+
+// Saved artisan validation
+export const savedArtisanValidation = {
+  save: [
+    param('artisanId').isUUID().withMessage('Valid artisan ID is required'),
+  ],
+  remove: [
+    param('artisanId').isUUID().withMessage('Valid artisan ID is required'),
+  ],
+  getOne: [
+    param('artisanId').isUUID().withMessage('Valid artisan ID is required'),
+  ],
+  list: [
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+    query('categoryId').optional().isUUID().withMessage('Valid category ID is required'),
+    query('search').optional().isString().withMessage('Search query must be a string'),
+  ],
+  ids: [
+    query('ids').optional().isString().withMessage('IDs filter must be a string'),
+    query('artisanIds').optional().isString().withMessage('artisanIds filter must be a string'),
+  ],
+};
+
