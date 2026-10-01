@@ -124,4 +124,7 @@ router.get('/account/sessions', authenticateToken, accountSecurityController.lis
 router.delete('/account/sessions', authenticateToken, accountSecurityRateLimiter, accountSecurityController.revokeOtherSessions);
 router.delete('/account/sessions/:id', authenticateToken, accountSecurityRateLimiter, accountSecurityValidation.revokeSession, handleValidation, accountSecurityController.revokeSession);
 
-export default router; 
+// Artisan earnings routes (authenticated, self-only)
+router.use("/artisan/earnings", (await import("./api/earnings")).default);
+
+export default router;
