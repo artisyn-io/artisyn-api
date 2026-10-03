@@ -4,6 +4,10 @@ import ArtisanSearchController from "../ArtisanSearchController";
 import { performance } from "perf_hooks";
 import { prisma } from "../../db";
 
+vi.mock("../../utils/validator", () => ({
+  validate: vi.fn((data: Record<string, unknown>) => data ?? {}),
+}));
+
 // Mock the dependencies
 vi.mock("../../db", () => ({
   prisma: {

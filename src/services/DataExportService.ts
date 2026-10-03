@@ -203,7 +203,7 @@ export class DataExportService {
 
         const safeUser = Object.fromEntries(
             Object.entries(user).filter(
-                ([key]) => !['password', 'emailVerificationCode', 'linkedAccounts', 'dataExportRequests'].includes(key),
+                ([key]) => !['password', 'emailVerificationCode', 'emailVerificationExpiresAt', 'emailVerificationAttemptCount', 'emailVerificationConsumedAt', 'emailVerificationRevokedAt', 'emailVerificationResendAt', 'linkedAccounts', 'dataExportRequests'].includes(key),
             ),
         );
 

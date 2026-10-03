@@ -1,7 +1,7 @@
-import { Request, Response, response } from "express";
+import { Request, Response } from "express";
 import { RequestError, ValidationError } from "src/utils/errors";
-import { constructFrom, differenceInMinutes } from "date-fns";
-import { generateAccessToken, secureOtp } from "src/utils/helpers";
+import { addMinutes } from "date-fns";
+import { generateAccessToken, secureOtp, hashOtp, verifyOtpHash } from "src/utils/helpers";
 
 import BaseController from "src/controllers/BaseController";
 import { EventType } from '@prisma/client';
@@ -51,13 +51,21 @@ export default class extends BaseController {
 
         formData.password = await argon2.hash(formData.password)
         const otp = secureOtp();
+        const otpHash = hashOtp(otp);
+        const expiresAt = addMinutes(new Date(), 15); // 15 minutes expiry
 
         /**
          * Create the user account
          */
         const data = await prisma.user.create({
             data: Object.assign({}, formData, {
-                emailVerificationCode: otp,
+                emailVerificationCode: otpHash,
+                emailVerificationPurpose: 'email_verification',
+                emailVerificationExpiresAt: expiresAt,
+                emailVerificationAttemptCount: 0,
+                emailVerificationConsumedAt: null,
+                emailVerificationRevokedAt: null,
+                emailVerificationResendAt: addMinutes(new Date(), 1), // 1 minute resend cooldown
                 updatedAt: new Date(),
                 type: undefined,
                 experience: undefined,
@@ -82,7 +90,7 @@ export default class extends BaseController {
                 token,
                 name: `${device.type ?? ua.split('/').at(0)} ${device.model ?? ua.split('/').at(-1)}`,
                 userId: data.id,
-                expiresAt: constructFrom(jwt.exp!, new Date),
+                expiresAt: addMinutes(new Date(), 60), // fallback if jwt.exp missing
             }
         })
 
@@ -113,34 +121,77 @@ export default class extends BaseController {
             return this.#resend(req, res)
         }
 
-        if (req.user?.emailVerifiedAt) {
-            throw new RequestError("Your account is already verified.", 429);
-        }
-
-        let valid = false
-
-        try {
-            valid = await argon2.verify(base64url.decode(code), req.user?.emailVerificationCode!)
-        } catch { }
-
-        if (
-            differenceInMinutes(new Date(), req.user?.updatedAt!) > 5 ||
-            (code !== req.user?.emailVerificationCode && !valid)
-        ) {
+        const userId = req.user?.id;
+        if (!userId) {
             throw new ValidationError("Verification failed", {
-                code: ['The verification code you provided may have expired.']
+                code: ['The verification code you provided is invalid or has expired.']
             });
         }
 
-        const data = await prisma.user.update({
-            where: { id: req.user?.id },
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user || user.emailVerifiedAt) {
+            throw new ValidationError("Verification failed", {
+                code: ['The verification code you provided is invalid or has expired.']
+            });
+        }
+
+        const now = new Date();
+        if (!user.emailVerificationCode || user.emailVerificationPurpose !== 'email_verification' ||
+            !user.emailVerificationExpiresAt || user.emailVerificationExpiresAt <= now) {
+            throw new ValidationError("Verification failed", {
+                code: ['The verification code you provided is invalid or has expired.']
+            });
+        }
+
+        if (user.emailVerificationConsumedAt || user.emailVerificationRevokedAt || user.emailVerificationAttemptCount >= 5) {
+            throw new ValidationError("Too many attempts", {
+                code: ['Too many verification attempts. Please request a new code.']
+            });
+        }
+
+        if (!verifyOtpHash(code, user.emailVerificationCode)) {
+            await prisma.user.updateMany({
+                where: {
+                    id: user.id,
+                    emailVerificationCode: user.emailVerificationCode,
+                    emailVerificationPurpose: 'email_verification',
+                    emailVerificationExpiresAt: { gt: now },
+                    emailVerificationConsumedAt: null,
+                    emailVerificationRevokedAt: null,
+                    emailVerificationAttemptCount: { lt: 5 },
+                },
+                data: { emailVerificationAttemptCount: { increment: 1 } },
+            });
+            throw new ValidationError("Verification failed", {
+                code: ['The verification code you provided is invalid.']
+            });
+        }
+
+        const consumed = await prisma.user.updateMany({
+            where: {
+                id: user.id,
+                emailVerificationCode: user.emailVerificationCode,
+                emailVerificationPurpose: 'email_verification',
+                emailVerificationExpiresAt: { gt: now },
+                emailVerificationConsumedAt: null,
+                emailVerificationRevokedAt: null,
+                emailVerificationAttemptCount: { lt: 5 },
+                emailVerifiedAt: null,
+            },
             data: {
-                updatedAt: new Date(),
-                emailVerifiedAt: new Date(),
+                emailVerifiedAt: now,
+                emailVerificationConsumedAt: now,
+                emailVerificationCode: null,
             },
         })
+        if (consumed.count !== 1) {
+            throw new ValidationError("Verification failed", {
+                code: ['The verification code you provided is invalid or has expired.']
+            });
+        }
+        const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
 
-        new UserResource(req, res, data).json()
+        new UserResource(req, res, updatedUser).json()
             .status(202)
             .additional({
                 status: 'success',
@@ -151,14 +202,38 @@ export default class extends BaseController {
 
     #resend = async (req: Request, res: Response) => {
         const otp = secureOtp();
-
-        const data = await prisma.user.update({
-            where: { id: req.user?.id },
-            data: {
-                emailVerificationCode: otp,
-                updatedAt: new Date()
+        const otpHash = hashOtp(otp);
+        const now = new Date();
+        const expiresAt = addMinutes(now, 15);
+        const resendCooldown = addMinutes(now, 1);
+        const userId = req.user?.id;
+        const updated = userId ? await prisma.user.updateMany({
+            where: {
+                id: userId,
+                emailVerifiedAt: null,
+                OR: [
+                    { emailVerificationResendAt: null },
+                    { emailVerificationResendAt: { lte: now } },
+                ],
             },
-        })
+            data: {
+                emailVerificationCode: otpHash,
+                emailVerificationPurpose: 'email_verification',
+                emailVerificationExpiresAt: expiresAt,
+                emailVerificationAttemptCount: 0,
+                emailVerificationConsumedAt: null,
+                emailVerificationRevokedAt: null,
+                emailVerificationResendAt: resendCooldown,
+            },
+        }) : { count: 0 };
+
+        if (updated.count !== 1) {
+            throw new ValidationError("Please wait before resending", {
+                resend: ['Please wait before requesting a new code.']
+            });
+        }
+
+        const data = await prisma.user.findUniqueOrThrow({ where: { id: userId! } });
 
         await this.#sendMail(otp, data)
 
@@ -187,7 +262,7 @@ export default class extends BaseController {
                 <h3 style="text-align:center;">${otp}</h3>
                 Or click the link below to verify instantly:
             `,
-            credits: `If you didn’t request this, you can safely ignore this email.<br/>
+            credits: `If you didn't request this, you can safely ignore this email.<br/>
                 Thanks,<br/>
                 The ${config('app.name')} Team`,
             data: { ...data, link, linkTitle: 'Verify Account' }

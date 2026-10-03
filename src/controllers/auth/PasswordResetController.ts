@@ -10,63 +10,80 @@ import { ValidationError } from "src/utils/errors";
 import argon2 from 'argon2';
 import base64url from "base64url";
 import { config } from "src/config";
-import { differenceInMinutes } from "date-fns";
+import { addMinutes } from "date-fns";
 import { prisma } from 'src/db';
-import { secureOtp } from "src/utils/helpers";
+import { secureOtp, hashOtp, verifyOtpHash } from "src/utils/helpers";
 import { sendMail } from "src/mailer/mailer";
 import { trackBusinessEvent } from 'src/utils/analyticsMiddleware';
 
 /**
- * RegisterController
+ * PasswordResetController
  */
 export default class extends BaseController {
-    /**
-     * Create a new resource in the database
-     * 
-     * The calling route must recieve a multer.RequestHandler instance
-     * 
-     * @example router.post('/users', upload.none(), new AdminController().create);
-     * 
-     * @param req 
-     * @param res 
-     */
     create = async (req: Request, res: Response) => {
         const { email } = this.validate(req, {
             email: 'required|string',
         });
-
-        const code = secureOtp();
+        const startedAt = Date.now();
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const otp = secureOtp();
+        const codeHash = hashOtp(otp);
+        const now = new Date();
+        const linkHash = await argon2.hash(otp);
 
         const user = await prisma.user.findFirst({
-            where: { email }
-        })
-
-        if (!user) {
-            throw new ValidationError("Account Not Found", {
-                email: ['We were unable to find your account.']
-            });
-        }
-
-        // Track password reset request
-        await trackBusinessEvent(EventType.PASSWORD_RESET_REQUESTED, user.id, {
-            via: 'email',
+            where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
         });
 
-        await prisma.passwordCodeResets.deleteMany({
-            where: { OR: [{ email }, { phone: email }] }
-        })
+        if (user) {
+            const resendAt = addMinutes(now, 1);
+            let issued = false;
+            await prisma.$transaction(async (tx) => {
+                const cooldown = await tx.user.updateMany({
+                    where: {
+                        id: user.id,
+                        OR: [
+                            { passwordResetResendAt: null },
+                            { passwordResetResendAt: { lte: now } },
+                        ],
+                    },
+                    data: { passwordResetResendAt: resendAt },
+                });
+                if (cooldown.count !== 1) return;
 
-        await prisma.passwordCodeResets.create({
-            data: { code, email }
-        })
+                await tx.passwordCodeResets.updateMany({
+                    where: { email: normalizedEmail, purpose: 'password_reset', consumedAt: null, revokedAt: null },
+                    data: { revokedAt: now },
+                });
+                await tx.passwordCodeResets.create({
+                    data: {
+                        code: codeHash,
+                        email: normalizedEmail,
+                        purpose: 'password_reset',
+                        expiresAt: addMinutes(now, 15),
+                        attemptCount: 0,
+                        ipAddress: req.ip,
+                    },
+                });
+                issued = true;
+            });
 
-        await this.#sendMail(code, user)
+            if (issued) {
+                void trackBusinessEvent(EventType.PASSWORD_RESET_REQUESTED, user.id, { via: 'email' }).catch(() => undefined);
+                await this.#sendMail(otp, user, linkHash).catch(() => undefined);
+            }
+        }
 
-        Resource(req, res, {}).json()
+        // Bound the obvious account-existence timing difference. Delivery is
+        // intentionally not awaited by #sendMail, so this is a minimum response time.
+        const remainingDelay = 500 - (Date.now() - startedAt);
+        if (remainingDelay > 0) await new Promise((resolve) => setTimeout(resolve, remainingDelay));
+
+        return Resource(req, res, {}).json()
             .status(201)
             .additional({
                 status: 'success',
-                message: 'We have sent intructions to help recover your account to your email address.',
+                message: 'We have sent instructions to help recover your account to your email address.',
                 code: 201,
             });
     }
@@ -75,50 +92,97 @@ export default class extends BaseController {
         const { code, email, password } = this.validate(req, {
             email: 'required|string',
             code: 'required|string',
-            password: [Password.create().min(8).letters().numbers().symbols(1).mixedCase(1).rules(['required', 'confirmed'])]
+            password: ['nullable', Password.create().min(8).letters().numbers().symbols(1).mixedCase(1).rules(['required', 'confirmed'])]
         });
 
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const now = new Date();
         const check = await prisma.passwordCodeResets.findFirst({
             where: {
-                OR: [
-                    { email },
-                    { phone: email },
-                ]
-            }
-        })
+                email: normalizedEmail,
+                purpose: 'password_reset',
+                consumedAt: null,
+                revokedAt: null,
+                expiresAt: { gt: now },
+                attemptCount: { lt: 5 },
+            },
+            orderBy: { createdAt: 'desc' }
+        });
 
         if (!check) {
-            throw new ValidationError("Something went wrong", {
-                email: ['We were unable to find your account.']
-            });
-        }
-
-        let valid = false
-
-        try {
-            valid = await argon2.verify(base64url.decode(code), check.code)
-        } catch { }
-
-        if (
-            differenceInMinutes(new Date(), check.createdAt!) > 5 ||
-            (code !== check.code && !valid)
-        ) {
             throw new ValidationError("Verification failed", {
-                code: ['The verification code you provided may have expired.']
+                code: ['The verification code you provided is invalid or has expired.']
             });
         }
 
-        if (password) {
-            const data = await prisma.user.update({
-                where: { email },
-                data: { password: await argon2.hash(password) },
-            })
+        // Verify candidate code using constant-time comparison
+        const valid = verifyOtpHash(code, check.code);
 
-            await prisma.passwordCodeResets.deleteMany({
-                where: { OR: [{ email }, { phone: email }] }
-            })
+        if (!valid) {
+            await prisma.passwordCodeResets.updateMany({
+                where: {
+                    id: check.id,
+                    email: normalizedEmail,
+                    purpose: 'password_reset',
+                    consumedAt: null,
+                    revokedAt: null,
+                    expiresAt: { gt: now },
+                    attemptCount: { lt: 5 },
+                },
+                data: { attemptCount: { increment: 1 } },
+            });
+            throw new ValidationError("Verification failed", {
+                code: ['The verification code you provided is invalid or has expired.']
+            });
+        }
 
-            new UserResource(req, res, data).json()
+        const passwordHash = password ? await argon2.hash(password) : undefined;
+        let changedUser: Awaited<ReturnType<typeof prisma.user.update>> | undefined;
+        const consumed = await prisma.$transaction(async (tx) => {
+            const consumeResult = await tx.passwordCodeResets.updateMany({
+                where: {
+                    id: check.id,
+                    email: normalizedEmail,
+                    purpose: 'password_reset',
+                    consumedAt: null,
+                    revokedAt: null,
+                    expiresAt: { gt: now },
+                    attemptCount: { lt: 5 },
+                },
+                data: { consumedAt: now },
+            });
+            if (consumeResult.count !== 1) return false;
+
+            if (passwordHash) {
+                changedUser = await tx.user.update({
+                    where: { id: (await tx.user.findFirstOrThrow({
+                        where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+                        select: { id: true },
+                    })).id },
+                    data: { password: passwordHash },
+                });
+                await tx.passwordCodeResets.updateMany({
+                    where: {
+                        email: normalizedEmail,
+                        purpose: 'password_reset',
+                        id: { not: check.id },
+                        consumedAt: null,
+                        revokedAt: null,
+                    },
+                    data: { revokedAt: now },
+                });
+            }
+            return true;
+        });
+
+        if (!consumed) {
+            throw new ValidationError("Verification failed", {
+                code: ['The verification code you provided is invalid or has expired.']
+            });
+        }
+
+        if (changedUser) {
+            return new UserResource(req, res, changedUser).json()
                 .status(202)
                 .additional({
                     status: 'success',
@@ -136,8 +200,7 @@ export default class extends BaseController {
             });
     }
 
-    #sendMail = async (otp: string, data: Omit<IUser, 'curator' | 'media'>) => {
-        const hashBuffer = await argon2.hash(otp); // Buffer
+    #sendMail = async (otp: string, data: Omit<IUser, 'curator' | 'media'>, hashBuffer: string) => {
         const hashEncoded = base64url.encode(hashBuffer); // URL-safe string
         const link = `${config('app.front_url')}/account/password/reset?token=${hashEncoded.split('|').at(-1)}`
 
