@@ -1,6 +1,7 @@
 import { AutheticationError, RequestError } from "./errors";
 import { NextFunction, Request, Response } from "express";
 import { constructFrom, isPast } from "date-fns";
+import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 
 import ErrorHandler from "./request-handlers";
 import { Flatten } from "src/interfaces/basic-types";
@@ -255,28 +256,29 @@ export const appUrl = (link?: string): string => {
 };
 
 export const secureOtp = (length = 6) => {
-  const digits = "0123456789";
   let otp = "";
-  const array = new Uint8Array(length);
-  crypto.getRandomValues(array);
   for (let i = 0; i < length; i++) {
-    otp += digits[array[i] % 10];
+    otp += randomInt(0, 10);
   }
   return otp;
 };
 
 export const hashOtp = (otp: string): string => {
-  const secret = env("JWT_SECRET", "artisyn-otp-secret");
-  return crypto.createHmac("sha256", secret).update(String(otp).trim()).digest("hex");
+  const secret = env("OTP_HASH_SECRET") || env("JWT_SECRET");
+  if (!secret || String(secret).length < 32) {
+    throw new Error("OTP_HASH_SECRET or a 32-character JWT_SECRET must be configured");
+  }
+  return createHmac("sha256", String(secret)).update(String(otp).trim()).digest("hex");
 };
 
 export const verifyOtpHash = (candidate: string, storedHash: string): boolean => {
   try {
+    if (!/^[a-f0-9]{64}$/i.test(storedHash)) return false;
     const candidateHash = hashOtp(candidate);
     const bufA = Buffer.from(candidateHash, "hex");
     const bufB = Buffer.from(storedHash, "hex");
     if (bufA.length !== bufB.length) return false;
-    return crypto.timingSafeEqual(bufA, bufB);
+    return timingSafeEqual(bufA, bufB);
   } catch {
     return false;
   }

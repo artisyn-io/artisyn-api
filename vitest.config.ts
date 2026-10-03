@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   resolve: {
@@ -12,6 +12,7 @@ export default defineConfig({
     passWithNoTests: true,
     environment: 'node',
     include: ['**/__tests__/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    exclude: [...configDefaults.exclude, '**/dist/**'],
     testTimeout: 60000,
     env: {
       NODE_ENV: 'test',

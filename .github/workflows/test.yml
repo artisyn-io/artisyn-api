@@ -69,5 +69,5 @@ jobs:
           pnpm prisma db seed
 
       - name: Run Tests
-        run: pnpm test -- --run
+        run: pnpm test -- --run --no-file-parallelism
         timeout-minutes: 15

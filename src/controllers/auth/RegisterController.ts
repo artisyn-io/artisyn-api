@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { RequestError, ValidationError } from "src/utils/errors";
-import { differenceInMinutes, addMinutes } from "date-fns";
+import { addMinutes } from "date-fns";
 import { generateAccessToken, secureOtp, hashOtp, verifyOtpHash } from "src/utils/helpers";
 
 import BaseController from "src/controllers/BaseController";
@@ -60,6 +60,7 @@ export default class extends BaseController {
         const data = await prisma.user.create({
             data: Object.assign({}, formData, {
                 emailVerificationCode: otpHash,
+                emailVerificationPurpose: 'email_verification',
                 emailVerificationExpiresAt: expiresAt,
                 emailVerificationAttemptCount: 0,
                 emailVerificationConsumedAt: null,
@@ -120,71 +121,75 @@ export default class extends BaseController {
             return this.#resend(req, res)
         }
 
-        if (req.user?.emailVerifiedAt) {
-            throw new RequestError("Your account is already verified.", 429);
-        }
-
-        // Check if code is expired
-        if (req.user?.emailVerificationExpiresAt && new Date() > req.user.emailVerificationExpiresAt) {
+        const userId = req.user?.id;
+        if (!userId) {
             throw new ValidationError("Verification failed", {
-                code: ['The verification code you provided has expired.']
+                code: ['The verification code you provided is invalid or has expired.']
             });
         }
 
-        // Check if code was already consumed
-        if (req.user?.emailVerificationConsumedAt) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user || user.emailVerifiedAt) {
             throw new ValidationError("Verification failed", {
-                code: ['This verification code has already been used.']
+                code: ['The verification code you provided is invalid or has expired.']
             });
         }
 
-        // Check if code was revoked
-        if (req.user?.emailVerificationRevokedAt) {
+        const now = new Date();
+        if (!user.emailVerificationCode || user.emailVerificationPurpose !== 'email_verification' ||
+            !user.emailVerificationExpiresAt || user.emailVerificationExpiresAt <= now) {
             throw new ValidationError("Verification failed", {
-                code: ['This verification code has been revoked.']
+                code: ['The verification code you provided is invalid or has expired.']
             });
         }
 
-        // Check max attempts
-        if ((req.user?.emailVerificationAttemptCount ?? 0) >= 5) {
+        if (user.emailVerificationConsumedAt || user.emailVerificationRevokedAt || user.emailVerificationAttemptCount >= 5) {
             throw new ValidationError("Too many attempts", {
                 code: ['Too many verification attempts. Please request a new code.']
             });
         }
 
-        // Verify the OTP hash using constant-time comparison
-        let valid = false
-        if (req.user?.emailVerificationCode) {
-            valid = verifyOtpHash(code, req.user.emailVerificationCode)
-        }
-
-        if (!valid) {
-            // Increment attempt count
-            await prisma.user.update({
-                where: { id: req.user?.id },
-                data: {
-                    emailVerificationAttemptCount: {
-                        increment: 1
-                    }
-                }
+        if (!verifyOtpHash(code, user.emailVerificationCode)) {
+            await prisma.user.updateMany({
+                where: {
+                    id: user.id,
+                    emailVerificationCode: user.emailVerificationCode,
+                    emailVerificationPurpose: 'email_verification',
+                    emailVerificationExpiresAt: { gt: now },
+                    emailVerificationConsumedAt: null,
+                    emailVerificationRevokedAt: null,
+                    emailVerificationAttemptCount: { lt: 5 },
+                },
+                data: { emailVerificationAttemptCount: { increment: 1 } },
             });
-            
             throw new ValidationError("Verification failed", {
                 code: ['The verification code you provided is invalid.']
             });
         }
 
-        // Consume the code atomically
-        const updatedUser = await prisma.user.update({
-            where: { id: req.user?.id },
+        const consumed = await prisma.user.updateMany({
+            where: {
+                id: user.id,
+                emailVerificationCode: user.emailVerificationCode,
+                emailVerificationPurpose: 'email_verification',
+                emailVerificationExpiresAt: { gt: now },
+                emailVerificationConsumedAt: null,
+                emailVerificationRevokedAt: null,
+                emailVerificationAttemptCount: { lt: 5 },
+                emailVerifiedAt: null,
+            },
             data: {
-                emailVerifiedAt: new Date(),
-                emailVerificationConsumedAt: new Date(),
+                emailVerifiedAt: now,
+                emailVerificationConsumedAt: now,
                 emailVerificationCode: null,
-                emailVerificationExpiresAt: null,
-                emailVerificationAttemptCount: 0,
             },
         })
+        if (consumed.count !== 1) {
+            throw new ValidationError("Verification failed", {
+                code: ['The verification code you provided is invalid or has expired.']
+            });
+        }
+        const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
 
         new UserResource(req, res, updatedUser).json()
             .status(202)
@@ -196,30 +201,39 @@ export default class extends BaseController {
     }
 
     #resend = async (req: Request, res: Response) => {
-        // Check resend cooldown
-        if (req.user?.emailVerificationResendAt && new Date() < req.user.emailVerificationResendAt) {
-            const waitSeconds = Math.ceil((req.user.emailVerificationResendAt.getTime() - Date.now()) / 1000);
-            throw new ValidationError("Please wait before resending", {
-                resend: [`Please wait ${waitSeconds} seconds before requesting a new code.`]
-            });
-        }
-
         const otp = secureOtp();
         const otpHash = hashOtp(otp);
-        const expiresAt = addMinutes(new Date(), 15);
-        const resendCooldown = addMinutes(new Date(), 1);
-
-        const data = await prisma.user.update({
-            where: { id: req.user?.id },
+        const now = new Date();
+        const expiresAt = addMinutes(now, 15);
+        const resendCooldown = addMinutes(now, 1);
+        const userId = req.user?.id;
+        const updated = userId ? await prisma.user.updateMany({
+            where: {
+                id: userId,
+                emailVerifiedAt: null,
+                OR: [
+                    { emailVerificationResendAt: null },
+                    { emailVerificationResendAt: { lte: now } },
+                ],
+            },
             data: {
                 emailVerificationCode: otpHash,
+                emailVerificationPurpose: 'email_verification',
                 emailVerificationExpiresAt: expiresAt,
                 emailVerificationAttemptCount: 0,
                 emailVerificationConsumedAt: null,
                 emailVerificationRevokedAt: null,
                 emailVerificationResendAt: resendCooldown,
             },
-        })
+        }) : { count: 0 };
+
+        if (updated.count !== 1) {
+            throw new ValidationError("Please wait before resending", {
+                resend: ['Please wait before requesting a new code.']
+            });
+        }
+
+        const data = await prisma.user.findUniqueOrThrow({ where: { id: userId! } });
 
         await this.#sendMail(otp, data)
 

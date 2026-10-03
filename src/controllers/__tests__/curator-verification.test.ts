@@ -27,6 +27,48 @@ vi.mock("src/mailer/mailer", () => ({
     sendMail: vi.fn().mockResolvedValue(undefined)
 }));
 
+const verificationTestEmails = [
+    'curator-verification-test@test.com',
+    'admin-verification-test@test.com',
+    'curator-reject-test@test.com',
+];
+
+const cleanupVerificationTestData = async () => {
+    const users = await prisma.user.findMany({
+        where: { email: { in: verificationTestEmails } },
+        select: { id: true },
+    });
+    const userIds = users.map(({ id }) => id);
+    if (!userIds.length) return;
+
+    const curators = await prisma.curator.findMany({
+        where: { userId: { in: userIds } },
+        select: { id: true },
+    });
+    const curatorIds = curators.map(({ id }) => id);
+    const applications = curatorIds.length
+        ? await prisma.curatorVerificationApplication.findMany({
+            where: { curatorId: { in: curatorIds } },
+            select: { id: true },
+        })
+        : [];
+    const applicationIds = applications.map(({ id }) => id);
+    const documents = applicationIds.length
+        ? await prisma.curatorVerificationDocument.findMany({
+            where: { applicationId: { in: applicationIds } },
+            select: { mediaId: true },
+        })
+        : [];
+
+    await prisma.curatorVerificationHistory.deleteMany({ where: { curatorId: { in: curatorIds } } });
+    await prisma.curatorVerificationApplication.deleteMany({ where: { curatorId: { in: curatorIds } } });
+    if (documents.length) {
+        await prisma.media.deleteMany({ where: { id: { in: documents.map(({ mediaId }) => mediaId) } } });
+    }
+    await prisma.personalAccessToken.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+};
+
 describe("Curator Verification System", () => {
     let curatorToken: string;
     let adminToken: string;
@@ -38,21 +80,7 @@ describe("Curator Verification System", () => {
     let testImagePath: string;
 
     beforeAll(async () => {
-        // Cleanup stale data
-        await prisma.curatorVerificationHistory.deleteMany({});
-        await prisma.curatorVerificationDocument.deleteMany({});
-        await prisma.curatorVerificationApplication.deleteMany({});
-        await prisma.personalAccessToken.deleteMany({});
-        await prisma.media.deleteMany({
-            where: {
-                tags: { has: 'curator_verification' }
-            }
-        });
-        await prisma.user.deleteMany({
-            where: {
-                email: { in: ['curator-verification-test@test.com', 'admin-verification-test@test.com', 'curator-reject-test@test.com'] }
-            }
-        });
+        await cleanupVerificationTestData();
 
         // Create curator user
         const curatorUser = await prisma.user.create({
@@ -128,26 +156,7 @@ describe("Curator Verification System", () => {
     });
 
     afterAll(async () => {
-        await prisma.curatorVerificationHistory.deleteMany({});
-        await prisma.curatorVerificationDocument.deleteMany({});
-        await prisma.curatorVerificationApplication.deleteMany({});
-        await prisma.personalAccessToken.deleteMany({});
-        await prisma.media.deleteMany({
-            where: {
-                tags: { has: 'curator_verification' }
-            }
-        });
-        await prisma.user.deleteMany({
-            where: {
-                email: {
-                    in: [
-                        'curator-verification-test@test.com',
-                        'admin-verification-test@test.com',
-                        'curator-reject-test@test.com'
-                    ]
-                }
-            }
-        });
+        await cleanupVerificationTestData();
 
         if (fs.existsSync(testPdfPath)) fs.unlinkSync(testPdfPath);
         if (fs.existsSync(testImagePath)) fs.unlinkSync(testImagePath);
