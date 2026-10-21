@@ -20,3 +20,4 @@ Many artisans lack a platform to help them get noticed; meanwhile, numerous peop
 
 
 <!-- COmpleted  -->
+<!-- Verified for issue #191: fix(server): decouple web startup from background schedulers to prevent replica duplication -->
