@@ -12,6 +12,7 @@ export default defineConfig({
     passWithNoTests: true,
     environment: 'node',
     include: ['**/__tests__/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**'],
     testTimeout: 60000,
     env: {
       NODE_ENV: 'test',
